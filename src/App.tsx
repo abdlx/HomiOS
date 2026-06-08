@@ -13,7 +13,9 @@ import { FileItem, ViewMode } from './types';
 export default function App() {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [currentPath, setCurrentPath] = useState<string[]>(['Home']);
+  const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const currentPath = pathHistory[historyIndex];
   const [loading, setLoading] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -22,14 +24,36 @@ export default function App() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('nextcloud');
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
+  const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string }>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem('fileMetadata');
+    if (saved) setFileMetadata(JSON.parse(saved));
+  }, []);
+
+  const updateFileMetadata = (fileId: string, updates: any) => {
+    setFileMetadata((prev) => {
+      const newMeta = { ...prev, [fileId]: { ...prev[fileId], ...updates } };
+      localStorage.setItem('fileMetadata', JSON.stringify(newMeta));
+      return newMeta;
+    });
+  };
 
   useEffect(() => {
     loadFiles();
   }, [currentPath]);
 
+  const getApiPath = () => {
+    if (currentPath.length === 0) return '';
+    if (currentPath[0] === 'Home' || currentPath[0] === 'Root') {
+      return currentPath.slice(1).join('/');
+    }
+    return currentPath.join('/');
+  };
+
   const loadFiles = async () => {
     setLoading(true);
-    const apiPath = currentPath.slice(1).join('/');
+    const apiPath = getApiPath();
     try {
       const res = await fetch(`/api/files?path=/${apiPath}`);
       if (res.status === 401) {
@@ -72,31 +96,42 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedFileId, currentFiles]);
 
+  const pushPath = (newPath: string[]) => {
+    const newHistory = pathHistory.slice(0, historyIndex + 1);
+    newHistory.push(newPath);
+    setPathHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setSelectedFileId(null);
+  };
+
   const handleNavigateBack = () => {
-    if (currentPath.length > 1) {
-      setCurrentPath(currentPath.slice(0, -1));
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
       setSelectedFileId(null);
     }
   };
 
-  const handleNavigateForward = () => {}; 
+  const handleNavigateForward = () => {
+    if (historyIndex < pathHistory.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setSelectedFileId(null);
+    }
+  };
 
   const handleFileDoubleClick = (file: FileItem) => {
     if (file.type === 'folder') {
-      setCurrentPath([...currentPath, file.name]);
-      setSelectedFileId(null);
+      pushPath([...currentPath, file.name]);
     } else {
       setQuickLookFile(file);
     }
   };
 
   const handleNavigateHome = () => {
-    setCurrentPath(['Home']);
-    setSelectedFileId(null);
+    pushPath(['Root']);
   };
 
   const handleAddNewFile = async (name: string, type: 'document' | 'text' | 'image' = 'text') => {
-    const apiPath = currentPath.slice(1).join('/');
+    const apiPath = getApiPath();
     const fullName = name.includes('.') ? name : `${name}.txt`;
     const res = await fetch('/api/files', {
       method: 'POST',
@@ -107,7 +142,7 @@ export default function App() {
   };
 
   const handleAddNewFolder = async (name: string) => {
-    const apiPath = currentPath.slice(1).join('/');
+    const apiPath = getApiPath();
     const res = await fetch('/api/files', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,7 +152,7 @@ export default function App() {
   };
 
   const handleUpdateFile = async (updated: FileItem) => {
-    const apiPath = currentPath.slice(1).join('/');
+    const apiPath = getApiPath();
     const res = await fetch('/api/files', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -155,6 +190,11 @@ export default function App() {
   };
 
   const processedFiles = currentFiles
+    .map(file => ({
+      ...file,
+      tags: fileMetadata[file.id]?.tags || file.tags,
+      folderColor: fileMetadata[file.id]?.folderColor || file.folderColor
+    }))
     .filter((file) => selectedTag ? file.tags?.includes(selectedTag) : true)
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)
     .sort((a, b) => {
@@ -173,8 +213,7 @@ export default function App() {
           setSelectedTag={setSelectedTag}
           onNavigateHome={handleNavigateHome}
           onNavigateFolder={(folderName) => {
-            setCurrentPath(['Home', folderName]);
-            setSelectedFileId(null);
+            pushPath(['Root', folderName]);
           }}
         />
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
@@ -182,8 +221,8 @@ export default function App() {
             currentPath={currentPath}
             onNavigateBack={handleNavigateBack}
             onNavigateForward={handleNavigateForward}
-            canNavigateBack={currentPath.length > 1}
-            canNavigateForward={false}
+            canNavigateBack={historyIndex > 0}
+            canNavigateForward={historyIndex < pathHistory.length - 1}
             viewMode={viewMode}
             setViewMode={setViewMode}
             searchTerm={searchTerm}
@@ -202,6 +241,7 @@ export default function App() {
             onUploadSimulate={handleUploadSimulate}
             viewMode={viewMode}
             currentPath={currentPath}
+            onUpdateMetadata={updateFileMetadata}
           />
         </div>
       </main>
