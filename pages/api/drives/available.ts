@@ -1,7 +1,11 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
+import { getSession } from '../../../lib/auth';
 
 export default async function handler(req: any, res: any) {
+  const session = await getSession(req);
+  if (!session) return res.status(401).end();
+
   const isDev = process.env.NODE_ENV !== 'production';
   const drivesPath = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 

@@ -32,6 +32,10 @@ export default function App() {
     const apiPath = currentPath.slice(1).join('/');
     try {
       const res = await fetch(`/api/files?path=/${apiPath}`);
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         const formatted: FileItem[] = data.map((file: any) => ({

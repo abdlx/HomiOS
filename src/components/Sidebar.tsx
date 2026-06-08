@@ -24,7 +24,13 @@ export default function Sidebar({
 
   useEffect(() => {
     fetch('/api/drives/available')
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = '/login';
+          throw new Error('Unauthorized');
+        }
+        return res.json();
+      })
       .then(data => {
         const folders: SidebarItem[] = data.map((d: any) => ({
           id: d.label.toLowerCase(),
