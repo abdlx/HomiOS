@@ -62,7 +62,7 @@ fi
 
 # ── 3. App directory & clone/update ──────────────────────────
 INSTALL_DIR="/opt/openfinder"
-REPO_URL="https://github.com/abdlx/OpenFinder.git"
+REPO_URL="https://github.com/abdlx/OpenFinder-shell.git"
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."

@@ -1,4 +1,5 @@
 node_modules/
+.next/
 build/
 dist/
 coverage/
@@ -6,5 +7,7 @@ coverage/
 *.log
 .env*
 !.env.example
+# SQLite database — never commit, generated at runtime
+data/
 filebrowser/
 filebrowser_temp/
