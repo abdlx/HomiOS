@@ -13,6 +13,7 @@ export interface FileItem {
   tags?: string[];
   content?: string;
   isCustomUrl?: boolean;
+  isFavorite?: boolean;
 }
 
 export interface FolderNode {

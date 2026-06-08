@@ -8,7 +8,7 @@ import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
-import { FileItem, ViewMode } from './types';
+import { FileItem, ViewMode, SidebarItem } from './types';
 
 export default function App() {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
@@ -24,7 +24,7 @@ export default function App() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('nextcloud');
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
-  const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string }>>({});
+  const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
 
   useEffect(() => {
     const saved = localStorage.getItem('fileMetadata');
@@ -193,7 +193,8 @@ export default function App() {
     .map(file => ({
       ...file,
       tags: fileMetadata[file.id]?.tags || file.tags,
-      folderColor: (fileMetadata[file.id]?.folderColor as any) || file.folderColor
+      folderColor: (fileMetadata[file.id]?.folderColor as any) || file.folderColor,
+      isFavorite: fileMetadata[file.id]?.isFavorite || false
     }))
     .filter((file) => selectedTag ? file.tags?.includes(selectedTag) : true)
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)
@@ -202,6 +203,16 @@ export default function App() {
       if (sortOption === 'date') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       return a.name.localeCompare(b.name);
     });
+
+  const starredFolders: SidebarItem[] = Object.entries(fileMetadata)
+    .filter(([id, meta]) => meta.isFavorite)
+    .map(([id, meta]) => ({
+      id,
+      label: meta.name || id.split('/').pop() || 'Unknown',
+      icon: 'Star',
+      path: id,
+      isFavorite: true
+    }));
 
   return (
     <div className="h-screen w-full flex flex-col select-none overflow-hidden bg-white">
@@ -215,6 +226,7 @@ export default function App() {
           onNavigateFolder={(folderName) => {
             pushPath(['Root', folderName]);
           }}
+          starredFolders={starredFolders}
         />
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
           <Toolbar

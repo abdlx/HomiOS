@@ -10,6 +10,7 @@ interface SidebarProps {
   setSelectedTag: (tag: string | null) => void;
   onNavigateHome: () => void;
   onNavigateFolder?: (folderName: string) => void;
+  starredFolders?: SidebarItem[];
 }
 
 export default function Sidebar({
@@ -19,6 +20,7 @@ export default function Sidebar({
   setSelectedTag,
   onNavigateHome,
   onNavigateFolder,
+  starredFolders = [],
 }: SidebarProps) {
   const [realFolders, setRealFolders] = useState<SidebarItem[]>([
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
@@ -125,6 +127,24 @@ export default function Sidebar({
                 {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 14)}
                 <span className="truncate flex-1">{rootFolder.label}</span>
               </button>
+              
+              {starredFolders.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
+                      ${isActive 
+                        ? 'bg-blue-600/10 text-blue-600 font-semibold' 
+                        : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                      }`}
+                  >
+                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
+                    <span className="truncate flex-1">{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -11,9 +11,9 @@ import {
   Calendar, 
   ChevronRight, 
   Info,
-  Layers,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Star
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 
@@ -107,6 +107,14 @@ export default function FileArea({
       newTags.push('Important');
     }
     onUpdateMetadata(file.id, { tags: newTags });
+  };
+
+  const toggleFavorite = (file: FileItem) => {
+    if (!onUpdateMetadata || file.type !== 'folder') return;
+    onUpdateMetadata(file.id, { 
+      isFavorite: !file.isFavorite,
+      name: file.name
+    });
   };
 
   // Custom folder rendering with gradients representing the Nextcloud mock styling
@@ -266,6 +274,18 @@ export default function FileArea({
                         title="Cycle Color"
                       >
                         <Sparkles size={14} />
+                      </button>
+                    )}
+                    {file.type === 'folder' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(file);
+                        }}
+                        className={`hover:bg-white hover:text-yellow-500 hover:shadow-sm p-1.5 rounded-xl transition-all ${file.isFavorite ? 'text-yellow-500' : ''}`}
+                        title="Star Folder"
+                      >
+                        <Star size={14} className={file.isFavorite ? "fill-yellow-500" : ""} />
                       </button>
                     )}
                     <button
