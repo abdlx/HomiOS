@@ -7,9 +7,13 @@ services:
     ports:
       - "3005:3000"
       - "445:445"
+    privileged: true                  # Required for mount syscall inside container
     volumes:
       - filemanager-data:/app/data
       - ./data_mock:/app/drives:rw
+      - /dev:/dev                     # Expose host block devices (sda1, sdb1, etc.)
+      - /mnt:/mnt                     # Share host /mnt so mounts persist on host too
+      - /proc:/proc                   # Needed for lsblk to read block device info
     restart: unless-stopped
     environment:
       NODE_ENV: production
