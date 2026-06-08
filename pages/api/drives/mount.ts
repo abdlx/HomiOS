@@ -1,11 +1,20 @@
 import os from 'os';
 import { exec } from 'child_process';
-import util from 'util';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
 import { mkdir } from 'fs/promises';
 
-const execAsync = util.promisify(exec);
+const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
+  return new Promise((resolve, reject) => {
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+  });
+};
 
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
