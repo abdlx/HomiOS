@@ -36,14 +36,18 @@ export default async function handler(req: any, res: any) {
             continue;
           }
 
-          // Skip loop devices (snaps), swap partitions, optical drives (CD-ROMs), and extended partition containers
+          // Skip loop devices (snaps), swap partitions, and extended partition containers
           if (
             dev.type === 'loop' || 
             dev.fstype === 'swap' || 
-            dev.type === 'rom' || 
             dev.type === 'extended' ||
             dev.size === '1K'
           ) {
+            continue;
+          }
+          
+          // Only skip optical drives (CD/DVD/Blu-ray) if they are completely empty (no filesystem)
+          if (dev.type === 'rom' && !dev.fstype) {
             continue;
           }
           // Skip small partitions like EFI (< 2G) — show them but mark clearly
