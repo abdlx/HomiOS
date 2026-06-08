@@ -10,7 +10,7 @@ import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
 import StorageDashboard from './components/StorageDashboard';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
-import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight } from 'lucide-react';
 import MobileHomeScreen from './components/MobileHomeScreen';
 
 export default function App() {
@@ -393,71 +393,88 @@ export default function App() {
 
   const renderFavoritesTab = () => {
     return (
-      <div className="flex-1 bg-neutral-50 p-5 overflow-y-auto space-y-6">
+      <div className="flex-1 bg-[#f2f2f7] p-4 overflow-y-auto space-y-6 pb-[90px]">
         <div>
-          <h3 className="text-xs font-extrabold text-neutral-500 uppercase tracking-wider mb-3 px-1">Starred Folders</h3>
+          <h2 className="text-[22px] font-bold text-black mb-3 px-1 tracking-tight">Favorites</h2>
           {starredFolders.length === 0 ? (
-            <div className="bg-white border border-neutral-100 rounded-2xl p-6 text-center text-xs text-neutral-400">
-              No starred folders yet. Star folders in the file list context menu to see them here.
+            <div className="bg-white rounded-[10px] p-6 text-center text-[15px] text-[#8e8e93]">
+              No favorites yet.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {starredFolders.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedTag(null);
-                    setActiveSection(item.id);
-                    if (item.path) {
-                      pushPath(['Root', item.path]);
-                    } else {
-                      pushPath(['Root', item.label]);
-                    }
-                    setActiveTab('files');
-                  }}
-                  className="flex items-center space-x-3 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm hover:shadow-md transition-all text-left active:scale-95 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-600">
-                    <Star size={16} fill="currentColor" />
-                  </div>
-                  <span className="text-xs font-bold text-neutral-700 truncate flex-1">{item.label}</span>
-                </button>
+            <div className="bg-white rounded-[10px] overflow-hidden">
+              {starredFolders.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <button
+                    onClick={() => {
+                      setSelectedTag(null);
+                      setActiveSection(item.id);
+                      if (item.path) {
+                        pushPath(['Root', item.path]);
+                      } else {
+                        pushPath(['Root', item.label]);
+                      }
+                      setActiveTab('files');
+                    }}
+                    className="w-full flex items-center px-4 py-3 active:bg-[#e5e5ea] transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-md bg-[#ffcc00] flex items-center justify-center flex-shrink-0">
+                      <Star size={18} color="white" fill="white" />
+                    </div>
+                    <div className="ml-4 flex-1 text-left flex items-center justify-between">
+                      <span className="text-[17px] font-normal text-black truncate pr-4">{item.label}</span>
+                      <ChevronRight size={20} className="text-[#c6c6c8] flex-shrink-0" />
+                    </div>
+                  </button>
+                  {index < starredFolders.length - 1 && (
+                    <div className="ml-[56px] border-b border-[#c6c6c8]" />
+                  )}
+                </React.Fragment>
               ))}
             </div>
           )}
         </div>
 
         <div>
-          <h3 className="text-xs font-extrabold text-neutral-500 uppercase tracking-wider mb-3 px-1">Filter by Tags</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <h2 className="text-[22px] font-bold text-black mb-3 px-1 tracking-tight">Tags</h2>
+          <div className="bg-white rounded-[10px] overflow-hidden">
             {[
-              { id: 'Red', color: 'bg-red-500' },
-              { id: 'Orange', color: 'bg-orange-500' },
-              { id: 'Yellow', color: 'bg-yellow-500' },
-              { id: 'Green', color: 'bg-green-500' },
-              { id: 'Blue', color: 'bg-blue-500' },
-              { id: 'Purple', color: 'bg-purple-500' },
-              { id: 'Gray', color: 'bg-gray-500' },
-            ].map((tag) => {
+              { id: 'Red', color: '#ff3b30' },
+              { id: 'Orange', color: '#ff9500' },
+              { id: 'Yellow', color: '#ffcc00' },
+              { id: 'Green', color: '#34c759' },
+              { id: 'Blue', color: '#007aff' },
+              { id: 'Purple', color: '#af52de' },
+              { id: 'Gray', color: '#8e8e93' },
+            ].map((tag, index, arr) => {
               const isActive = selectedTag === tag.id;
               return (
-                <button
-                  key={tag.id}
-                  onClick={() => {
-                    if (selectedTag === tag.id) {
-                      setSelectedTag(null);
-                    } else {
-                      setSelectedTag(tag.id);
-                      setActiveSection('root');
-                    }
-                    setActiveTab('files');
-                  }}
-                  className={`flex items-center space-x-2.5 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm transition-all text-left active:scale-95 cursor-pointer ${isActive ? 'ring-2 ring-blue-500/25 bg-blue-50/10 font-bold' : ''
-                    }`}
-                >
-                  <span className={`w-3 h-3 rounded-full shadow-sm ${tag.color}`} />
-                  <span className="text-xs font-bold text-neutral-700">{tag.id}</span>
-                </button>
+                <React.Fragment key={tag.id}>
+                  <button
+                    onClick={() => {
+                      if (selectedTag === tag.id) {
+                        setSelectedTag(null);
+                      } else {
+                        setSelectedTag(tag.id);
+                        setActiveSection('root');
+                      }
+                      setActiveTab('files');
+                    }}
+                    className="w-full flex items-center px-4 py-3 active:bg-[#e5e5ea] transition-colors"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: tag.color }} />
+                      <span className={`text-[17px] ${isActive ? 'font-semibold text-black' : 'font-normal text-black'}`}>
+                        {tag.id}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <CheckCircle size={20} className="text-[#007aff]" />
+                    )}
+                  </button>
+                  {index < arr.length - 1 && (
+                    <div className="ml-[48px] border-b border-[#c6c6c8]" />
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
@@ -473,23 +490,26 @@ export default function App() {
     >
       {/* Mobile Top Header */}
       {isMobile && (
-        <header className="h-14 bg-white border-b border-neutral-200/60 px-4 flex items-center justify-between sticky top-0 z-30 select-none shadow-sm">
-          <div className="flex items-center space-x-3">
+        <header 
+          className="bg-white/85 backdrop-blur-md border-b border-[#c6c6c8] px-4 flex items-center justify-between sticky top-0 z-30 select-none"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: '12px' }}
+        >
+          <div className="flex-1 flex items-center">
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="p-1.5 rounded-xl text-neutral-600 hover:bg-neutral-100 active:scale-95 transition-all cursor-pointer"
+              className="text-[#007aff] active:opacity-50 transition-all cursor-pointer"
             >
-              <Menu size={20} className="stroke-[2.5]" />
+              <Menu size={24} strokeWidth={2} />
             </button>
-            <span className="font-extrabold text-base bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
-              OpenFinder
+          </div>
+          
+          <div className="flex-2 text-center absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 8px)' }}>
+            <span className="font-semibold text-[17px] text-black tracking-tight">
+              {activeTab === 'home' ? 'OpenFinder' : activeTab === 'files' ? 'Files' : activeTab === 'favorites' ? 'Favorites' : 'Drives'}
             </span>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="text-[10px] font-bold text-neutral-400 bg-neutral-100 border border-neutral-200/50 px-2 py-0.5 rounded-full">
-              Mobile App Mode
-            </div>
+          <div className="flex-1 flex items-center justify-end">
           </div>
         </header>
       )}
@@ -630,14 +650,17 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar */}
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-neutral-200/50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)] flex items-center justify-around px-4 z-40 select-none pb-safe">
+        <nav 
+          className="fixed bottom-0 left-0 right-0 bg-[#f8f8f8]/90 backdrop-blur-md border-t border-[#c6c6c8] flex items-center justify-around px-2 z-40 select-none"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', height: 'calc(49px + max(env(safe-area-inset-bottom), 16px))' }}
+        >
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'home' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'home' ? 'text-[#007aff]' : 'text-[#8e8e93]'
               }`}
           >
-            <Home size={18} className="stroke-[2.2] mb-0.5" />
-            <span className="text-[10px]">Home</span>
+            <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 1.5} className="mb-0.5" />
+            <span className="text-[10px] font-medium">Home</span>
           </button>
 
           <button
@@ -645,29 +668,29 @@ export default function App() {
               setActiveTab('files');
               setShowStorage(false);
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'files' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'files' ? 'text-[#007aff]' : 'text-[#8e8e93]'
               }`}
           >
-            <Folder size={18} className="stroke-[2.2] mb-0.5" />
-            <span className="text-[10px]">Files</span>
+            <Folder size={22} strokeWidth={activeTab === 'files' ? 2.5 : 1.5} className="mb-0.5" />
+            <span className="text-[10px] font-medium">Files</span>
           </button>
 
           <button
             onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'favorites' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'favorites' ? 'text-[#007aff]' : 'text-[#8e8e93]'
               }`}
           >
-            <Star size={18} className="stroke-[2.2] mb-0.5" />
-            <span className="text-[10px]">Favorites</span>
+            <Star size={22} strokeWidth={activeTab === 'favorites' ? 2.5 : 1.5} className="mb-0.5" />
+            <span className="text-[10px] font-medium">Favorites</span>
           </button>
 
           <button
             onClick={() => setActiveTab('storage')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'storage' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'storage' ? 'text-[#007aff]' : 'text-[#8e8e93]'
               }`}
           >
-            <HardDrive size={18} className="stroke-[2.2] mb-0.5" />
-            <span className="text-[10px]">Drives</span>
+            <HardDrive size={22} strokeWidth={activeTab === 'storage' ? 2.5 : 1.5} className="mb-0.5" />
+            <span className="text-[10px] font-medium">Drives</span>
           </button>
         </nav>
       )}
