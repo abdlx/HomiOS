@@ -110,43 +110,48 @@ export default function Sidebar({
         {/* Scrollable Nav Area */}
         <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] scrollbar-thin">
           
-          {/* Favorites Header */}
-          <div>
-            <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
-              Favorites
-            </span>
-            <div className="space-y-0.5">
-              <button
-                onClick={() => handleItemClick(rootFolder)}
-                className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
-                  ${activeSection === 'root' 
-                    ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                    : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
-                  }`}
-              >
-                {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 14)}
-                <span className="truncate flex-1">{rootFolder.label}</span>
-              </button>
-              
-              {starredFolders.map((item) => {
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleItemClick(item)}
-                    className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
-                      ${isActive 
-                        ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                        : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
-                      }`}
-                  >
-                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
-                    <span className="truncate flex-1">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Root Item - Always on top with no heading */}
+          <div className="mb-4">
+            <button
+              onClick={() => handleItemClick(rootFolder)}
+              className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
+                ${activeSection === 'root' 
+                  ? 'bg-blue-600/10 text-blue-600 font-bold' 
+                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                }`}
+            >
+              {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 16)}
+              <span className="truncate flex-1">{rootFolder.label}</span>
+            </button>
           </div>
+
+          {/* Favorites Header */}
+          {starredFolders.length > 0 && (
+            <div>
+              <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+                Favorites
+              </span>
+              <div className="space-y-0.5">
+                {starredFolders.map((item) => {
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
+                        ${isActive 
+                          ? 'bg-blue-600/10 text-blue-600 font-semibold' 
+                          : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                        }`}
+                    >
+                      {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
+                      <span className="truncate flex-1">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Drives Header */}
           <div>
