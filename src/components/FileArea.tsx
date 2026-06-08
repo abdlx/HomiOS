@@ -34,7 +34,11 @@ interface FileAreaProps {
   onUploadFiles: (files: FileList) => void;
   viewMode: ViewMode;
   currentPath: string[];
-  onUpdateMetadata?: (id: string, updates: any) => void;
+  onUpdateMetadata?: (fileId: string, metadata: any) => void;
+  clipboardState?: { action: 'copy' | 'cut'; file: FileItem } | null;
+  setClipboard?: (state: { action: 'copy' | 'cut'; file: FileItem } | null) => void;
+  onAddNewFile?: (name: string, type: 'document' | 'text' | 'image') => void;
+  onAddNewFolder?: (name: string, color?: 'blue' | 'orange' | 'green') => void;
 }
 
 export default function FileArea({
@@ -47,7 +51,11 @@ export default function FileArea({
   onUploadFiles,
   viewMode,
   currentPath,
-  onUpdateMetadata
+  onUpdateMetadata,
+  clipboardState,
+  setClipboard,
+  onAddNewFile,
+  onAddNewFolder
 }: FileAreaProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -56,9 +64,9 @@ export default function FileArea({
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   // Right-click context menu
-  const [contextMenu, setContextMenu] = useState<{ file: FileItem; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ file: FileItem | null; x: number; y: number } | null>(null);
 
-  const handleContextMenu = (e: React.MouseEvent, file: FileItem) => {
+  const handleContextMenu = (e: React.MouseEvent, file: FileItem | null) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ file, x: e.clientX, y: e.clientY });
@@ -184,7 +192,8 @@ export default function FileArea({
 
   if (files.length === 0) {
     return (
-      <div className="flex-1 bg-white p-8 flex flex-col items-center justify-center text-neutral-400 space-y-3 min-h-[400px]">
+      <div className="flex-1 bg-white p-8 flex flex-col items-center justify-center text-neutral-400 space-y-3 min-h-[400px]"
+           onContextMenu={(e) => handleContextMenu(e, null)}>
         <AlertCircle size={40} className="text-neutral-300" />
         <div className="text-center">
           <p className="text-sm font-semibold">No files match filters</p>
@@ -336,6 +345,7 @@ export default function FileArea({
                     setSelectedFileId(file.id);
                   }}
                   onDoubleClick={() => onFileDoubleClick(file)}
+                  onContextMenu={(e) => handleContextMenu(e, file)}
                   className={`group hover:bg-neutral-50 transition-colors cursor-pointer ${
                     isSelected ? 'bg-blue-50/50' : ''
                   }`}
@@ -429,6 +439,7 @@ export default function FileArea({
                 key={file.id}
                 onClick={() => setSelectedFileId(file.id)}
                 onDoubleClick={() => onFileDoubleClick(file)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
                 className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between font-medium transition-colors ${
                   isSelected ? 'bg-blue-600 text-white' : 'text-neutral-700 hover:bg-neutral-100'
                 }`}
@@ -500,7 +511,7 @@ export default function FileArea({
     const galleryItems = files.filter(f => f.type === 'image' || f.type === 'document');
     if (galleryItems.length === 0) {
       return (
-        <div className="text-center p-12 text-sm text-neutral-500 bg-neutral-50 border border-dashed rounded-xl">
+        <div className="text-center p-12 text-sm text-neutral-500 bg-neutral-50 border border-dashed rounded-xl" onContextMenu={(e) => handleContextMenu(e, null)}>
           Gallery mode supports images and document icons. Click view settings or choose root.
         </div>
       );
@@ -519,7 +530,7 @@ export default function FileArea({
     };
 
     return (
-      <div className="flex flex-col items-center bg-zinc-900 border border-zinc-800 rounded-2xl p-5 md:p-7 relative text-white shadow-xl min-h-[380px]">
+      <div className="flex flex-col items-center bg-zinc-900 border border-zinc-800 rounded-2xl p-5 md:p-7 relative text-white shadow-xl min-h-[380px]" onContextMenu={(e) => handleContextMenu(e, null)}>
         {/* Slidy header */}
         <div className="absolute top-4 left-4 text-[10px] text-zinc-500 font-mono">
           Gallery: {safeIndex + 1} / {galleryItems.length}
@@ -536,6 +547,7 @@ export default function FileArea({
 
           <div 
             onClick={() => onFileDoubleClick(currentItem)}
+            onContextMenu={(e) => handleContextMenu(e, currentItem)}
             className="relative max-w-md w-full h-56 bg-zinc-800 rounded-xl overflow-hidden flex items-center justify-center border border-zinc-700 p-2 shadow-inner group cursor-pointer"
           >
             {currentItem.type === 'image' && currentItem.thumbnailUrl ? (
@@ -600,6 +612,7 @@ export default function FileArea({
   return (
     <div 
       className="flex-1 bg-transparent p-4 md:p-5 overflow-y-auto relative outline-none select-none"
+      onContextMenu={(e) => handleContextMenu(e, null)}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -612,14 +625,33 @@ export default function FileArea({
           file={contextMenu.file}
           x={contextMenu.x}
           y={contextMenu.y}
+          clipboardState={clipboardState}
           onClose={() => setContextMenu(null)}
-          onQuickLook={(f) => onFileDoubleClick(f)}
-          onRename={(f) => {
+          onQuickLook={contextMenu.file ? (f) => onFileDoubleClick(f) : undefined}
+          onRename={contextMenu.file ? (f) => {
             const newName = prompt('Enter new name:', f.name);
             if (newName && newName.trim() !== f.name) onRenameFile(f.id, newName.trim());
+          } : undefined}
+          onFavorite={contextMenu.file ? (f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name }) : undefined}
+          onDelete={contextMenu.file ? (fId) => onDeleteFile(fId) : undefined}
+          onCreateFile={() => {
+            const name = prompt('Enter file name (e.g. Note.txt):');
+            if (name && name.trim()) onAddNewFile?.(name.trim(), 'text');
           }}
-          onFavorite={(f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name })}
-          onDelete={onDeleteFile}
+          onCreateFolder={() => {
+            const name = prompt('Enter folder name:');
+            if (name && name.trim()) onAddNewFolder?.(name.trim());
+          }}
+          onCopy={contextMenu.file ? (f) => setClipboard?.({ action: 'copy', file: f }) : undefined}
+          onCut={contextMenu.file ? (f) => setClipboard?.({ action: 'cut', file: f }) : undefined}
+          onPaste={() => {
+            if (clipboardState && clipboardState.action === 'cut') {
+              alert(`Pasted ${clipboardState.file.name} (Simulation)`);
+              setClipboard?.(null);
+            } else if (clipboardState) {
+              alert(`Copied ${clipboardState.file.name} (Simulation)`);
+            }
+          }}
         />
       )}
       {/* Drag Mask */}

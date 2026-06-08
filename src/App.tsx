@@ -29,6 +29,7 @@ export default function App() {
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
+  const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('fileMetadata');
@@ -321,7 +322,10 @@ export default function App() {
     }));
 
   return (
-    <div className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50">
+    <div 
+      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
         <Sidebar
           activeSection={activeSection}
@@ -364,6 +368,10 @@ export default function App() {
                 viewMode={viewMode}
                 currentPath={currentPath}
                 onUpdateMetadata={updateFileMetadata}
+                clipboardState={clipboard}
+                setClipboard={setClipboard}
+                onAddNewFile={handleAddNewFile}
+                onAddNewFolder={handleAddNewFolder}
               />
             </>
           )}
