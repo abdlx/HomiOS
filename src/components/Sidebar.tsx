@@ -20,29 +20,10 @@ export default function Sidebar({
   onNavigateHome,
   onNavigateFolder,
 }: SidebarProps) {
-  const [realFolders, setRealFolders] = useState<SidebarItem[]>([]);
+  const realFolders: SidebarItem[] = [
+    { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
+  ];
 
-  useEffect(() => {
-    fetch('/api/drives/available')
-      .then(res => {
-        if (res.status === 401) {
-          window.location.href = '/login';
-          throw new Error('Unauthorized');
-        }
-        return res.json();
-      })
-      .then(data => {
-        const folders: SidebarItem[] = data.map((d: any) => ({
-          id: d.label.toLowerCase(),
-          label: d.label,
-          icon: 'Folder',
-          isFavorite: true
-        }));
-        setRealFolders(folders);
-      })
-      .catch(console.error);
-  }, []);
-  
   // Custom helper to dynamically render Lucide icons Safely
   const renderIcon = (iconName: string, color?: string, size = 16) => {
     // Falls back to Folder if icon not found
@@ -56,12 +37,12 @@ export default function Sidebar({
         setSelectedTag(null); // Toggle off tag filter
       } else {
         setSelectedTag(item.label);
-        setActiveSection('nextcloud'); // Keep Nextcloud area open when filtering or reset active folder
+        setActiveSection('root'); // Keep Root area open when filtering
       }
     } else {
       setSelectedTag(null);
       setActiveSection(item.id);
-      if (item.id === 'nextcloud') {
+      if (item.id === 'root' || item.id === 'nextcloud') {
         onNavigateHome();
       } else if (onNavigateFolder) {
         onNavigateFolder(item.label);
