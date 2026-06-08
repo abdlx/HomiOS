@@ -4,8 +4,8 @@ FROM node:20-alpine
 RUN apk add --no-cache samba samba-client supervisor bash curl python3 make g++
 
 # Create smbuser for share access
-RUN addgroup -g 1000 smbuser && \
-    adduser -u 1000 -G smbuser -s /sbin/nologin -D smbuser && \
+RUN addgroup smbuser && \
+    adduser -G smbuser -s /sbin/nologin -D smbuser && \
     echo "smbuser:password123" | chpasswd && \
     (echo "password123"; echo "password123") | smbpasswd -a -s smbuser
 
