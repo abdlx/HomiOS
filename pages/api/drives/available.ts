@@ -25,7 +25,8 @@ export default async function handler(req: any, res: any) {
   if (os.platform() === 'linux') {
     try {
       // Use lsblk with MOUNTPOINTS (plural) which works on both old and new kernels
-      const { stdout } = await execAsync('lsblk -J -o NAME,MOUNTPOINTS,TYPE,SIZE,FSTYPE');
+      // Added FSUSED and FSUSE% to get live usage statistics
+      const { stdout } = await execAsync('lsblk -J -o NAME,MOUNTPOINTS,TYPE,SIZE,FSTYPE,FSUSED,FSUSE%');
       const parsed = JSON.parse(stdout);
 
       const extractDrives = (devices: any[]): any[] => {
@@ -50,8 +51,7 @@ export default async function handler(req: any, res: any) {
           if (dev.type === 'rom' && !dev.fstype) {
             continue;
           }
-          // Skip small partitions like EFI (< 2G) — show them but mark clearly
-          
+
           // Handle both: mountpoints (array, newer kernels) and mountpoint (string, older)
           const mountpointsRaw: (string | null)[] = dev.mountpoints || (dev.mountpoint ? [dev.mountpoint] : []);
           const validMounts = mountpointsRaw.filter((m: string | null) => m && m !== '[SWAP]');
@@ -70,11 +70,22 @@ export default async function handler(req: any, res: any) {
             label = mountPoint!.split('/').filter(Boolean).pop() || mountPoint!;
           }
 
+          // Parse FSUSE% (e.g. "45%" -> 45)
+          let usagePercent = undefined;
+          if (dev['fsuse%']) {
+            const parsedPct = parseFloat(dev['fsuse%'].replace('%', '').trim());
+            if (!isNaN(parsedPct)) usagePercent = parsedPct;
+          }
+
           result.push({
             label: `${label} (${dev.size})`,
             path: mountPoint || '',
             name: dev.name,
+            fstype: dev.fstype,
             isMounted,
+            usedBytes: dev.fsused || undefined,
+            usagePercent: usagePercent,
+            size: dev.size,
           });
         }
         return result;
