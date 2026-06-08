@@ -28,7 +28,7 @@ export default function Sidebar({
     fetch('/api/drives/available')
       .then((res) => res.json())
       .then((data) => {
-        if (data && data.length > 0) {
+        if (data && data.length >= 0) {
           const drives = data.map((d: any) => ({
             id: d.path || d.label,
             label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
@@ -91,6 +91,8 @@ export default function Sidebar({
     }
   };
 
+  const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
+
   return (
     <div className="relative w-[240px] md:w-[250px] bg-gray-100 m-3 rounded-[32px] p-4 pt-5 flex flex-col select-none justify-between">
       
@@ -106,10 +108,30 @@ export default function Sidebar({
         {/* Scrollable Nav Area */}
         <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] scrollbar-thin">
           
-          {/* Folders Header */}
+          {/* Favorites Header */}
           <div>
             <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
-              Drives & Folders
+              Favorites
+            </span>
+            <div className="space-y-0.5">
+              <button
+                onClick={() => handleItemClick(rootFolder)}
+                className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
+                  ${activeSection === 'root' 
+                    ? 'bg-blue-600/10 text-blue-600 font-semibold' 
+                    : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                  }`}
+              >
+                {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 14)}
+                <span className="truncate flex-1">{rootFolder.label}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Drives Header */}
+          <div>
+            <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+              Connected Drives
             </span>
             <div className="space-y-0.5">
               {realFolders.map((item) => {
@@ -132,7 +154,7 @@ export default function Sidebar({
               })}
               
               {realFolders.length === 0 && (
-                <div className="px-2 py-2 text-xs text-gray-400 italic">No folders found</div>
+                <div className="px-2 py-2 text-xs text-gray-400 italic">No connected drives</div>
               )}
             </div>
           </div>

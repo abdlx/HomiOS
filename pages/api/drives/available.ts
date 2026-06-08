@@ -45,15 +45,16 @@ export default async function handler(req: any, res: any) {
           const validMounts = mountpointsRaw.filter((m: string | null) => m && m !== '[SWAP]');
           const mountPoint = validMounts[0] || null;
 
+          // Skip the main root drive and boot partitions as they are accessed via the dedicated "Root" folder
+          if (mountPoint === '/' || mountPoint === '/boot/efi') continue;
+
           const isMounted = !!mountPoint;
 
           let label: string;
           if (!isMounted) {
             label = dev.name; // e.g. "sda1"
-          } else if (mountPoint === '/') {
-            label = 'Rootfs';
           } else {
-            // e.g. /boot/efi → "efi", /mnt/data → "data"
+            // e.g. /mnt/data → "data"
             label = mountPoint!.split('/').filter(Boolean).pop() || mountPoint!;
           }
 
