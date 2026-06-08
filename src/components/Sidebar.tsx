@@ -12,6 +12,8 @@ interface SidebarProps {
   onNavigateFolder?: (folderName: string) => void;
   onNavigateStorage?: () => void;
   starredFolders?: SidebarItem[];
+  isMobileDrawer?: boolean;
+  onCloseDrawer?: () => void;
 }
 
 export default function Sidebar({
@@ -23,6 +25,8 @@ export default function Sidebar({
   onNavigateFolder,
   onNavigateStorage,
   starredFolders = [],
+  isMobileDrawer = false,
+  onCloseDrawer,
 }: SidebarProps) {
   const [realFolders, setRealFolders] = useState<SidebarItem[]>([
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
@@ -110,24 +114,41 @@ export default function Sidebar({
         onNavigateFolder(item.path || item.label);
       }
     }
+    if (isMobileDrawer && onCloseDrawer) {
+      onCloseDrawer();
+    }
   };
 
   const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
 
   return (
-    <div className="relative w-[240px] md:w-[250px] bg-white border border-neutral-200/50 shadow-sm m-3 rounded-[32px] p-4 pt-5 flex flex-col select-none justify-between">
+    <div className={`relative flex flex-col select-none justify-between bg-white border-neutral-200/50 ${
+      isMobileDrawer 
+        ? 'w-full h-full p-4 pt-5' 
+        : 'hidden md:flex w-[240px] md:w-[250px] border shadow-sm m-3 rounded-[32px] p-4 pt-5'
+    }`}>
       
       {/* Top Part: Title with macOS controls */}
       <div className="flex flex-col">
         {/* macOS Window Title bar actions */}
-        <div className="flex items-center space-x-2 mb-4 px-1">
-          <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" />
-          <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
-          <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" />
+            <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
+            <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
+          </div>
+          {isMobileDrawer && onCloseDrawer && (
+            <button 
+              onClick={onCloseDrawer}
+              className="p-1 rounded-full hover:bg-neutral-100 text-neutral-500 active:scale-95 transition-all"
+            >
+              <Icons.X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Scrollable Nav Area */}
-        <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] sidebar-scroll">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 sidebar-scroll min-h-0">
           
           {/* Root Item */}
           <div className="mb-1">
@@ -170,7 +191,11 @@ export default function Sidebar({
           {/* Storage Dashboard shortcut */}
           <div className="mb-4">
             <button
-              onClick={() => { setActiveSection('storage'); onNavigateStorage?.(); }}
+              onClick={() => { 
+                setActiveSection('storage'); 
+                onNavigateStorage?.(); 
+                if (isMobileDrawer && onCloseDrawer) onCloseDrawer();
+              }}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'storage'
                   ? 'bg-blue-600/10 text-blue-600 font-bold'

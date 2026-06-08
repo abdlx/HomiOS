@@ -9,8 +9,9 @@ import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
 import StorageDashboard from './components/StorageDashboard';
-import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
-import { Loader2, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
+import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
+import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive } from 'lucide-react';
+import MobileHomeScreen from './components/MobileHomeScreen';
 
 export default function App() {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
@@ -31,9 +32,46 @@ export default function App() {
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
 
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState<'home' | 'files' | 'favorites' | 'storage'>('home');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
+  const [drives, setDrives] = useState<DriveItem[]>([]);
+  const [serverIp, setServerIp] = useState<string>('Connecting...');
+
   useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && (viewMode === 'column' || viewMode === 'gallery')) {
+        setViewMode('grid');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     const saved = localStorage.getItem('fileMetadata');
     if (saved) setFileMetadata(JSON.parse(saved));
+
+    if (typeof window !== 'undefined') {
+      setServerIp(window.location.hostname);
+    }
+
+    fetch('/api/system/shortcuts')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setShortcuts(data);
+      })
+      .catch(err => console.error('Error fetching shortcuts:', err));
+
+    fetch('/api/drives/available')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setDrives(data);
+      })
+      .catch(err => console.error('Error fetching drives:', err));
+
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const updateFileMetadata = (fileId: string, updates: any) => {
@@ -131,7 +169,13 @@ export default function App() {
 
   const handleFileDoubleClick = (file: FileItem) => {
     if (file.type === 'folder') {
-      pushPath([...currentPath, file.name]);
+      if (selectedTag) {
+        // Navigate to the absolute path of the global tagged folder
+        pushPath(['Root', ...file.id.split('/')]);
+        setSelectedTag(null);
+      } else {
+        pushPath([...currentPath, file.name]);
+      }
     } else {
       setQuickLookFile(file);
     }
@@ -296,7 +340,33 @@ export default function App() {
     return num;
   };
 
-  const processedFiles = currentFiles
+  const getGlobalTaggedFiles = (tag: string): FileItem[] => {
+    return Object.entries(fileMetadata)
+      .filter(([id, data]) => data.tags?.includes(tag))
+      .map(([id, data]) => {
+        const ext = data.name?.split('.').pop()?.toLowerCase();
+        let type: 'folder' | 'image' | 'video' | 'text' | 'document' = 'document';
+        if (!data.name?.includes('.')) type = 'folder';
+        else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '')) type = 'image';
+        else if (['mp4', 'webm', 'mkv', 'avi'].includes(ext || '')) type = 'video';
+        else if (['txt', 'md', 'json', 'csv', 'log', 'js', 'ts', 'jsx', 'tsx', 'css', 'html'].includes(ext || '')) type = 'text';
+
+        return {
+          id, // id is full relative path in the file metadata
+          name: data.name || id.split('/').pop() || id,
+          type,
+          size: '--',
+          updatedAt: 'Tagged',
+          tags: data.tags,
+          folderColor: data.folderColor as any || 'blue',
+          isFavorite: data.isFavorite || false,
+        };
+      });
+  };
+
+  const baseFiles = selectedTag ? getGlobalTaggedFiles(selectedTag) : currentFiles;
+
+  const processedFiles = baseFiles
     .map(file => ({
       ...file,
       tags: fileMetadata[file.id]?.tags || file.tags,
@@ -321,62 +391,334 @@ export default function App() {
       isFavorite: true
     }));
 
+  const renderFavoritesTab = () => {
+    return (
+      <div className="flex-1 bg-neutral-50 p-5 overflow-y-auto space-y-6">
+        <div>
+          <h3 className="text-xs font-extrabold text-neutral-500 uppercase tracking-wider mb-3 px-1">Starred Folders</h3>
+          {starredFolders.length === 0 ? (
+            <div className="bg-white border border-neutral-100 rounded-2xl p-6 text-center text-xs text-neutral-400">
+              No starred folders yet. Star folders in the file list context menu to see them here.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {starredFolders.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedTag(null);
+                    setActiveSection(item.id);
+                    if (item.path) {
+                      pushPath(['Root', item.path]);
+                    } else {
+                      pushPath(['Root', item.label]);
+                    }
+                    setActiveTab('files');
+                  }}
+                  className="flex items-center space-x-3 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm hover:shadow-md transition-all text-left active:scale-95 cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-600">
+                    <Star size={16} fill="currentColor" />
+                  </div>
+                  <span className="text-xs font-bold text-neutral-700 truncate flex-1">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-xs font-extrabold text-neutral-500 uppercase tracking-wider mb-3 px-1">Filter by Tags</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: 'Red', color: 'bg-red-500' },
+              { id: 'Orange', color: 'bg-orange-500' },
+              { id: 'Yellow', color: 'bg-yellow-500' },
+              { id: 'Green', color: 'bg-green-500' },
+              { id: 'Blue', color: 'bg-blue-500' },
+              { id: 'Purple', color: 'bg-purple-500' },
+              { id: 'Gray', color: 'bg-gray-500' },
+            ].map((tag) => {
+              const isActive = selectedTag === tag.id;
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => {
+                    if (selectedTag === tag.id) {
+                      setSelectedTag(null);
+                    } else {
+                      setSelectedTag(tag.id);
+                      setActiveSection('root');
+                    }
+                    setActiveTab('files');
+                  }}
+                  className={`flex items-center space-x-2.5 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm transition-all text-left active:scale-95 cursor-pointer ${
+                    isActive ? 'ring-2 ring-blue-500/25 bg-blue-50/10 font-bold' : ''
+                  }`}
+                >
+                  <span className={`w-3 h-3 rounded-full shadow-sm ${tag.color}`} />
+                  <span className="text-xs font-bold text-neutral-700">{tag.id}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div 
-      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50"
+      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
       onContextMenu={(e) => e.preventDefault()}
     >
+      {/* Mobile Top Header */}
+      {isMobile && (
+        <header className="h-14 bg-white border-b border-neutral-200/60 px-4 flex items-center justify-between sticky top-0 z-30 select-none shadow-sm">
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => setIsDrawerOpen(true)}
+              className="p-1.5 rounded-xl text-neutral-600 hover:bg-neutral-100 active:scale-95 transition-all cursor-pointer"
+            >
+              <Menu size={20} className="stroke-[2.5]" />
+            </button>
+            <span className="font-extrabold text-base bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+              OpenFinder
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <div className="text-[10px] font-bold text-neutral-400 bg-neutral-100 border border-neutral-200/50 px-2 py-0.5 rounded-full">
+              Mobile App Mode
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Main Container */}
       <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
-        <Sidebar
-          activeSection={activeSection}
-          setActiveSection={setActiveSection}
-          selectedTag={selectedTag}
-          setSelectedTag={setSelectedTag}
-          onNavigateHome={handleNavigateHome}
-          onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
-          onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
-          starredFolders={starredFolders}
-        />
+        {/* Desktop Sidebar (hidden on mobile) */}
+        {!isMobile && (
+          <Sidebar
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            selectedTag={selectedTag}
+            setSelectedTag={setSelectedTag}
+            onNavigateHome={handleNavigateHome}
+            onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
+            onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
+            starredFolders={starredFolders}
+          />
+        )}
+
+        {/* Dynamic Body */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
-          {showStorage ? (
-            <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
-          ) : (
+          {isMobile ? (
+            // Mobile Tab-driven views
             <>
-              <Toolbar
-                currentPath={currentPath}
-                onNavigateBack={handleNavigateBack}
-                onNavigateForward={handleNavigateForward}
-                canNavigateBack={historyIndex > 0}
-                canNavigateForward={historyIndex < pathHistory.length - 1}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                onAddNewFile={handleAddNewFile}
-                onAddNewFolder={handleAddNewFolder}
-                sortOption={sortOption}
-                setSortOption={setSortOption}
-              />
-              <FileArea
-                files={processedFiles}
-                selectedFileId={selectedFileId}
-                setSelectedFileId={setSelectedFileId}
-                onFileDoubleClick={handleFileDoubleClick}
-                onDeleteFile={handleDeleteFile}
-                onRenameFile={handleRenameFile}
-                onUploadFiles={handleUploadFiles}
-                viewMode={viewMode}
-                currentPath={currentPath}
-                onUpdateMetadata={updateFileMetadata}
-                clipboardState={clipboard}
-                setClipboard={setClipboard}
-                onAddNewFile={handleAddNewFile}
-                onAddNewFolder={handleAddNewFolder}
-              />
+              {activeTab === 'home' && (
+                <MobileHomeScreen
+                  drives={drives}
+                  shortcuts={shortcuts}
+                  recentFiles={currentFiles}
+                  onNavigateShortcut={(shortcutPath) => {
+                    setSelectedTag(null);
+                    pushPath(['Root', shortcutPath]);
+                    setActiveTab('files');
+                  }}
+                  onNavigateStorage={() => setActiveTab('storage')}
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    if (tab === 'files') setShowStorage(false);
+                  }}
+                  onOpenFile={(file) => setQuickLookFile(file)}
+                  serverIp={serverIp}
+                />
+              )}
+
+              {activeTab === 'files' && (
+                <>
+                  <Toolbar
+                    currentPath={currentPath}
+                    onNavigateBack={handleNavigateBack}
+                    onNavigateForward={handleNavigateForward}
+                    canNavigateBack={historyIndex > 0}
+                    canNavigateForward={historyIndex < pathHistory.length - 1}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    onAddNewFile={handleAddNewFile}
+                    onAddNewFolder={handleAddNewFolder}
+                    sortOption={sortOption}
+                    setSortOption={setSortOption}
+                  />
+                  <FileArea
+                    files={processedFiles}
+                    selectedFileId={selectedFileId}
+                    setSelectedFileId={setSelectedFileId}
+                    onFileDoubleClick={handleFileDoubleClick}
+                    onDeleteFile={handleDeleteFile}
+                    onRenameFile={handleRenameFile}
+                    onUploadFiles={handleUploadFiles}
+                    viewMode={viewMode}
+                    currentPath={currentPath}
+                    onUpdateMetadata={updateFileMetadata}
+                    clipboardState={clipboard}
+                    setClipboard={setClipboard}
+                    onAddNewFile={handleAddNewFile}
+                    onAddNewFolder={handleAddNewFolder}
+                  />
+                </>
+              )}
+
+              {activeTab === 'favorites' && renderFavoritesTab()}
+
+              {activeTab === 'storage' && (
+                <StorageDashboard 
+                  onNavigateDrive={(drivePath) => { 
+                    setActiveTab('files'); 
+                    setShowStorage(false); 
+                    pushPath(['Root', drivePath]); 
+                  }} 
+                />
+              )}
+            </>
+          ) : (
+            // Desktop conditional views
+            <>
+              {showStorage ? (
+                <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
+              ) : (
+                <>
+                  <Toolbar
+                    currentPath={currentPath}
+                    onNavigateBack={handleNavigateBack}
+                    onNavigateForward={handleNavigateForward}
+                    canNavigateBack={historyIndex > 0}
+                    canNavigateForward={historyIndex < pathHistory.length - 1}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    onAddNewFile={handleAddNewFile}
+                    onAddNewFolder={handleAddNewFolder}
+                    sortOption={sortOption}
+                    setSortOption={setSortOption}
+                  />
+                  <FileArea
+                    files={processedFiles}
+                    selectedFileId={selectedFileId}
+                    setSelectedFileId={setSelectedFileId}
+                    onFileDoubleClick={handleFileDoubleClick}
+                    onDeleteFile={handleDeleteFile}
+                    onRenameFile={handleRenameFile}
+                    onUploadFiles={handleUploadFiles}
+                    viewMode={viewMode}
+                    currentPath={currentPath}
+                    onUpdateMetadata={updateFileMetadata}
+                    clipboardState={clipboard}
+                    setClipboard={setClipboard}
+                    onAddNewFile={handleAddNewFile}
+                    onAddNewFolder={handleAddNewFolder}
+                  />
+                </>
+              )}
             </>
           )}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {isMobile && (
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-neutral-200/50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)] flex items-center justify-around px-4 z-40 select-none pb-safe">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
+              activeTab === 'home' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            }`}
+          >
+            <Home size={18} className="stroke-[2.2] mb-0.5" />
+            <span className="text-[10px]">Home</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('files');
+              setShowStorage(false);
+            }}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
+              activeTab === 'files' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            }`}
+          >
+            <Folder size={18} className="stroke-[2.2] mb-0.5" />
+            <span className="text-[10px]">Files</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('favorites')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
+              activeTab === 'favorites' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            }`}
+          >
+            <Star size={18} className="stroke-[2.2] mb-0.5" />
+            <span className="text-[10px]">Favorites</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('storage')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
+              activeTab === 'storage' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+            }`}
+          >
+            <HardDrive size={18} className="stroke-[2.2] mb-0.5" />
+            <span className="text-[10px]">Drives</span>
+          </button>
+        </nav>
+      )}
+
+      {/* Slide-out Mobile Drawer */}
+      {isMobile && isDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setIsDrawerOpen(false)}
+          />
+          <div className="relative flex flex-col w-[280px] h-full max-w-sm bg-white shadow-2xl animate-in slide-in-from-left duration-300">
+            <Sidebar
+              activeSection={activeSection}
+              setActiveSection={(section) => {
+                setActiveSection(section);
+                if (section === 'storage') {
+                  setActiveTab('storage');
+                } else {
+                  setActiveTab('files');
+                }
+              }}
+              selectedTag={selectedTag}
+              setSelectedTag={(tag) => {
+                setSelectedTag(tag);
+                setActiveTab('files');
+              }}
+              onNavigateHome={handleNavigateHome}
+              onNavigateFolder={(folderPath) => {
+                pushPath(['Root', folderPath]);
+                setActiveTab('files');
+              }}
+              onNavigateStorage={() => {
+                setShowStorage(true);
+                setActiveSection('storage');
+                setActiveTab('storage');
+              }}
+              starredFolders={starredFolders}
+              isMobileDrawer={true}
+              onCloseDrawer={() => setIsDrawerOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal and Panel overlays */}
       {quickLookFile && (
         <QuickLookModal
           file={quickLookFile}
@@ -388,12 +730,14 @@ export default function App() {
 
       {/* Floating Transfers Panel */}
       {transfers.length > 0 && (
-        <div className="fixed bottom-6 right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px]">
+        <div className={`fixed right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${
+          isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
+        }`}>
           <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between items-center">
             <span className="text-xs font-bold text-neutral-600">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
             <button 
               onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
-              className="text-[10px] text-blue-600 hover:underline font-semibold"
+              className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
             >
               Clear Finished
             </button>
@@ -438,7 +782,7 @@ export default function App() {
                         setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' } : t));
                       }
                     }}
-                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors"
+                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer"
                   >
                     {task.status === 'uploading' ? '⏸' : '▶'}
                   </button>
