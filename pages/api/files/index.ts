@@ -31,6 +31,42 @@ export default async function handler(req: any, res: any) {
     const fullPath = securePath((filePath as string) || '/');
 
     if (req.method === 'GET') {
+      if (req.query.raw === 'true') {
+        const { createReadStream } = await import('fs');
+        const s = await stat(fullPath);
+        
+        // Simple mime-type guessing for standard web formats
+        const ext = path.extname(fullPath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.webp': 'image/webp',
+          '.mp4': 'video/mp4',
+          '.webm': 'video/webm',
+          '.pdf': 'application/pdf',
+          '.txt': 'text/plain',
+          '.md': 'text/markdown',
+          '.json': 'application/json',
+          '.js': 'text/javascript',
+          '.css': 'text/css',
+          '.html': 'text/html'
+        };
+        
+        if (mimeTypes[ext]) {
+          res.setHeader('Content-Type', mimeTypes[ext]);
+        } else {
+          res.setHeader('Content-Type', 'application/octet-stream');
+        }
+        
+        res.setHeader('Content-Length', s.size);
+        const stream = createReadStream(fullPath);
+        stream.pipe(res);
+        return;
+      }
+
       try {
         const files = await readdir(fullPath, { withFileTypes: true });
         const detailed = await Promise.all(

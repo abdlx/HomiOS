@@ -65,7 +65,13 @@ export default function App() {
         const formatted: FileItem[] = data.map((file: any) => ({
           id: file.path || file.name,
           name: file.name,
-          type: file.isDir ? 'folder' : (file.name.match(/\.(jpg|png|jpeg|gif)$/i) ? 'image' : (file.name.match(/\.(txt|md)$/i) ? 'text' : 'document')),
+          type: file.isDir 
+            ? 'folder' 
+            : (file.name.match(/\.(jpg|png|jpeg|gif|webp|svg)$/i) 
+              ? 'image' 
+              : (file.name.match(/\.(mp4|webm|mkv|avi)$/i)
+                ? 'video'
+                : (file.name.match(/\.(txt|md|json|csv|log|js|ts|jsx|tsx|css|html)$/i) ? 'text' : 'document'))),
           size: file.isDir ? '--' : `${(file.size / 1024).toFixed(1)} KB`,
           updatedAt: file.modified ? file.modified.split('T')[0] : new Date().toISOString().split('T')[0],
           folderColor: 'blue',

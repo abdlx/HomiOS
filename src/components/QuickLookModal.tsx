@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Download, 
@@ -33,7 +33,26 @@ export default function QuickLookModal({
   const [editedName, setEditedName] = useState(file.name);
   const [textContent, setTextContent] = useState(file.content || '');
   const [isSaved, setIsSaved] = useState(false);
-  const [selectedTag, setSelectedTag] = useState<string>(file.tags?.[0] || 'Screenshots');
+  const [selectedTag, setSelectedTag] = useState<string>(file.tags?.[0] || '');
+  const [isLoadingContent, setIsLoadingContent] = useState(file.type === 'text');
+
+  const fileUrl = `/api/files?path=${encodeURIComponent(file.id)}&raw=true`;
+
+  useEffect(() => {
+    if (file.type === 'text') {
+      fetch(fileUrl)
+        .then(res => res.text())
+        .then(text => {
+          setTextContent(text);
+          setIsLoadingContent(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setTextContent('Failed to load file content.');
+          setIsLoadingContent(false);
+        });
+    }
+  }, [file.id, file.type]);
 
   const handleSaveName = () => {
     if (editedName.trim()) {
@@ -78,13 +97,8 @@ export default function QuickLookModal({
         {/* Header Bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#2a2a2a]/60 border-b border-zinc-800">
           <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1.5 grayscale" onClick={onClose}>
-              <span className="w-3 h-3 rounded-full bg-[#ff5f56]" />
-              <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
-              <span className="w-3 h-3 rounded-full bg-[#27c93f]" />
-            </div>
             <span className="text-[11px] font-mono font-semibold text-neutral-400 bg-neutral-800 px-2 py-0.5 rounded">
-              macOS Quick Look
+              File Viewer
             </span>
           </div>
 
@@ -134,40 +148,46 @@ export default function QuickLookModal({
         {/* Core Live Preview Block */}
         <div className="flex-1 overflow-y-auto p-5 md:p-6 flex flex-col items-center">
           
-          {file.type === 'image' && file.thumbnailUrl ? (
+          {file.type === 'image' ? (
             /* Image Preview */
-            <div className="w-full relative flex justify-center items-center rounded-xl bg-[#121212] p-1 border border-zinc-800 shadow-inner overflow-hidden max-h-[350px]">
+            <div className="w-full relative flex justify-center items-center rounded-xl bg-[#121212] p-1 border border-zinc-800 shadow-inner overflow-hidden min-h-[200px] max-h-[450px]">
               <img
-                src={file.thumbnailUrl}
+                src={fileUrl}
                 alt={file.name}
-                className="max-h-[340px] max-w-full object-contain rounded-lg"
-                referrerPolicy="no-referrer"
+                className="max-h-[440px] max-w-full object-contain rounded-lg"
+              />
+            </div>
+          ) : file.type === 'video' ? (
+            /* Video Preview */
+            <div className="w-full relative flex justify-center items-center rounded-xl bg-[#121212] p-1 border border-zinc-800 shadow-inner overflow-hidden min-h-[200px] max-h-[450px]">
+              <video
+                src={fileUrl}
+                controls
+                autoPlay
+                className="max-h-[440px] max-w-full object-contain rounded-lg"
               />
             </div>
           ) : (
             /* Document Editor or Text Log */
             <div className="w-full flex flex-col space-y-4">
-              <div className="flex items-center space-x-3 bg-neutral-900 border border-neutral-800 rounded-xl p-3">
-                <div className="p-2.5 bg-blue-600/10 text-blue-400 rounded-lg">
-                  <FileText size={24} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold">{file.name}</h4>
-                  <p className="text-[10px] text-neutral-400">Wordprocessor Document Container ({file.size})</p>
-                </div>
-              </div>
-
               {/* Text note field details */}
               <div className="flex flex-col space-y-1">
                 <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
-                  File Document Editor / Content Notes
+                  File Content
                 </label>
-                <textarea
-                  value={textContent}
-                  onChange={(e) => setTextContent(e.target.value)}
-                  className="w-full h-44 bg-[#121212] border border-neutral-800 rounded-xl p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-neutral-300 resize-none"
-                  placeholder="Insert notes, meeting items, logs or content logs..."
-                />
+                {isLoadingContent ? (
+                  <div className="w-full h-64 bg-[#121212] border border-neutral-800 rounded-xl p-3 flex items-center justify-center text-xs text-neutral-500">
+                    Loading file content...
+                  </div>
+                ) : (
+                  <textarea
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    className="w-full h-64 bg-[#121212] border border-neutral-800 rounded-xl p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-neutral-300 resize-none"
+                    placeholder="Empty file..."
+                    disabled={file.type !== 'text'}
+                  />
+                )}
               </div>
 
               {/* Tag Assignment Dropdown */}
@@ -183,15 +203,17 @@ export default function QuickLookModal({
                     <option value="Screenshots">Screenshots</option>
                     <option value="Writing">Writing</option>
                     <option value="Invoice">Invoice</option>
+                    <option value="Important">Important</option>
                   </select>
                 </div>
 
                 <button
                   onClick={handleSaveContent}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-1.5 rounded-lg shadow transition-all flex items-center space-x-1.5 cursor-pointer"
+                  disabled={file.type !== 'text' || isLoadingContent}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-700 text-white font-semibold text-xs px-4 py-1.5 rounded-lg shadow transition-all flex items-center space-x-1.5 cursor-pointer"
                 >
                   <Check size={13} />
-                  <span>{isSaved ? 'Notes Saved!' : 'Save Content'}</span>
+                  <span>{isSaved ? 'Saved!' : 'Save Content'}</span>
                 </button>
               </div>
             </div>
@@ -246,16 +268,19 @@ export default function QuickLookModal({
               onClick={onClose}
               className="text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
             >
-              Cancel
+              Close
             </button>
-            <button
-              onClick={handleDownload}
+            <a
+              href={fileUrl}
+              download={file.name}
+              target="_blank"
+              rel="noreferrer"
               className="bg-white/10 hover:bg-white/15 text-white active:scale-95 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer border border-white/10"
-              title="Download simulated file block to browser"
+              title="Download file"
             >
               <Download size={13} />
-              <span>Simulate Download</span>
-            </button>
+              <span>Download</span>
+            </a>
           </div>
         </div>
 
