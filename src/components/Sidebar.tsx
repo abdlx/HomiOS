@@ -127,7 +127,7 @@ export default function Sidebar({
         </div>
 
         {/* Scrollable Nav Area */}
-        <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] scrollbar-thin">
+        <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] sidebar-scroll">
           
           {/* Root Item */}
           <div className="mb-1">
@@ -249,8 +249,6 @@ export default function Sidebar({
         <span className="opacity-75">Cloud Sync Active</span>
       </div>
 
-      {/* Styled thick vertical scrollbar track/separator visible on right, matching macOS Finder look */}
-      <div className="absolute top-1/4 right-[2px] w-[5px] h-1/3 bg-gray-400/30 rounded-full opacity-60 hover:opacity-100 transition-opacity" />
     </div>
   );
 }
