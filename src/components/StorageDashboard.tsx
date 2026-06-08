@@ -58,35 +58,39 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
   };
 
   return (
-    <div className="flex-1 bg-[#0b0f19] p-6 overflow-y-auto">
+    <div className="flex-1 bg-white p-8 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
-            <HardDrive size={16} className="text-blue-400" />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shadow-sm">
+            <HardDrive size={20} className="text-blue-500" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-100">Storage Overview</h2>
-            <p className="text-[10px] text-slate-500">Block devices &amp; mounted filesystems</p>
+            <h2 className="text-lg font-bold text-slate-800 tracking-tight">Storage Overview</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Block devices &amp; mounted filesystems</p>
           </div>
         </div>
         <button
           onClick={loadDrives}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10 transition-all text-xs"
+          className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-all text-xs font-medium"
         >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           <span>Refresh</span>
         </button>
       </div>
 
       {loading && drives.length === 0 ? (
-        <div className="flex items-center justify-center h-48 text-slate-600 text-sm">
-          <RefreshCw size={18} className="animate-spin mr-2" /> Scanning block devices…
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500 text-sm bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+          <RefreshCw size={24} className="animate-spin text-blue-500 mb-3" />
+          <p>Scanning block devices…</p>
         </div>
       ) : drives.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-slate-600 space-y-2">
-          <HardDrive size={36} className="opacity-30" />
-          <p className="text-xs">No external drives detected. Connect a device or check mount permissions.</p>
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500 space-y-3 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+            <HardDrive size={24} className="text-slate-400" />
+          </div>
+          <p className="text-sm font-medium">No drives detected</p>
+          <p className="text-xs text-slate-400">Connect a device to your server to see it here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -98,25 +102,25 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
             return (
               <div
                 key={drive.name || drive.label}
-                className="relative bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col space-y-3 hover:border-white/10 transition-all group"
+                className="relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-all group"
               >
                 {/* Drive Header */}
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${drive.isMounted ? 'bg-blue-500/10 border-blue-500/20' : 'bg-slate-800/80 border-white/5'}`}>
-                      <HardDrive size={16} className={drive.isMounted ? 'text-blue-400' : 'text-slate-600'} />
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${drive.isMounted ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                      <HardDrive size={18} className={drive.isMounted ? 'text-blue-500' : 'text-slate-400'} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-200 leading-tight">{drive.label}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">/dev/{drive.name} {drive.fstype ? `• ${drive.fstype}` : ''}</p>
+                      <p className="text-sm font-semibold text-slate-800 leading-tight">{drive.label}</p>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `• ${drive.fstype}` : ''}</p>
                     </div>
                   </div>
 
                   {/* Mounted badge */}
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                  <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
                     drive.isMounted
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-slate-800 border-white/5 text-slate-500'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                      : 'bg-slate-50 border-slate-200 text-slate-500'
                   }`}>
                     {drive.isMounted ? 'Mounted' : 'Unmounted'}
                   </span>
@@ -124,12 +128,12 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
 
                 {/* Capacity bar */}
                 {drive.isMounted && (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] text-slate-500">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-slate-500 font-medium">
                       <span>{drive.usedBytes ? `${drive.usedBytes} used` : 'Usage unknown'}</span>
                       <span className="font-mono">{pct !== undefined ? `${pct}%` : drive.size || '?'}</span>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full bg-gradient-to-r ${usageColor(pct)} transition-all duration-700`}
                         style={{ width: `${pct ?? 50}%` }}
@@ -140,26 +144,26 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
 
                 {/* Mount path */}
                 {drive.isMounted && drive.path && (
-                  <div className="flex items-center space-x-2 text-[10px] bg-slate-800/60 rounded-lg px-2.5 py-1.5 border border-white/5 font-mono text-slate-400">
-                    <Cpu size={10} className="text-slate-600 flex-shrink-0" />
+                  <div className="flex items-center space-x-2 text-[11px] bg-slate-50 rounded-lg px-3 py-2 border border-slate-100 font-mono text-slate-600">
+                    <Cpu size={12} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{drive.path}</span>
                   </div>
                 )}
 
                 {/* Feedback message */}
                 {feedback && (
-                  <div className={`flex items-center space-x-1.5 text-[10px] px-2.5 py-1.5 rounded-lg ${feedback.ok ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                    {feedback.ok ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
+                  <div className={`flex items-center space-x-1.5 text-xs px-3 py-2 rounded-lg ${feedback.ok ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                    {feedback.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
                     <span>{feedback.msg}</span>
                   </div>
                 )}
 
                 {/* Action buttons */}
-                <div className="flex items-center space-x-2 pt-1">
+                <div className="flex items-center space-x-3 pt-2 mt-auto">
                   {drive.isMounted ? (
                     <button
                       onClick={() => onNavigateDrive(drive.path)}
-                      className="flex-1 text-[11px] font-semibold py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all"
+                      className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
                     >
                       Browse Files
                     </button>
@@ -167,12 +171,12 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                     <button
                       onClick={() => handleMount(drive)}
                       disabled={isMounting}
-                      className="flex-1 text-[11px] font-semibold py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 border border-white/5 hover:border-white/10 transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isMounting ? (
-                        <><RefreshCw size={11} className="animate-spin" /><span>Mounting…</span></>
+                        <><RefreshCw size={14} className="animate-spin" /><span>Mounting…</span></>
                       ) : (
-                        <><ToggleRight size={12} /><span>Mount Device</span></>
+                        <><ToggleRight size={14} /><span>Mount Device</span></>
                       )}
                     </button>
                   )}
@@ -184,11 +188,10 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
       )}
 
       {/* Info banner */}
-      <div className="mt-6 flex items-start space-x-3 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-3">
-        <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-300/70 leading-relaxed">
-          Mounting operations require the container to be started with <span className="font-mono text-amber-400/90 bg-amber-500/10 px-1 rounded">SYS_ADMIN</span> capability.
-          If mounting fails, ensure <span className="font-mono text-amber-400/90 bg-amber-500/10 px-1 rounded">cap_add: [SYS_ADMIN]</span> is set in your <span className="font-mono text-amber-400/90">docker-compose.yml</span>.
+      <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 border border-blue-100/50 rounded-xl px-4 py-3.5 shadow-sm">
+        <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-slate-600 leading-relaxed">
+          OpenFinder runs as a native <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100 text-slate-700">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely without container limitations.
         </p>
       </div>
     </div>
