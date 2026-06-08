@@ -42,3 +42,11 @@ export interface WallpaperOption {
   class: string;
   previewColor: string;
 }
+
+export interface TransferTask {
+  id: string;
+  name: string;
+  progress: number; // 0 to 100
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  type: 'upload' | 'download';
+}

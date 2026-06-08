@@ -13,7 +13,9 @@ import {
   Info,
   ArrowRight,
   Sparkles,
-  Star
+  Star,
+  Edit3,
+  Download
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 
@@ -23,7 +25,8 @@ interface FileAreaProps {
   setSelectedFileId: (id: string | null) => void;
   onFileDoubleClick: (file: FileItem) => void;
   onDeleteFile: (id: string) => void;
-  onUploadSimulate: (file: { name: string; type: 'document' | 'image' }) => void;
+  onRenameFile: (id: string, newName: string) => void;
+  onUploadFiles: (files: FileList) => void;
   viewMode: ViewMode;
   currentPath: string[];
   onUpdateMetadata?: (id: string, updates: any) => void;
@@ -35,7 +38,8 @@ export default function FileArea({
   setSelectedFileId,
   onFileDoubleClick,
   onDeleteFile,
-  onUploadSimulate,
+  onRenameFile,
+  onUploadFiles,
   viewMode,
   currentPath,
   onUpdateMetadata
@@ -78,13 +82,7 @@ export default function FileArea({
 
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
-      const firstFile = droppedFiles[0];
-      const isImg = firstFile.type.startsWith('image/');
-      
-      onUploadSimulate({
-        name: firstFile.name,
-        type: isImg ? 'image' : 'document'
-      });
+      onUploadFiles(droppedFiles);
     }
   };
 
@@ -298,6 +296,30 @@ export default function FileArea({
                     >
                       <Check size={14} />
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newName = prompt('Enter new name:', file.name);
+                        if (newName && newName.trim() !== file.name) {
+                          onRenameFile(file.id, newName.trim());
+                        }
+                      }}
+                      className="hover:bg-white hover:text-blue-500 hover:shadow-sm p-1.5 rounded-xl transition-all"
+                      title="Rename"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    {file.type !== 'folder' && (
+                      <a
+                        href={`/api/files?path=${encodeURIComponent(file.id)}&raw=true`}
+                        download={file.name}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:bg-white hover:text-indigo-500 hover:shadow-sm p-1.5 rounded-xl transition-all flex items-center justify-center"
+                        title="Download"
+                      >
+                        <Download size={14} />
+                      </a>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -674,7 +696,7 @@ export default function FileArea({
       <div className="absolute bottom-4 right-4 flex items-center space-x-2 bg-neutral-50 px-3 py-1.5 border border-neutral-200 rounded-xl max-w-[280px] shadow-sm pointer-events-none z-20">
         <Info size={13} className="text-neutral-400" />
         <span className="text-[10px] text-neutral-500 leading-tight">
-          Drag-and-drop file upload simulator is active!
+          Drag-and-drop to upload files!
         </span>
       </div>
 

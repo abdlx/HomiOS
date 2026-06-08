@@ -8,7 +8,8 @@ import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
-import { FileItem, ViewMode, SidebarItem } from './types';
+import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function App() {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
@@ -25,6 +26,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<string>('nextcloud');
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
+  const [transfers, setTransfers] = useState<TransferTask[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem('fileMetadata');
@@ -181,8 +183,82 @@ export default function App() {
     }
   };
 
+  const handleUploadFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    const apiPath = getApiPath();
+
+    const newTransfers: TransferTask[] = fileArray.map(f => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: f.name,
+      progress: 0,
+      status: 'uploading',
+      type: 'upload'
+    }));
+
+    setTransfers(prev => [...prev, ...newTransfers]);
+
+    // Process uploads concurrently
+    await Promise.all(fileArray.map((file, i) => {
+      return new Promise<void>((resolve) => {
+        const taskId = newTransfers[i].id;
+        const uploadPath = `/${apiPath}/${file.name}`;
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
+        
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: percentComplete } : t));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: 'completed' } : t));
+          } else {
+            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
+          }
+          resolve();
+        };
+
+        xhr.onerror = () => {
+          setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
+          resolve();
+        };
+
+        xhr.send(file);
+      });
+    }));
+
+    loadFiles(); // Refresh directory after uploads complete
+  };
+
   const handleUploadSimulate = async (payload: { name: string; type: 'document' | 'image' }) => {
     handleAddNewFile(payload.name, payload.type);
+  };
+
+  const handleRenameFile = async (id: string, newName: string) => {
+    const dir = id.substring(0, id.lastIndexOf('/'));
+    const newPath = dir ? `/${dir}/${newName}` : `/${newName}`;
+    const res = await fetch('/api/files', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: `/${id}`, newPath })
+    });
+    if (res.ok) {
+      setFileMetadata(prev => {
+        if (!prev[id]) return prev;
+        const newMeta = { ...prev };
+        newMeta[newPath.slice(1)] = newMeta[id]; // Transfer metadata
+        delete newMeta[id];
+        localStorage.setItem('fileMetadata', JSON.stringify(newMeta));
+        return newMeta;
+      });
+      loadFiles();
+    }
   };
 
   const parseSizeToVal = (sizeStr: string): number => {
@@ -256,7 +332,8 @@ export default function App() {
             setSelectedFileId={setSelectedFileId}
             onFileDoubleClick={handleFileDoubleClick}
             onDeleteFile={handleDeleteFile}
-            onUploadSimulate={handleUploadSimulate}
+            onRenameFile={handleRenameFile}
+            onUploadFiles={handleUploadFiles}
             viewMode={viewMode}
             currentPath={currentPath}
             onUpdateMetadata={updateFileMetadata}
@@ -270,6 +347,46 @@ export default function App() {
           onUpdateFile={handleUpdateFile}
           onDelete={handleDeleteFile}
         />
+      )}
+
+      {/* Floating Transfers Panel */}
+      {transfers.length > 0 && (
+        <div className="fixed bottom-6 right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px]">
+          <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between items-center">
+            <span className="text-xs font-bold text-neutral-600">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
+            <button 
+              onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading'))}
+              className="text-[10px] text-blue-600 hover:underline font-semibold"
+            >
+              Clear Finished
+            </button>
+          </div>
+          <div className="overflow-y-auto p-2 space-y-2 flex-1">
+            {transfers.map(task => (
+              <div key={task.id} className="bg-neutral-50 border border-neutral-100 p-3 rounded-xl flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  {task.status === 'uploading' && <Loader2 size={16} className="text-blue-500 animate-spin" />}
+                  {task.status === 'completed' && <CheckCircle size={16} className="text-green-500" />}
+                  {task.status === 'error' && <XCircle size={16} className="text-red-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-semibold text-neutral-700 truncate block">{task.name}</span>
+                    <span className="text-[10px] text-neutral-400 ml-2">{task.progress}%</span>
+                  </div>
+                  <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        task.status === 'error' ? 'bg-red-500' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${task.progress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
