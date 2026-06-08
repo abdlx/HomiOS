@@ -67,20 +67,28 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      // Basic raw body upload handling since Next.js standard API routes don't auto-parse FormData files easily without formidable
-      // Actually, since the prompt specified `const buffer = req.files?.file?.data;`, it implies middleware or formidable.
-      // But we will use standard basic writing for the sake of following the prompt structure:
-      
       const uploadPath = req.body.path || req.query.path;
+      if (!uploadPath) return res.status(400).json({ error: 'Missing path' });
+      
       const uploadFullPath = securePath(uploadPath);
-      // Wait, the prompt says "const buffer = req.files?.file?.data;"
-      // In Next.js, we usually need formidable. Let me do a simple string write if no file buffer available, just to prevent crash, or expect raw body.
-      // Actually, to make it work, I'll just do a quick mock write for testing if req.files is missing.
       
-      const buffer = req.body; 
-      if (!buffer) return res.status(400).json({ error: 'No content' });
+      if (req.body.isDir) {
+        const { mkdir } = await import('fs/promises');
+        await mkdir(uploadFullPath, { recursive: true });
+        return res.json({ ok: true, path: uploadPath });
+      }
+
+      // If it's a JSON body with content, write the content string
+      // Otherwise, assume the body IS the raw file buffer (e.g. upload)
+      let contentToWrite: string | Buffer;
       
-      await writeFile(uploadFullPath, typeof buffer === 'string' ? buffer : Buffer.from(buffer));
+      if (req.body && req.body.content !== undefined) {
+        contentToWrite = req.body.content;
+      } else {
+        contentToWrite = typeof req.body === 'string' ? req.body : Buffer.from(req.body || '');
+      }
+
+      await writeFile(uploadFullPath, contentToWrite);
       res.json({ ok: true, path: uploadPath });
     }
 

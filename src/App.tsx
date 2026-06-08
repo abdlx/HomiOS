@@ -107,7 +107,13 @@ export default function App() {
   };
 
   const handleAddNewFolder = async (name: string) => {
-    alert("Folder creation via POST is simulated.");
+    const apiPath = currentPath.slice(1).join('/');
+    const res = await fetch('/api/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: `/${apiPath}/${name}`, isDir: true })
+    });
+    if (res.ok) loadFiles();
   };
 
   const handleUpdateFile = async (updated: FileItem) => {
