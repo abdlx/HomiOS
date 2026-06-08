@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  filemanager:
+    build: .
+    image: abdlx/filemanager:latest
+    ports:
+      - "8080:3000"
+      - "445:445"
+    volumes:
+      - filemanager-data:/app/data
+      - ./data_mock:/app/drives:rw
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+
+volumes:
+  filemanager-data:
