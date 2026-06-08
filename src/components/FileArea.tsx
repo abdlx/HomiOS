@@ -18,7 +18,8 @@ import {
   Archive,
   Code,
   Music,
-  File
+  File,
+  MoreVertical
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
@@ -219,6 +220,13 @@ export default function FileArea({
                   : 'border-transparent hover:bg-neutral-50/80 hover:border-neutral-200/40'
               }`}
             >
+              <button
+                onClick={(e) => handleContextMenu(e, file)}
+                className="absolute top-1.5 right-1.5 p-1 rounded-full text-neutral-400 hover:bg-black/5 hover:text-neutral-700 opacity-0 group-hover:opacity-100 transition-all z-10 focus:outline-none"
+                title="More Actions"
+              >
+                <MoreVertical size={14} />
+              </button>
               <div className={`relative mb-2 flex items-center justify-center transition-transform group-hover:scale-[1.03] ${
                 isSelected ? 'scale-[1.02]' : ''
               }`}>
@@ -358,26 +366,13 @@ export default function FileArea({
                     </div>
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <div className="flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onFileDoubleClick(file);
-                        }}
-                        className="p-1 text-gray-500 hover:text-blue-600 hover:bg-neutral-100 rounded"
-                        title="Preview"
+                        onClick={(e) => handleContextMenu(e, file)}
+                        className="p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/50 rounded focus:outline-none transition-colors"
+                        title="More Actions"
                       >
-                        <Eye size={13} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteFile(file.id);
-                        }}
-                        className="p-1 text-gray-500 hover:text-red-500 hover:bg-neutral-100 rounded"
-                        title="Delete"
-                      >
-                        <Trash2 size={13} />
+                        <MoreVertical size={14} />
                       </button>
                     </div>
                   </td>
