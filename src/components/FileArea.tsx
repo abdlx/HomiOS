@@ -333,11 +333,11 @@ export default function FileArea({
         <table className="w-full text-left text-xs text-neutral-600">
           <thead className="bg-neutral-50/70 border-b border-neutral-200/60 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
             <tr>
-              <th className="py-2.5 px-4 w-1/2">Name</th>
-              <th className="py-2.5 px-3">Kind</th>
-              <th className="py-2.5 px-3">Size</th>
-              <th className="py-2.5 px-3">Last Modified</th>
-              <th className="py-2.5 px-3">Tags</th>
+              <th className="py-2.5 px-4 w-full sm:w-1/2">Name</th>
+              <th className="py-2.5 px-3 hidden sm:table-cell">Kind</th>
+              <th className="py-2.5 px-3 hidden sm:table-cell">Size</th>
+              <th className="py-2.5 px-3 hidden md:table-cell">Last Modified</th>
+              <th className="py-2.5 px-3 hidden lg:table-cell">Tags</th>
               <th className="py-2.5 px-4 text-right">Actions</th>
             </tr>
           </thead>
@@ -370,10 +370,10 @@ export default function FileArea({
                       <span className="w-1.5 h-1.5 bg-orange-500 rounded-full inline-block animate-pulse" />
                     )}
                   </td>
-                  <td className="py-2.5 px-3 capitalize text-neutral-500">{file.type}</td>
-                  <td className="py-2.5 px-3 text-neutral-500 font-mono text-[11px]">{file.size}</td>
-                  <td className="py-2.5 px-3 text-neutral-500">{file.updatedAt || 'Recent'}</td>
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-3 capitalize text-neutral-500 hidden sm:table-cell">{file.type}</td>
+                  <td className="py-2.5 px-3 text-neutral-500 font-mono text-[11px] hidden sm:table-cell">{file.size}</td>
+                  <td className="py-2.5 px-3 text-neutral-500 hidden md:table-cell">{file.updatedAt || 'Recent'}</td>
+                  <td className="py-2.5 px-3 hidden lg:table-cell">
                     <div className="flex space-x-1.5">
                       {file.tags?.map(t => {
                         const bgMap: Record<string, string> = { Red: 'bg-red-100 text-red-600', Orange: 'bg-orange-100 text-orange-600', Yellow: 'bg-yellow-100 text-yellow-600', Green: 'bg-green-100 text-green-600', Blue: 'bg-blue-100 text-blue-600', Purple: 'bg-purple-100 text-purple-600', Gray: 'bg-gray-100 text-gray-600' };

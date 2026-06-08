@@ -205,7 +205,7 @@ export default function Toolbar({
 
           <button
             onClick={() => setViewMode('column')}
-            className={`p-1.5 rounded-full transition-all cursor-pointer ${
+            className={`hidden md:block p-1.5 rounded-full transition-all cursor-pointer ${
               viewMode === 'column' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
             }`}
             title="Columns View"
@@ -215,7 +215,7 @@ export default function Toolbar({
 
           <button
             onClick={() => setViewMode('gallery')}
-            className={`p-1.5 rounded-full transition-all cursor-pointer ${
+            className={`hidden md:block p-1.5 rounded-full transition-all cursor-pointer ${
               viewMode === 'gallery' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
             }`}
             title="Gallery View"
@@ -262,7 +262,7 @@ export default function Toolbar({
         </div>
 
         {/* Actions Pill */}
-        <div className="flex items-center space-x-0.5 bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
+        <div className="hidden sm:flex items-center space-x-0.5 bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
           <button
             onClick={() => alert(`Share link created.`)}
             className="p-1.5 rounded-full text-gray-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all cursor-pointer"
