@@ -36,8 +36,16 @@ export default async function handler(req: any, res: any) {
             continue;
           }
 
-          // Skip loop devices (snap packages) and swap partitions
-          if (dev.type === 'loop' || dev.fstype === 'swap') continue;
+          // Skip loop devices (snaps), swap partitions, optical drives (CD-ROMs), and extended partition containers
+          if (
+            dev.type === 'loop' || 
+            dev.fstype === 'swap' || 
+            dev.type === 'rom' || 
+            dev.type === 'extended' ||
+            dev.size === '1K'
+          ) {
+            continue;
+          }
           // Skip small partitions like EFI (< 2G) — show them but mark clearly
           
           // Handle both: mountpoints (array, newer kernels) and mountpoint (string, older)
