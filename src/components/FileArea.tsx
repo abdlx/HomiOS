@@ -257,8 +257,7 @@ export default function FileArea({
                     })}
                   </div>
                 )}
-
-
+              </div>
 
               {/* Title wrapper */}
               <div className="w-full px-1">
