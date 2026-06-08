@@ -20,9 +20,26 @@ export default function Sidebar({
   onNavigateHome,
   onNavigateFolder,
 }: SidebarProps) {
-  const realFolders: SidebarItem[] = [
+  const [realFolders, setRealFolders] = useState<SidebarItem[]>([
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
-  ];
+  ]);
+
+  useEffect(() => {
+    fetch('/api/drives/available')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          const drives = data.map((d: any) => ({
+            id: d.path || d.label,
+            label: d.label,
+            icon: 'HardDrive',
+            path: d.path
+          }));
+          setRealFolders(drives);
+        }
+      })
+      .catch((err) => console.error('Failed to load drives:', err));
+  }, []);
 
   // Custom helper to dynamically render Lucide icons Safely
   const renderIcon = (iconName: string, color?: string, size = 16) => {
@@ -45,7 +62,7 @@ export default function Sidebar({
       if (item.id === 'root' || item.id === 'nextcloud') {
         onNavigateHome();
       } else if (onNavigateFolder) {
-        onNavigateFolder(item.label);
+        onNavigateFolder(item.path || item.label);
       }
     }
   };

@@ -193,7 +193,7 @@ export default function App() {
     .map(file => ({
       ...file,
       tags: fileMetadata[file.id]?.tags || file.tags,
-      folderColor: fileMetadata[file.id]?.folderColor || file.folderColor
+      folderColor: (fileMetadata[file.id]?.folderColor as any) || file.folderColor
     }))
     .filter((file) => selectedTag ? file.tags?.includes(selectedTag) : true)
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)

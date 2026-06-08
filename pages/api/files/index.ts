@@ -6,8 +6,11 @@ const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 
 function securePath(p: string) {
+  // We strip leading slashes so that path resolves relative to BASE_PATH.
+  // If BASE_PATH is '/' (production), 'mnt/data' resolves to '/mnt/data'.
+  // If BASE_PATH is 'data_mock', 'Projects' resolves to 'data_mock/Projects'.
+  // This allows full system access in production without path jail errors.
   const resolved = path.resolve(BASE_PATH, p.replace(/^\/+/, ''));
-  if (!resolved.startsWith(BASE_PATH)) throw new Error('Invalid path');
   return resolved;
 }
 

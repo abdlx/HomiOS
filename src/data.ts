@@ -129,6 +129,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'tag-screenshots', label: 'Screenshots', icon: 'Circle', isTag: true, tagColor: '#3b82f6' }, // Blue
   { id: 'tag-writing', label: 'Writing', icon: 'Circle', isTag: true, tagColor: '#a855f7' }, // Purple
   { id: 'tag-invoice', label: 'Invoice', icon: 'Circle', isTag: true, tagColor: '#22c55e' }, // Green
+  { id: 'tag-important', label: 'Important', icon: 'Circle', isTag: true, tagColor: '#ef4444' }, // Red
   { id: 'tag-red', label: 'Red', icon: 'Circle', isTag: true, tagColor: '#ef4444' }, // Red
   { id: 'tag-orange', label: 'Orange', icon: 'Circle', isTag: true, tagColor: '#f97316' }, // Orange
   { id: 'tag-yellow', label: 'Yellow', icon: 'Circle', isTag: true, tagColor: '#eab308' }, // Yellow

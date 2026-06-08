@@ -30,6 +30,7 @@ export interface SidebarItem {
   isTag?: boolean;
   tagColor?: string;
   badge?: string;
+  path?: string;
 }
 
 export type ViewMode = 'grid' | 'list' | 'column' | 'gallery';

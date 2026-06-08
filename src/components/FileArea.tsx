@@ -26,6 +26,7 @@ interface FileAreaProps {
   onUploadSimulate: (file: { name: string; type: 'document' | 'image' }) => void;
   viewMode: ViewMode;
   currentPath: string[];
+  onUpdateMetadata?: (id: string, updates: any) => void;
 }
 
 export default function FileArea({
@@ -36,7 +37,8 @@ export default function FileArea({
   onDeleteFile,
   onUploadSimulate,
   viewMode,
-  currentPath
+  currentPath,
+  onUpdateMetadata
 }: FileAreaProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -84,6 +86,27 @@ export default function FileArea({
         type: isImg ? 'image' : 'document'
       });
     }
+  };
+
+  const cycleFolderColor = (file: FileItem) => {
+    if (!onUpdateMetadata) return;
+    const colors = ['blue', 'orange', 'green', 'purple', 'red'];
+    const currentIdx = colors.indexOf(file.folderColor || 'blue');
+    const nextColor = colors[(currentIdx + 1) % colors.length];
+    onUpdateMetadata(file.id, { folderColor: nextColor });
+  };
+
+  const toggleTag = (file: FileItem) => {
+    if (!onUpdateMetadata) return;
+    const currentTags = file.tags || [];
+    let newTags = [...currentTags];
+    
+    if (currentTags.includes('Important')) {
+      newTags = newTags.filter((t) => t !== 'Important');
+    } else {
+      newTags.push('Important');
+    }
+    onUpdateMetadata(file.id, { tags: newTags });
   };
 
   // Custom folder rendering with gradients representing the Nextcloud mock styling
@@ -202,11 +225,12 @@ export default function FileArea({
                 {file.tags && file.tags.length > 0 && (
                   <div className="absolute -top-1 -right-1 flex space-x-0.5">
                     {file.tags.map(t => {
-                      const tagColorMap: Record<string, string> = {
-                        'Screenshots': '#3b82f6',
-                        'Writing': '#a855f7',
-                        'Invoice': '#22c55e'
-                      };
+                        const tagColorMap: Record<string, string> = {
+                          'Screenshots': '#3b82f6',
+                          'Writing': '#a855f7',
+                          'Invoice': '#22c55e',
+                          'Important': '#ef4444'
+                        };
                       return (
                         <span 
                           key={t}
@@ -230,6 +254,28 @@ export default function FileArea({
                     title="Quick Look"
                   >
                     <Eye size={10} />
+                  </button>
+                  {file.type === 'folder' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cycleFolderColor(file);
+                      }}
+                      className="hover:text-amber-400 p-0.5 flex items-center"
+                      title="Cycle Color"
+                    >
+                      <Sparkles size={10} />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTag(file);
+                    }}
+                    className="hover:text-green-400 p-0.5 flex items-center"
+                    title="Toggle Important Tag"
+                  >
+                    <Check size={10} />
                   </button>
                   <button
                     onClick={(e) => {
