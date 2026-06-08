@@ -108,10 +108,10 @@ export default function App() {
         const formatted: FileItem[] = data.map((file: any) => ({
           id: file.path || file.name,
           name: file.name,
-          type: file.isDir 
-            ? 'folder' 
-            : (file.name.match(/\.(jpg|png|jpeg|gif|webp|svg)$/i) 
-              ? 'image' 
+          type: file.isDir
+            ? 'folder'
+            : (file.name.match(/\.(jpg|png|jpeg|gif|webp|svg)$/i)
+              ? 'image'
               : (file.name.match(/\.(mp4|webm|mkv|avi)$/i)
                 ? 'video'
                 : (file.name.match(/\.(txt|md|json|csv|log|js|ts|jsx|tsx|css|html)$/i) ? 'text' : 'document'))),
@@ -452,9 +452,8 @@ export default function App() {
                     }
                     setActiveTab('files');
                   }}
-                  className={`flex items-center space-x-2.5 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm transition-all text-left active:scale-95 cursor-pointer ${
-                    isActive ? 'ring-2 ring-blue-500/25 bg-blue-50/10 font-bold' : ''
-                  }`}
+                  className={`flex items-center space-x-2.5 p-3 bg-white border border-neutral-100 rounded-2xl shadow-sm transition-all text-left active:scale-95 cursor-pointer ${isActive ? 'ring-2 ring-blue-500/25 bg-blue-50/10 font-bold' : ''
+                    }`}
                 >
                   <span className={`w-3 h-3 rounded-full shadow-sm ${tag.color}`} />
                   <span className="text-xs font-bold text-neutral-700">{tag.id}</span>
@@ -468,7 +467,7 @@ export default function App() {
   };
 
   return (
-    <div 
+    <div
       className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -476,7 +475,7 @@ export default function App() {
       {isMobile && (
         <header className="h-14 bg-white border-b border-neutral-200/60 px-4 flex items-center justify-between sticky top-0 z-30 select-none shadow-sm">
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               onClick={() => setIsDrawerOpen(true)}
               className="p-1.5 rounded-xl text-neutral-600 hover:bg-neutral-100 active:scale-95 transition-all cursor-pointer"
             >
@@ -575,12 +574,12 @@ export default function App() {
               {activeTab === 'favorites' && renderFavoritesTab()}
 
               {activeTab === 'storage' && (
-                <StorageDashboard 
-                  onNavigateDrive={(drivePath) => { 
-                    setActiveTab('files'); 
-                    setShowStorage(false); 
-                    pushPath(['Root', drivePath]); 
-                  }} 
+                <StorageDashboard
+                  onNavigateDrive={(drivePath) => {
+                    setActiveTab('files');
+                    setShowStorage(false);
+                    pushPath(['Root', drivePath]);
+                  }}
                 />
               )}
             </>
@@ -634,9 +633,8 @@ export default function App() {
         <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-neutral-200/50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)] flex items-center justify-around px-4 z-40 select-none pb-safe">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
-              activeTab === 'home' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
-            }`}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'home' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+              }`}
           >
             <Home size={18} className="stroke-[2.2] mb-0.5" />
             <span className="text-[10px]">Home</span>
@@ -647,9 +645,8 @@ export default function App() {
               setActiveTab('files');
               setShowStorage(false);
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
-              activeTab === 'files' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
-            }`}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'files' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+              }`}
           >
             <Folder size={18} className="stroke-[2.2] mb-0.5" />
             <span className="text-[10px]">Files</span>
@@ -657,9 +654,8 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
-              activeTab === 'favorites' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
-            }`}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'favorites' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+              }`}
           >
             <Star size={18} className="stroke-[2.2] mb-0.5" />
             <span className="text-[10px]">Favorites</span>
@@ -667,9 +663,8 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('storage')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${
-              activeTab === 'storage' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
-            }`}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-colors cursor-pointer ${activeTab === 'storage' ? 'text-blue-600 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+              }`}
           >
             <HardDrive size={18} className="stroke-[2.2] mb-0.5" />
             <span className="text-[10px]">Drives</span>
@@ -680,7 +675,7 @@ export default function App() {
       {/* Slide-out Mobile Drawer */}
       {isMobile && isDrawerOpen && (
         <div className="fixed inset-0 z-50 flex">
-          <div 
+          <div
             className="fixed inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setIsDrawerOpen(false)}
           />
@@ -730,12 +725,11 @@ export default function App() {
 
       {/* Floating Transfers Panel */}
       {transfers.length > 0 && (
-        <div className={`fixed right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${
-          isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
-        }`}>
+        <div className={`fixed right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
+          }`}>
           <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between items-center">
             <span className="text-xs font-bold text-neutral-600">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
-            <button 
+            <button
               onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
               className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
             >
@@ -757,10 +751,9 @@ export default function App() {
                     <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">{task.progress}%</span>
                   </div>
                   <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        task.status === 'error' ? 'bg-red-500' : task.status === 'paused' ? 'bg-amber-400' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
-                      }`}
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${task.status === 'error' ? 'bg-red-500' : task.status === 'paused' ? 'bg-amber-400' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}
                       style={{ width: `${task.progress}%` }}
                     />
                   </div>

@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@google/genai": "^2.4.0",
     "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/postcss": "^4.0.0",
