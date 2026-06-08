@@ -38,9 +38,9 @@ export default async function handler(req: any, res: any) {
     // Ensure mount point exists
     await mkdir(mountPoint, { recursive: true });
 
-    // Use sudo mount — requires passwordless sudo for 'mount' in /etc/sudoers
-    // e.g.: node ALL=(ALL) NOPASSWD: /bin/mount
-    await execAsync(`sudo mount ${devPath} ${mountPoint}`);
+    // Docker containers run as root, so no sudo needed.
+    // If you get "operation not permitted", start the container with --privileged.
+    await execAsync(`mount ${devPath} ${mountPoint}`);
 
     return res.json({ ok: true, mountPoint });
   } catch (err: any) {
