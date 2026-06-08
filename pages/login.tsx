@@ -1,5 +1,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { getSession } from '../lib/auth';
+
+export async function getServerSideProps(context: any) {
+  const session = await getSession(context.req);
+  if (session) {
+    return {
+      redirect: {
+        destination: '/dashboard',
+        permanent: false,
+      },
+    };
+  }
+  return { props: {} };
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -20,7 +34,7 @@ export default function Login() {
     });
 
     if (res.ok) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } else {
       alert('Login failed');
     }
