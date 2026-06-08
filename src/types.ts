@@ -47,6 +47,27 @@ export interface TransferTask {
   id: string;
   name: string;
   progress: number; // 0 to 100
-  status: 'pending' | 'uploading' | 'completed' | 'error';
+  status: 'pending' | 'uploading' | 'paused' | 'completed' | 'error';
   type: 'upload' | 'download';
+  /** TUS upload instance for pause/resume support */
+  tusUpload?: any;
+  /** Bytes transferred so far */
+  bytesUploaded?: number;
+  /** Total bytes */
+  bytesTotal?: number;
+}
+
+export interface DriveItem {
+  label: string;
+  path: string;
+  name: string;
+  isMounted: boolean;
+  /** e.g. "120G" */
+  size?: string;
+  /** Filesystem type, e.g. "ext4" */
+  fstype?: string;
+  /** 0–100 usage percentage (populated when available) */
+  usagePercent?: number;
+  usedBytes?: string;
+  totalBytes?: string;
 }

@@ -6,17 +6,47 @@ services:
     image: abdlx/filemanager:latest
     ports:
       - "3005:3000"
-      - "445:445"
-    privileged: true                  # Required for mount syscall inside container
+    # Dropped privileged: true — replaced with minimal required capabilities
+    cap_add:
+      - SYS_ADMIN   # Required for mount/umount syscalls
+      - DAC_READ_SEARCH # Required for reading restricted paths
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - filemanager-data:/app/data
-      - ./data_mock:/app/drives:rw
-      - /dev:/dev                     # Expose host block devices (sda1, sdb1, etc.)
-      - /mnt:/mnt                     # Share host /mnt so mounts persist on host too
-      - /proc:/proc                   # Needed for lsblk to read block device info
-    restart: unless-stopped
+      - filemanager-data:/app/data     # Persistent SQLite DB volume
+      - shared-storage:/app/drives     # Shared with Samba container
+      - /dev:/dev                      # Expose host block devices
+      - /mnt:/mnt                      # Share host /mnt so mounts persist
+      - /proc:/proc                    # Needed for lsblk to read block device info
     environment:
       NODE_ENV: production
+      DATABASE_URL: /app/data/filemanager.db
+      TUS_UPLOAD_DIR: /app/data/.tus_uploads
+    restart: unless-stopped
+    depends_on:
+      - samba
+
+  samba:
+    image: dperson/samba:latest
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      - shared-storage:/mnt/shares:rw
+    environment:
+      TZ: UTC
+    # user: smbuser, password: password123, share name: Drives
+    command: >
+      -u "smbuser;password123"
+      -s "Drives;/mnt/shares;yes;no;no;smbuser;;smbuser"
+      -g "log level = 1"
+    restart: unless-stopped
 
 volumes:
   filemanager-data:
+  shared-storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data_mock

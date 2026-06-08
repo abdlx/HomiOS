@@ -8,8 +8,9 @@ import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
+import StorageDashboard from './components/StorageDashboard';
 import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
 
 export default function App() {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
@@ -24,6 +25,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('nextcloud');
+  const [showStorage, setShowStorage] = useState(false);
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
@@ -186,7 +188,6 @@ export default function App() {
   const handleUploadFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
-
     const apiPath = getApiPath();
 
     const newTransfers: TransferTask[] = fileArray.map(f => ({
@@ -196,44 +197,67 @@ export default function App() {
       status: 'uploading',
       type: 'upload'
     }));
-
     setTransfers(prev => [...prev, ...newTransfers]);
 
-    // Process uploads concurrently
-    await Promise.all(fileArray.map((file, i) => {
-      return new Promise<void>((resolve) => {
-        const taskId = newTransfers[i].id;
-        const uploadPath = `/${apiPath}/${file.name}`;
-        
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
-        
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
-            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: percentComplete } : t));
-          }
-        };
+    // Try TUS first, fall back to plain XHR
+    let tusAvailable = false;
+    try {
+      const { Upload } = await import('tus-js-client');
+      tusAvailable = true;
+      await Promise.all(fileArray.map((file, i) =>
+        new Promise<void>(resolve => {
+          const taskId = newTransfers[i].id;
+          const upload = new Upload(file, {
+            endpoint: '/api/upload',
+            retryDelays: [0, 1000, 3000, 5000],
+            chunkSize: 5 * 1024 * 1024, // 5 MB chunks
+            metadata: { filename: file.name, filetype: file.type },
+            headers: { 'x-target-path': `${apiPath}/${file.name}` },
+            onProgress(bytesUploaded, bytesTotal) {
+              const pct = Math.round((bytesUploaded / bytesTotal) * 100);
+              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: pct, bytesUploaded, bytesTotal } : t));
+            },
+            onSuccess() {
+              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: 'completed' } : t));
+              resolve();
+            },
+            onError() {
+              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
+              resolve();
+            },
+          });
+          setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, tusUpload: upload } : t));
+          upload.start();
+        })
+      ));
+    } catch {
+      // tus-js-client not installed — use plain XHR
+    }
 
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: 'completed' } : t));
-          } else {
-            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
-          }
-          resolve();
-        };
-
-        xhr.onerror = () => {
-          setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
-          resolve();
-        };
-
-        xhr.send(file);
-      });
-    }));
-
-    loadFiles(); // Refresh directory after uploads complete
+    if (!tusAvailable) {
+      await Promise.all(fileArray.map((file, i) =>
+        new Promise<void>(resolve => {
+          const taskId = newTransfers[i].id;
+          const uploadPath = `/${apiPath}/${file.name}`;
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const pct = Math.round((event.loaded / event.total) * 100);
+              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: pct } : t));
+            }
+          };
+          xhr.onload = () => {
+            const ok = xhr.status >= 200 && xhr.status < 300;
+            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: ok ? 'completed' : 'error' } : t));
+            resolve();
+          };
+          xhr.onerror = () => { setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t)); resolve(); };
+          xhr.send(file);
+        })
+      ));
+    }
+    loadFiles();
   };
 
   const handleUploadSimulate = async (payload: { name: string; type: 'document' | 'image' }) => {
@@ -305,39 +329,44 @@ export default function App() {
           selectedTag={selectedTag}
           setSelectedTag={setSelectedTag}
           onNavigateHome={handleNavigateHome}
-          onNavigateFolder={(folderName) => {
-            pushPath(['Root', folderName]);
-          }}
+          onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
+          onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
           starredFolders={starredFolders}
         />
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
-          <Toolbar
-            currentPath={currentPath}
-            onNavigateBack={handleNavigateBack}
-            onNavigateForward={handleNavigateForward}
-            canNavigateBack={historyIndex > 0}
-            canNavigateForward={historyIndex < pathHistory.length - 1}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onAddNewFile={handleAddNewFile}
-            onAddNewFolder={handleAddNewFolder}
-            sortOption={sortOption}
-            setSortOption={setSortOption}
-          />
-          <FileArea
-            files={processedFiles}
-            selectedFileId={selectedFileId}
-            setSelectedFileId={setSelectedFileId}
-            onFileDoubleClick={handleFileDoubleClick}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-            onUploadFiles={handleUploadFiles}
-            viewMode={viewMode}
-            currentPath={currentPath}
-            onUpdateMetadata={updateFileMetadata}
-          />
+          {showStorage ? (
+            <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
+          ) : (
+            <>
+              <Toolbar
+                currentPath={currentPath}
+                onNavigateBack={handleNavigateBack}
+                onNavigateForward={handleNavigateForward}
+                canNavigateBack={historyIndex > 0}
+                canNavigateForward={historyIndex < pathHistory.length - 1}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                onAddNewFile={handleAddNewFile}
+                onAddNewFolder={handleAddNewFolder}
+                sortOption={sortOption}
+                setSortOption={setSortOption}
+              />
+              <FileArea
+                files={processedFiles}
+                selectedFileId={selectedFileId}
+                setSelectedFileId={setSelectedFileId}
+                onFileDoubleClick={handleFileDoubleClick}
+                onDeleteFile={handleDeleteFile}
+                onRenameFile={handleRenameFile}
+                onUploadFiles={handleUploadFiles}
+                viewMode={viewMode}
+                currentPath={currentPath}
+                onUpdateMetadata={updateFileMetadata}
+              />
+            </>
+          )}
         </div>
       </main>
       {quickLookFile && (
@@ -355,7 +384,7 @@ export default function App() {
           <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between items-center">
             <span className="text-xs font-bold text-neutral-600">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
             <button 
-              onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading'))}
+              onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
               className="text-[10px] text-blue-600 hover:underline font-semibold"
             >
               Clear Finished
@@ -366,23 +395,46 @@ export default function App() {
               <div key={task.id} className="bg-neutral-50 border border-neutral-100 p-3 rounded-xl flex items-center space-x-3">
                 <div className="flex-shrink-0">
                   {task.status === 'uploading' && <Loader2 size={16} className="text-blue-500 animate-spin" />}
+                  {task.status === 'paused' && <PauseCircle size={16} className="text-amber-500" />}
                   {task.status === 'completed' && <CheckCircle size={16} className="text-green-500" />}
                   {task.status === 'error' && <XCircle size={16} className="text-red-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-semibold text-neutral-700 truncate block">{task.name}</span>
-                    <span className="text-[10px] text-neutral-400 ml-2">{task.progress}%</span>
+                    <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">{task.progress}%</span>
                   </div>
                   <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-300 ${
-                        task.status === 'error' ? 'bg-red-500' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
+                        task.status === 'error' ? 'bg-red-500' : task.status === 'paused' ? 'bg-amber-400' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
                       }`}
                       style={{ width: `${task.progress}%` }}
                     />
                   </div>
+                  {task.bytesTotal && (
+                    <p className="text-[9px] text-neutral-400 mt-0.5 font-mono">
+                      {((task.bytesUploaded ?? 0) / 1024 / 1024).toFixed(1)} / {(task.bytesTotal / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  )}
                 </div>
+                {/* Pause / Resume for TUS uploads */}
+                {task.tusUpload && (task.status === 'uploading' || task.status === 'paused') && (
+                  <button
+                    onClick={() => {
+                      if (task.status === 'uploading') {
+                        task.tusUpload.abort();
+                        setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'paused' } : t));
+                      } else {
+                        task.tusUpload.start();
+                        setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' } : t));
+                      }
+                    }}
+                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors"
+                  >
+                    {task.status === 'uploading' ? '⏸' : '▶'}
+                  </button>
+                )}
               </div>
             ))}
           </div>

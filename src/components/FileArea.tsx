@@ -8,16 +8,15 @@ import {
   Check, 
   Plus, 
   AlertCircle, 
-  Calendar, 
   ChevronRight, 
   Info,
-  ArrowRight,
   Sparkles,
   Star,
   Edit3,
   Download
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
+import ContextMenu from './ContextMenu';
 
 interface FileAreaProps {
   files: FileItem[];
@@ -49,6 +48,15 @@ export default function FileArea({
 
   // Gallery active slide index
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Right-click context menu
+  const [contextMenu, setContextMenu] = useState<{ file: FileItem; x: number; y: number } | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent, file: FileItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ file, x: e.clientX, y: e.clientY });
+  };
 
   // Drag and Drop simulation handlers
   const handleDragEnter = (e: React.DragEvent) => {
@@ -193,6 +201,7 @@ export default function FileArea({
                 setSelectedFileId(file.id);
               }}
               onDoubleClick={() => onFileDoubleClick(file)}
+              onContextMenu={(e) => handleContextMenu(e, file)}
               className={`group relative flex flex-col items-center text-center cursor-pointer select-none px-2 py-3 rounded-2xl transition-all duration-200 border ${
                 isSelected 
                   ? 'bg-blue-500/10 border-blue-500/15 shadow-[0_4px_12px_rgba(59,130,246,0.06)]' 
@@ -673,7 +682,24 @@ export default function FileArea({
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onClick={() => setContextMenu(null)}
     >
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <ContextMenu
+          file={contextMenu.file}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onQuickLook={(f) => onFileDoubleClick(f)}
+          onRename={(f) => {
+            const newName = prompt('Enter new name:', f.name);
+            if (newName && newName.trim() !== f.name) onRenameFile(f.id, newName.trim());
+          }}
+          onFavorite={(f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name })}
+          onDelete={onDeleteFile}
+        />
+      )}
       {/* Drag Mask */}
       {isDragging && (
         <div className="absolute inset-0 bg-blue-600/15 backdrop-blur-sm z-30 flex flex-col items-center justify-center border-4 border-dashed border-blue-500 rounded-2xl m-3 transition-all">

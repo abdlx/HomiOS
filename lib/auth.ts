@@ -23,7 +23,7 @@ export async function getSession(req: any) {
 
     // 2. DB Auth Fallback
     try {
-      const db = new Database('/app/data/filemanager.db');
+      const db = new Database(process.env.DATABASE_URL || '/app/data/filemanager.db');
       const session = db.prepare('SELECT user_id, expires_at FROM sessions WHERE id = ?').get(sessionId) as {user_id: number, expires_at: string} | undefined;
       
       if (!session) return null;

@@ -10,6 +10,7 @@ interface SidebarProps {
   setSelectedTag: (tag: string | null) => void;
   onNavigateHome: () => void;
   onNavigateFolder?: (folderName: string) => void;
+  onNavigateStorage?: () => void;
   starredFolders?: SidebarItem[];
 }
 
@@ -20,6 +21,7 @@ export default function Sidebar({
   setSelectedTag,
   onNavigateHome,
   onNavigateFolder,
+  onNavigateStorage,
   starredFolders = [],
 }: SidebarProps) {
   const [realFolders, setRealFolders] = useState<SidebarItem[]>([
@@ -110,8 +112,8 @@ export default function Sidebar({
         {/* Scrollable Nav Area */}
         <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] scrollbar-thin">
           
-          {/* Root Item - Always on top with no heading */}
-          <div className="mb-4">
+          {/* Root Item */}
+          <div className="mb-1">
             <button
               onClick={() => handleItemClick(rootFolder)}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
@@ -122,6 +124,21 @@ export default function Sidebar({
             >
               {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 16)}
               <span className="truncate flex-1">{rootFolder.label}</span>
+            </button>
+          </div>
+
+          {/* Storage Dashboard shortcut */}
+          <div className="mb-4">
+            <button
+              onClick={() => { setActiveSection('storage'); onNavigateStorage?.(); }}
+              className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
+                ${activeSection === 'storage'
+                  ? 'bg-blue-600/10 text-blue-600 font-bold'
+                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                }`}
+            >
+              {renderIcon('Database', activeSection === 'storage' ? '#2563eb' : undefined, 16)}
+              <span className="truncate flex-1">Storage</span>
             </button>
           </div>
 
