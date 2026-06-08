@@ -240,6 +240,40 @@ export default function Sidebar({
               )}
             </div>
           </div>
+
+          {/* Tags Header */}
+          <div className="mt-4">
+            <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+              Tags
+            </span>
+            <div className="space-y-0.5">
+              {[
+                { id: 'Red', color: 'bg-red-500' },
+                { id: 'Orange', color: 'bg-orange-500' },
+                { id: 'Yellow', color: 'bg-yellow-500' },
+                { id: 'Green', color: 'bg-green-500' },
+                { id: 'Blue', color: 'bg-blue-500' },
+                { id: 'Purple', color: 'bg-purple-500' },
+                { id: 'Gray', color: 'bg-gray-500' },
+              ].map((tag) => {
+                const isActive = selectedTag === tag.id;
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => handleItemClick({ id: tag.id, label: tag.id, icon: 'Circle', isTag: true } as any)}
+                    className={`w-full flex items-center space-x-2.5 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
+                      ${isActive 
+                        ? 'bg-neutral-200/60 text-gray-900 font-bold' 
+                        : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                      }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0 ${tag.color}`} />
+                    <span className="truncate flex-1">{tag.id}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
