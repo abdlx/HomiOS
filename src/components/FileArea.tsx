@@ -640,13 +640,7 @@ export default function FileArea({
       {viewMode === 'column' && renderColumn()}
       {viewMode === 'gallery' && renderGallery()}
 
-      {/* Dynamic instructional footer note */}
-      <div className="absolute bottom-4 right-4 flex items-center space-x-2 bg-neutral-50 px-3 py-1.5 border border-neutral-200 rounded-xl max-w-[280px] shadow-sm pointer-events-none z-20">
-        <Info size={13} className="text-neutral-400" />
-        <span className="text-[10px] text-neutral-500 leading-tight">
-          Drag-and-drop to upload files!
-        </span>
-      </div>
+
 
     </div>
   );
