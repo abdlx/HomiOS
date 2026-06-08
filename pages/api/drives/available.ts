@@ -24,19 +24,37 @@ export default async function handler(req: any, res: any) {
 
   if (os.platform() === 'linux') {
     try {
-      const { stdout } = await execAsync('df -hP | grep "^/dev/"');
-      const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
-      const drives = lines.map((line) => {
-        const parts = line.split(/\s+/);
-        const mountPoint = parts[5];
-        const label = mountPoint === '/' ? 'Rootfs' : mountPoint.split('/').pop() || mountPoint;
-        return { label, path: mountPoint };
-      });
-      // Ensure unique paths just in case
-      const uniqueDrives = Array.from(new Map(drives.map((d) => [d.path, d])).values());
-      return res.json(uniqueDrives);
+      // Use lsblk to get ALL connected drives (mounted and unmounted)
+      const { stdout } = await execAsync('lsblk -J -o NAME,MOUNTPOINT,TYPE,SIZE');
+      const parsed = JSON.parse(stdout);
+      
+      const extractDrives = (devices: any[]): any[] => {
+        const result: any[] = [];
+        for (const dev of devices) {
+          if (dev.children && dev.children.length > 0) {
+            result.push(...extractDrives(dev.children));
+          } else {
+            // Leaf node (partition or standalone disk)
+            // Skip loop devices (snaps, etc)
+            if (dev.type === 'loop') continue;
+            
+            const isMounted = !!dev.mountpoint;
+            const label = isMounted ? (dev.mountpoint === '/' ? 'Rootfs' : dev.mountpoint.split('/').pop()) : dev.name;
+            
+            result.push({
+              label: `${label} (${dev.size})`,
+              path: dev.mountpoint || '',
+              isMounted
+            });
+          }
+        }
+        return result;
+      };
+
+      const drives = extractDrives(parsed.blockdevices || []);
+      return res.json(drives);
     } catch (e) {
-      console.error('Failed to get Linux drives:', e);
+      console.error('Failed to get Linux drives via lsblk:', e);
     }
   }
 

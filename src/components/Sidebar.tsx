@@ -31,9 +31,10 @@ export default function Sidebar({
         if (data && data.length > 0) {
           const drives = data.map((d: any) => ({
             id: d.path || d.label,
-            label: d.label,
+            label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
             icon: 'HardDrive',
-            path: d.path
+            path: d.path,
+            isMounted: d.isMounted !== false // default to true if undefined
           }));
           setRealFolders(drives);
         }
@@ -57,6 +58,28 @@ export default function Sidebar({
         setActiveSection('root'); // Keep Root area open when filtering
       }
     } else {
+      if ((item as any).isMounted === false) {
+        const confirmMount = window.confirm(`This drive is unmounted. Would you like OpenFinder to try and automatically mount it to /mnt/${item.label.split(' ')[0]}? \n\nNote: This requires the app to be running as root (or a --privileged Docker container).`);
+        if (confirmMount) {
+          const deviceName = item.label.split(' ')[0]; // e.g. "sda1"
+          fetch('/api/drives/mount', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device: deviceName })
+          })
+          .then(async (res) => {
+            const result = await res.json();
+            if (result.ok) {
+              alert('Successfully mounted!');
+              window.location.reload(); // Quickest way to refresh sidebar drives
+            } else {
+              alert(`Failed to mount: ${result.error}`);
+            }
+          })
+          .catch(err => alert('Error executing mount request'));
+        }
+        return;
+      }
       setSelectedTag(null);
       setActiveSection(item.id);
       if (item.id === 'root' || item.id === 'nextcloud') {
