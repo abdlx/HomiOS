@@ -47,7 +47,7 @@ echo ""
 log "Installing system dependencies..."
 apt-get update -qq
 apt-get install -y \
-  curl git nginx samba ntfs-3g \
+  curl git nginx samba ntfs-3g exfatprogs \
   util-linux sqlite3 build-essential \
   > /dev/null 2>&1
 
