@@ -24,7 +24,9 @@ COPY . .
 RUN npm run build
 
 # Create data directory
-RUN mkdir -p /app/data /app/drives && \
+RUN mkdir -p /app/data /app/drives /var/log/supervisor /var/log/samba && \
+    touch /var/log/node.log && \
+    chown node:node /var/log/node.log && \
     chown -R node:node /app
 
 # Copy supervisor config (manages smbd + node together)
