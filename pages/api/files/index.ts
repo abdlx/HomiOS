@@ -33,12 +33,25 @@ export default async function handler(req: any, res: any) {
         const detailed = await Promise.all(
           files.map(async (f) => {
             const fullPath_ = path.join(fullPath, f.name);
-            const s = await stat(fullPath_);
+            let size = 0;
+            let modified = new Date().toISOString();
+            let isDir = f.isDirectory();
+            
+            try {
+              const s = await stat(fullPath_);
+              size = s.size;
+              modified = s.mtime.toISOString();
+              isDir = s.isDirectory();
+            } catch (statErr) {
+              // Ignore stat errors (like broken symlinks or permission denied)
+              // and just use the basic info from readdir
+            }
+
             return {
               name: f.name,
-              isDir: f.isDirectory(),
-              size: s.size,
-              modified: s.mtime.toISOString(),
+              isDir,
+              size,
+              modified,
               path: path.relative(BASE_PATH, fullPath_)
             };
           })
