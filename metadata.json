@@ -1,0 +1,6 @@
+{
+  "name": "Nextcloud File Manager",
+  "description": "A responsive file explorer with fluid macOS style controls, customizable background themes, grid/list/column/gallery view toggles, full Quick Look previews, searching filters, and drag-and-drop uploads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
