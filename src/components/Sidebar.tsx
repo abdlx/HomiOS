@@ -27,6 +27,7 @@ export default function Sidebar({
   const [realFolders, setRealFolders] = useState<SidebarItem[]>([
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
   ]);
+  const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
 
   useEffect(() => {
     fetch('/api/drives/available')
@@ -45,6 +46,15 @@ export default function Sidebar({
         }
       })
       .catch((err) => console.error('Failed to load drives:', err));
+
+    fetch('/api/system/shortcuts')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          setShortcuts(data);
+        }
+      })
+      .catch((err) => console.error('Failed to load shortcuts:', err));
   }, []);
 
   // Custom helper to dynamically render Lucide icons Safely
@@ -126,6 +136,29 @@ export default function Sidebar({
               <span className="truncate flex-1">{rootFolder.label}</span>
             </button>
           </div>
+
+          {/* System Shortcuts */}
+          {shortcuts.length > 0 && (
+            <div className="mb-4 space-y-0.5">
+              {shortcuts.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium pl-6
+                      ${isActive 
+                        ? 'bg-blue-600/10 text-blue-600 font-semibold' 
+                        : 'text-gray-500 hover:bg-neutral-200/50 hover:text-gray-900'
+                      }`}
+                  >
+                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
+                    <span className="truncate flex-1">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Storage Dashboard shortcut */}
           <div className="mb-4">
