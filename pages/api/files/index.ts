@@ -2,7 +2,7 @@ import { readdir, stat, writeFile, unlink, rename as fsRename } from 'fs/promise
 import path from 'path';
 import { getSession } from '../../../lib/auth';
 
-const BASE_PATH = '/app/drives';
+const BASE_PATH = process.env.NODE_ENV === 'production' ? '/' : path.join(process.cwd(), 'data_mock');
 
 function securePath(p: string) {
   const resolved = path.resolve(BASE_PATH, p.replace(/^\/+/, ''));
