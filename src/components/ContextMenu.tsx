@@ -17,12 +17,13 @@ interface ContextMenuProps {
   onCopy?: (file: FileItem) => void;
   onCut?: (file: FileItem) => void;
   onPaste?: () => void;
+  onTag?: (file: FileItem, tag: string) => void;
 }
 
 export default function ContextMenu({
   file, x, y, clipboardState, onClose,
   onQuickLook, onRename, onFavorite, onDelete,
-  onCreateFile, onCreateFolder, onCopy, onCut, onPaste
+  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&raw=true` : '';
@@ -76,6 +77,21 @@ export default function ContextMenu({
     >
       {file ? (
         <>
+          <div className="flex justify-between px-2 py-2 border-b border-white/10 mb-1">
+            {['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Gray'].map(t => {
+              const tagColors: Record<string, string> = { Red: '#ef4444', Orange: '#f97316', Yellow: '#eab308', Green: '#22c55e', Blue: '#3b82f6', Purple: '#a855f7', Gray: '#6b7280' };
+              const isTagged = file.tags?.includes(t);
+              return (
+                <button
+                  key={t}
+                  onClick={(e) => { e.stopPropagation(); onTag?.(file, t); onClose(); }}
+                  className={`w-3.5 h-3.5 rounded-full border shadow-sm transition-transform hover:scale-125 ${isTagged ? 'border-white ring-2 ring-white/40' : 'border-black/20'}`}
+                  style={{ backgroundColor: tagColors[t] }}
+                  title={t}
+                />
+              );
+            })}
+          </div>
           <Item icon={<Eye size={13} />} label="Quick Look" onClick={() => onQuickLook?.(file)} />
           {file?.type === 'folder' && (
             <Item icon={<Star size={13} />} label={file.isFavorite ? 'Unstar Folder' : 'Star Folder'} onClick={() => onFavorite?.(file)} />

@@ -272,7 +272,14 @@ export default function FileArea({
                           'Screenshots': '#3b82f6',
                           'Writing': '#a855f7',
                           'Invoice': '#22c55e',
-                          'Important': '#ef4444'
+                          'Important': '#ef4444',
+                          'Red': '#ef4444',
+                          'Orange': '#f97316',
+                          'Yellow': '#eab308',
+                          'Green': '#22c55e',
+                          'Blue': '#3b82f6',
+                          'Purple': '#a855f7',
+                          'Gray': '#6b7280'
                         };
                       return (
                         <span 
@@ -368,11 +375,14 @@ export default function FileArea({
                   <td className="py-2.5 px-3 text-neutral-500">{file.updatedAt || 'Recent'}</td>
                   <td className="py-2.5 px-3">
                     <div className="flex space-x-1.5">
-                      {file.tags?.map(t => (
-                        <span key={t} className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-medium border border-neutral-200/40">
-                          {t}
-                        </span>
-                      )) || <span className="text-neutral-300">-</span>}
+                      {file.tags?.map(t => {
+                        const bgMap: Record<string, string> = { Red: 'bg-red-100 text-red-600', Orange: 'bg-orange-100 text-orange-600', Yellow: 'bg-yellow-100 text-yellow-600', Green: 'bg-green-100 text-green-600', Blue: 'bg-blue-100 text-blue-600', Purple: 'bg-purple-100 text-purple-600', Gray: 'bg-gray-100 text-gray-600' };
+                        return (
+                          <span key={t} className={`text-[9px] px-1.5 py-0.5 rounded font-bold border border-neutral-200/40 ${bgMap[t] || 'bg-neutral-100 text-neutral-600'}`}>
+                            {t}
+                          </span>
+                        );
+                      }) || <span className="text-neutral-300">-</span>}
                     </div>
                   </td>
                   <td className="py-2.5 px-4 text-right">
@@ -642,6 +652,16 @@ export default function FileArea({
             const name = prompt('Enter folder name:');
             if (name && name.trim()) onAddNewFolder?.(name.trim());
           }}
+          onTag={contextMenu.file ? (f, tag) => {
+            const currentTags = f.tags || [];
+            let newTags = [...currentTags];
+            if (newTags.includes(tag)) {
+              newTags = newTags.filter(t => t !== tag);
+            } else {
+              newTags.push(tag);
+            }
+            onUpdateMetadata?.(f.id, { tags: newTags });
+          } : undefined}
           onCopy={contextMenu.file ? (f) => setClipboard?.({ action: 'copy', file: f }) : undefined}
           onCut={contextMenu.file ? (f) => setClipboard?.({ action: 'cut', file: f }) : undefined}
           onPaste={() => {
