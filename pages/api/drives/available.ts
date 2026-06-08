@@ -3,7 +3,7 @@ import path from 'path';
 
 export default async function handler(req: any, res: any) {
   const isDev = process.env.NODE_ENV !== 'production';
-  const drivesPath = isDev ? path.join(process.cwd(), 'data_mock') : '/';
+  const drivesPath = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 
   try {
     const drives = await readdir(drivesPath, { withFileTypes: true });
