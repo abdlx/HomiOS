@@ -321,8 +321,8 @@ export default function App() {
     }));
 
   return (
-    <div className="h-screen w-full flex flex-col select-none overflow-hidden bg-white">
-      <main className="flex-1 w-full flex overflow-hidden bg-white">
+    <div className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50">
+      <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
         <Sidebar
           activeSection={activeSection}
           setActiveSection={setActiveSection}
@@ -333,7 +333,7 @@ export default function App() {
           onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
           starredFolders={starredFolders}
         />
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
           {showStorage ? (
             <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
           ) : (

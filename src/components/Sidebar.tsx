@@ -115,7 +115,7 @@ export default function Sidebar({
   const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
 
   return (
-    <div className="relative w-[240px] md:w-[250px] bg-gray-100 m-3 rounded-[32px] p-4 pt-5 flex flex-col select-none justify-between">
+    <div className="relative w-[240px] md:w-[250px] bg-white border border-neutral-200/50 shadow-sm m-3 rounded-[32px] p-4 pt-5 flex flex-col select-none justify-between">
       
       {/* Top Part: Title with macOS controls */}
       <div className="flex flex-col">

@@ -599,7 +599,7 @@ export default function FileArea({
 
   return (
     <div 
-      className="flex-1 bg-white p-4 md:p-5 overflow-y-auto relative outline-none select-none"
+      className="flex-1 bg-transparent p-4 md:p-5 overflow-y-auto relative outline-none select-none"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

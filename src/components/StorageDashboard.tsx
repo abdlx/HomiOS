@@ -58,7 +58,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
   };
 
   return (
-    <div className="flex-1 bg-white p-8 overflow-y-auto">
+    <div className="flex-1 bg-transparent p-8 overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
