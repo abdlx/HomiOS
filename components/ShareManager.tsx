@@ -86,7 +86,7 @@ export default function ShareManager() {
 
 function CreateShareModal({ onClose, onCreate }: { onClose: () => void, onCreate: () => void }) {
   const [name, setName] = useState('');
-  const [path, setPath] = useState('/app/drives');
+  const [path, setPath] = useState('/mnt');
   const [readOnly, setReadOnly] = useState(false);
   const [loading, setLoading] = useState(false);
 

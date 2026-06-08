@@ -1,19 +1,18 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { getSession, isAppInitialized } from '../lib/auth';
+
+export async function getServerSideProps(context: any) {
+  if (!isAppInitialized()) {
+    return { redirect: { destination: '/setup/admin', permanent: false } };
+  }
+  
+  const session = await getSession(context.req);
+  if (session) {
+    return { redirect: { destination: '/dashboard', permanent: false } };
+  }
+  
+  return { redirect: { destination: '/login', permanent: false } };
+}
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Basic redirect for root entry
-    // A robust implementation would use Next.js middleware
-    // Here we just redirect to the dashboard which will enforce login
-    router.push('/dashboard');
-  }, [router]);
-
-  return (
-    <div className="h-screen flex items-center justify-center bg-slate-900">
-      <div className="animate-pulse text-blue-500">Loading OpenFinder...</div>
-    </div>
-  );
+  return null;
 }

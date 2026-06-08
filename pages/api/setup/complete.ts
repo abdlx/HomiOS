@@ -5,7 +5,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { drives } = req.body;
-    const db = new Database('/app/data/filemanager.db');
+    const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
     
     // In a real app we'd map these to the admin user
     // For now we just mark setup complete in initialized table if needed

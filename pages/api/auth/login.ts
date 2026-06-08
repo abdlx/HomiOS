@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
 
     // 2. DB Auth Fallback
     try {
-      const db = new Database('/app/data/filemanager.db');
+      const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
       const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
       if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 

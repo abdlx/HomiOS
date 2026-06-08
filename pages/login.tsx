@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { getSession } from '../lib/auth';
+import { getSession, isAppInitialized } from '../lib/auth';
 
 export async function getServerSideProps(context: any) {
+  if (!isAppInitialized()) {
+    return { redirect: { destination: '/setup/admin', permanent: false } };
+  }
+
   const session = await getSession(context.req);
   if (session) {
     return {

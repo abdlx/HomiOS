@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).end();
 
-  const db = new Database('/app/data/filemanager.db');
+  const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
 
   try {
     if (req.method === 'GET') {
@@ -19,7 +19,7 @@ export default async function handler(req: any, res: any) {
       const { name, path, readOnly } = req.body;
 
       if (!name || !path) return res.status(400).json({ error: 'Missing fields' });
-      if (!path.startsWith('/app/drives')) {
+      if (!path.startsWith('/mnt')) {
         return res.status(400).json({ error: 'Invalid path' });
       }
 

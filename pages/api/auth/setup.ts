@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const db = new Database('/app/data/filemanager.db');
+    const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
     const { email, password } = req.body;
 
     // Create tables if they don't exist
