@@ -32,13 +32,13 @@ export async function getSession(req: any) {
 export function isAppInitialized(): boolean {
   try {
     const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
-    // Check if the initialized table exists
-    const stmt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='initialized'");
+    // Check if the users table exists
+    const stmt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
     if (!stmt.get()) return false;
 
-    // Check if setup is marked complete
-    const result = db.prepare('SELECT 1 FROM initialized WHERE key = ?').get('setup_complete');
-    return !!result;
+    // Check if there is at least one user registered
+    const result = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number } | undefined;
+    return (result?.count ?? 0) > 0;
   } catch (err) {
     return false;
   }
