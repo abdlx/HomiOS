@@ -243,50 +243,52 @@ export default function FileArea({
                   </div>
                 )}
 
-                {/* Micro Actions Overlay */}
-                <div className="absolute invisible group-hover:visible flex items-center space-x-1.5 -bottom-2 bg-[#1c1c1e] text-white px-2 py-0.5 rounded-full z-10 shadow-lg text-[10px] transform transition-all animate-in fade-in duration-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onFileDoubleClick(file);
-                    }}
-                    className="hover:text-blue-400 p-0.5 flex items-center"
-                    title="Quick Look"
-                  >
-                    <Eye size={10} />
-                  </button>
-                  {file.type === 'folder' && (
+                {/* Micro Actions Overlay (Premium Glassmorphic Island) */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-20">
+                  <div className="flex items-center gap-0.5 bg-white/70 backdrop-blur-md border border-white/60 text-neutral-600 p-1 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform scale-90 group-hover:scale-100 transition-all duration-300 ease-out">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        cycleFolderColor(file);
+                        onFileDoubleClick(file);
                       }}
-                      className="hover:text-amber-400 p-0.5 flex items-center"
-                      title="Cycle Color"
+                      className="hover:bg-white hover:text-blue-600 hover:shadow-sm p-1.5 rounded-xl transition-all"
+                      title="Quick Look"
                     >
-                      <Sparkles size={10} />
+                      <Eye size={14} />
                     </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleTag(file);
-                    }}
-                    className="hover:text-green-400 p-0.5 flex items-center"
-                    title="Toggle Important Tag"
-                  >
-                    <Check size={10} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteFile(file.id);
-                    }}
-                    className="hover:text-red-400 p-0.5 flex items-center"
-                    title="Delete"
-                  >
-                    <Trash2 size={10} />
-                  </button>
+                    {file.type === 'folder' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleFolderColor(file);
+                        }}
+                        className="hover:bg-white hover:text-amber-500 hover:shadow-sm p-1.5 rounded-xl transition-all"
+                        title="Cycle Color"
+                      >
+                        <Sparkles size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTag(file);
+                      }}
+                      className="hover:bg-white hover:text-green-500 hover:shadow-sm p-1.5 rounded-xl transition-all"
+                      title="Toggle Important Tag"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteFile(file.id);
+                      }}
+                      className="hover:bg-white hover:text-red-500 hover:shadow-sm p-1.5 rounded-xl transition-all"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
