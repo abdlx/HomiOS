@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { SidebarItem } from '../types';
-import { SIDEBAR_ITEMS } from '../data';
+import { SIDEBAR_ITEMS as STATIC_ITEMS } from '../data';
 
 interface SidebarProps {
   activeSection: string;
@@ -9,6 +9,7 @@ interface SidebarProps {
   selectedTag: string | null;
   setSelectedTag: (tag: string | null) => void;
   onNavigateHome: () => void;
+  onNavigateFolder?: (folderName: string) => void;
 }
 
 export default function Sidebar({
@@ -17,7 +18,24 @@ export default function Sidebar({
   selectedTag,
   setSelectedTag,
   onNavigateHome,
+  onNavigateFolder,
 }: SidebarProps) {
+  const [realFolders, setRealFolders] = useState<SidebarItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/drives/available')
+      .then(res => res.json())
+      .then(data => {
+        const folders: SidebarItem[] = data.map((d: any) => ({
+          id: d.label.toLowerCase(),
+          label: d.label,
+          icon: 'Folder',
+          isFavorite: true
+        }));
+        setRealFolders(folders);
+      })
+      .catch(console.error);
+  }, []);
   
   // Custom helper to dynamically render Lucide icons Safely
   const renderIcon = (iconName: string, color?: string, size = 16) => {
@@ -39,6 +57,8 @@ export default function Sidebar({
       setActiveSection(item.id);
       if (item.id === 'nextcloud') {
         onNavigateHome();
+      } else if (onNavigateFolder) {
+        onNavigateFolder(item.label);
       }
     }
   };
@@ -58,43 +78,18 @@ export default function Sidebar({
         {/* Scrollable Nav Area */}
         <div className="overflow-y-auto pr-1 space-y-4 max-h-[calc(100vh-280px)] scrollbar-thin">
           
-          {/* Top Unlabeled Items */}
-          <div className="space-y-0.5">
-            {SIDEBAR_ITEMS.filter(item => !item.isFavorite && !item.isTag).map((item) => {
-              const isActive = activeSection === item.id && !selectedTag;
-              return (
-                <button
-                  key={item.id}
-                  id={`sidebar-item-${item.id}`}
-                  onClick={() => handleItemClick(item)}
-                  className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
-                    ${isActive 
-                      ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                      : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
-                    }`}
-                >
-                  {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Favorites Header */}
+          {/* Folders Header */}
           <div>
             <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
-              Favorites
+              Drives & Folders
             </span>
             <div className="space-y-0.5">
-              {SIDEBAR_ITEMS.filter(item => item.isFavorite).map((item) => {
-                const isNextcloudActive = item.id === 'nextcloud' && activeSection === 'nextcloud' && !selectedTag;
-                const isGenericActive = activeSection === item.id && !selectedTag;
-                const isActive = item.id === 'nextcloud' ? isNextcloudActive : isGenericActive;
+              {realFolders.map((item) => {
+                const isActive = activeSection === item.id;
 
                 return (
                   <button
                     key={item.id}
-                    id={`sidebar-item-${item.id}`}
                     onClick={() => handleItemClick(item)}
                     className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                       ${isActive 
@@ -102,57 +97,17 @@ export default function Sidebar({
                         : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
                       }`}
                   >
-                    {renderIcon(item.id === 'nextcloud' ? 'FolderSync' : item.icon, isActive ? '#2563eb' : undefined, 14)}
+                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
                     <span className="truncate flex-1">{item.label}</span>
-                    {item.badge && (
-                      <span className="text-[9px] bg-neutral-300/60 text-neutral-600 font-bold rounded px-1.5 py-0.5">{item.badge}</span>
-                    )}
                   </button>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Tags Header */}
-          <div>
-            <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-[9px] font-bold text-gray-400 tracking-wider uppercase block">
-                Tags
-              </span>
-              {selectedTag && (
-                <button 
-                  onClick={() => setSelectedTag(null)}
-                  className="text-[9px] text-blue-500 hover:underline cursor-pointer"
-                >
-                  Clear
-                </button>
+              
+              {realFolders.length === 0 && (
+                <div className="px-2 py-2 text-xs text-gray-400 italic">No folders found</div>
               )}
             </div>
-            <div className="space-y-0.5">
-              {SIDEBAR_ITEMS.filter(item => item.isTag).map((item) => {
-                const isActive = selectedTag === item.label;
-                return (
-                  <button
-                    key={item.id}
-                    id={`sidebar-item-tag-${item.id}`}
-                    onClick={() => handleItemClick(item)}
-                    className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-all font-medium
-                      ${isActive 
-                        ? 'bg-blue-600/15 text-blue-900 font-semibold' 
-                        : 'text-gray-600 hover:bg-neutral-200/50'
-                      }`}
-                  >
-                    <span 
-                      className="w-2 h-2 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: item.tagColor }}
-                    />
-                    <span className="truncate flex-1 text-xs">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
-
         </div>
       </div>
 

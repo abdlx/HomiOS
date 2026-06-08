@@ -162,6 +162,10 @@ export default function App() {
           selectedTag={selectedTag}
           setSelectedTag={setSelectedTag}
           onNavigateHome={handleNavigateHome}
+          onNavigateFolder={(folderName) => {
+            setCurrentPath(['Home', folderName]);
+            setSelectedFileId(null);
+          }}
         />
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
           <Toolbar
