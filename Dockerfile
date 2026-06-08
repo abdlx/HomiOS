@@ -1,11 +1,13 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
-# Install Samba + required tools + native build tools
-RUN apk add --no-cache samba samba-client supervisor bash curl python3 make g++
+# Install Samba + required tools
+RUN apt-get update && \
+    apt-get install -y samba smbclient supervisor bash curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create smbuser for share access
-RUN addgroup smbuser && \
-    adduser -G smbuser -s /sbin/nologin -D smbuser && \
+RUN groupadd smbuser && \
+    useradd -g smbuser -s /usr/sbin/nologin -d /dev/null smbuser && \
     echo "smbuser:password123" | chpasswd && \
     (echo "password123"; echo "password123") | smbpasswd -a -s smbuser
 
