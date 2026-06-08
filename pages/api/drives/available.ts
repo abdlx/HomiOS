@@ -24,29 +24,45 @@ export default async function handler(req: any, res: any) {
 
   if (os.platform() === 'linux') {
     try {
-      // Use lsblk to get ALL connected drives (mounted and unmounted)
-      const { stdout } = await execAsync('lsblk -J -o NAME,MOUNTPOINT,TYPE,SIZE');
+      // Use lsblk with MOUNTPOINTS (plural) which works on both old and new kernels
+      const { stdout } = await execAsync('lsblk -J -o NAME,MOUNTPOINTS,TYPE,SIZE,FSTYPE');
       const parsed = JSON.parse(stdout);
-      
+
       const extractDrives = (devices: any[]): any[] => {
         const result: any[] = [];
         for (const dev of devices) {
           if (dev.children && dev.children.length > 0) {
             result.push(...extractDrives(dev.children));
-          } else {
-            // Leaf node (partition or standalone disk)
-            // Skip loop devices (snaps, etc)
-            if (dev.type === 'loop') continue;
-            
-            const isMounted = !!dev.mountpoint;
-            const label = isMounted ? (dev.mountpoint === '/' ? 'Rootfs' : dev.mountpoint.split('/').pop()) : dev.name;
-            
-            result.push({
-              label: `${label} (${dev.size})`,
-              path: dev.mountpoint || '',
-              isMounted
-            });
+            continue;
           }
+
+          // Skip loop devices (snap packages) and swap partitions
+          if (dev.type === 'loop' || dev.fstype === 'swap') continue;
+          // Skip small partitions like EFI (< 2G) — show them but mark clearly
+          
+          // Handle both: mountpoints (array, newer kernels) and mountpoint (string, older)
+          const mountpointsRaw: (string | null)[] = dev.mountpoints || (dev.mountpoint ? [dev.mountpoint] : []);
+          const validMounts = mountpointsRaw.filter((m: string | null) => m && m !== '[SWAP]');
+          const mountPoint = validMounts[0] || null;
+
+          const isMounted = !!mountPoint;
+
+          let label: string;
+          if (!isMounted) {
+            label = dev.name; // e.g. "sda1"
+          } else if (mountPoint === '/') {
+            label = 'Rootfs';
+          } else {
+            // e.g. /boot/efi → "efi", /mnt/data → "data"
+            label = mountPoint!.split('/').filter(Boolean).pop() || mountPoint!;
+          }
+
+          result.push({
+            label: `${label} (${dev.size})`,
+            path: mountPoint || '',
+            name: dev.name,
+            isMounted,
+          });
         }
         return result;
       };
@@ -55,6 +71,7 @@ export default async function handler(req: any, res: any) {
       return res.json(drives);
     } catch (e) {
       console.error('Failed to get Linux drives via lsblk:', e);
+      // If lsblk fails entirely, fall through to the readdir fallback below
     }
   }
 

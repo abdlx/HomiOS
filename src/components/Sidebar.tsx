@@ -34,7 +34,8 @@ export default function Sidebar({
             label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
             icon: 'HardDrive',
             path: d.path,
-            isMounted: d.isMounted !== false // default to true if undefined
+            name: d.name, // raw device name e.g. "sda1"
+            isMounted: d.isMounted !== false
           }));
           setRealFolders(drives);
         }
@@ -59,9 +60,9 @@ export default function Sidebar({
       }
     } else {
       if ((item as any).isMounted === false) {
-        const confirmMount = window.confirm(`This drive is unmounted. Would you like OpenFinder to try and automatically mount it to /mnt/${item.label.split(' ')[0]}? \n\nNote: This requires the app to be running as root (or a --privileged Docker container).`);
+        const deviceName = (item as any).name || item.label.split(' ')[0];
+        const confirmMount = window.confirm(`"${item.label}" is not mounted.\n\nMount /dev/${deviceName} → /mnt/${deviceName}?\n\n(Requires sudo or root privileges)`);
         if (confirmMount) {
-          const deviceName = item.label.split(' ')[0]; // e.g. "sda1"
           fetch('/api/drives/mount', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -70,13 +71,13 @@ export default function Sidebar({
           .then(async (res) => {
             const result = await res.json();
             if (result.ok) {
-              alert('Successfully mounted!');
-              window.location.reload(); // Quickest way to refresh sidebar drives
+              alert(`✅ Mounted successfully at ${result.mountPoint}`);
+              window.location.reload();
             } else {
-              alert(`Failed to mount: ${result.error}`);
+              alert(`❌ Mount failed:\n\n${result.error}`);
             }
           })
-          .catch(err => alert('Error executing mount request'));
+          .catch(() => alert('Error connecting to mount API'));
         }
         return;
       }

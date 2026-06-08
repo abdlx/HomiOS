@@ -30,7 +30,7 @@ export default async function handler(req: any, res: any) {
   if (!device) return res.status(400).json({ error: 'Device name is required' });
 
   try {
-    // Basic sanitization
+    // Basic sanitization — allow only alphanumeric, dash, underscore
     const safeDevice = device.replace(/[^a-zA-Z0-9_-]/g, '');
     const mountPoint = `/mnt/${safeDevice}`;
     const devPath = `/dev/${safeDevice}`;
@@ -38,12 +38,20 @@ export default async function handler(req: any, res: any) {
     // Ensure mount point exists
     await mkdir(mountPoint, { recursive: true });
 
-    // Execute mount command
-    await execAsync(`mount ${devPath} ${mountPoint}`);
+    // Use sudo mount — requires passwordless sudo for 'mount' in /etc/sudoers
+    // e.g.: node ALL=(ALL) NOPASSWD: /bin/mount
+    await execAsync(`sudo mount ${devPath} ${mountPoint}`);
 
     return res.json({ ok: true, mountPoint });
   } catch (err: any) {
+    const msg = err.stderr || err.message || 'Failed to mount drive';
+    // Give a more user-friendly error
+    if (msg.includes('permission denied') || msg.includes('not permitted')) {
+      return res.status(500).json({
+        error: 'Permission denied. Ensure the app runs as root or add sudoers rule: node ALL=(ALL) NOPASSWD: /bin/mount'
+      });
+    }
     console.error(`Failed to mount ${device}:`, err);
-    return res.status(500).json({ error: err.message || 'Failed to mount drive' });
+    return res.status(500).json({ error: msg });
   }
 }
