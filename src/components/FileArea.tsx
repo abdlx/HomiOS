@@ -13,7 +13,12 @@ import {
   Sparkles,
   Star,
   Edit3,
-  Download
+  Download,
+  Video,
+  Archive,
+  Code,
+  Music,
+  File
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
@@ -150,22 +155,28 @@ export default function FileArea({
     );
   };
 
-  // Lined document representation
-  const renderDocumentIcon = (size: 'sm' | 'md' | 'lg' = 'md') => {
-    const boxClass = size === 'sm' ? 'w-7 h-8 p-0.5 border' : size === 'lg' ? 'w-20 h-24 p-3 border-2' : 'w-14 h-16 p-1.5 border-2';
+  // Dynamic file type representation
+  const renderFileIcon = (file: FileItem, size: 'sm' | 'md' | 'lg' = 'md') => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const boxClass = size === 'sm' ? 'w-7 h-8 p-0.5 border' : size === 'lg' ? 'w-20 h-24 p-2 border-2' : 'w-14 h-16 p-1 border-2';
+    
+    let Icon = FileText;
+    let color = 'text-neutral-400';
+    let label = ext.substring(0, 3).toUpperCase() || 'DOC';
+
+    if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) { Icon = Video; color = 'text-purple-500'; label = 'VID'; }
+    else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) { Icon = Archive; color = 'text-amber-600'; label = 'ZIP'; }
+    else if (['js', 'ts', 'jsx', 'tsx', 'py', 'go', 'html', 'css', 'json', 'sh'].includes(ext)) { Icon = Code; color = 'text-emerald-500'; label = 'DEV'; }
+    else if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) { Icon = Music; color = 'text-pink-500'; label = 'AUD'; }
+    else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) { Icon = ImageIcon; color = 'text-blue-500'; label = 'IMG'; }
+
     return (
-      <div className={`relative ${boxClass} bg-white border-neutral-300 rounded-lg shadow-sm overflow-hidden flex flex-col justify-between hover:border-neutral-400 transition-colors`}>
-        <div className="space-y-1.5 mt-2">
-          <div className="h-[2px] bg-neutral-200 w-11/12 rounded" />
-          <div className="h-[2px] bg-neutral-200 w-10/12 rounded" />
-          <div className="h-[2px] bg-neutral-200 w-full rounded animate-pulse" />
-          {size !== 'sm' && <div className="h-[2px] bg-neutral-200 w-8/12 rounded" />}
+      <div className={`relative ${boxClass} bg-white border-neutral-300 rounded-lg shadow-sm overflow-hidden flex flex-col justify-center items-center hover:border-neutral-400 transition-colors`}>
+        <Icon className={`${color} ${size === 'sm' ? 'w-3 h-3' : size === 'lg' ? 'w-10 h-10 mb-2' : 'w-6 h-6 mb-1'}`} />
+        <div className={`absolute bottom-0 w-full text-center bg-neutral-100 border-t border-neutral-200 text-[6px] font-bold text-neutral-500 tracking-widest py-0.5 ${size === 'sm' ? 'hidden' : ''}`}>
+          {label}
         </div>
-        <div className={`flex items-center justify-between text-[6px] font-bold text-neutral-400 uppercase tracking-tight ${size === 'sm' ? 'hidden' : ''}`}>
-          <span>ODT</span>
-          <div className="w-2.5 h-2.5 bg-blue-500 rounded-sm" />
-        </div>
-        <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-neutral-200 border-l border-b border-neutral-300 rounded-bl-md" />
+        <div className="absolute top-0 right-0 w-3 h-3 bg-neutral-200 border-l border-b border-neutral-300 rounded-bl-md" />
       </div>
     );
   };
@@ -226,7 +237,7 @@ export default function FileArea({
                 ) : file.type === 'folder' ? (
                   renderFolderIcon(file.folderColor)
                 ) : (
-                  renderDocumentIcon()
+                  renderFileIcon(file)
                 )}
 
                 {/* Sub-items count badge */}
@@ -455,7 +466,7 @@ export default function FileArea({
             ) : activeFile.type === 'folder' ? (
               renderFolderIcon(activeFile.folderColor, 'lg')
             ) : (
-              renderDocumentIcon('lg')
+              renderFileIcon(activeFile, 'lg')
             )}
 
             <div className="space-y-1">
@@ -540,7 +551,7 @@ export default function FileArea({
               />
             ) : (
               <div className="scale-125">
-                {renderDocumentIcon('lg')}
+                {renderFileIcon(currentItem, 'lg')}
               </div>
             )}
             

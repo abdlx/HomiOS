@@ -28,6 +28,13 @@ export default function Sidebar({
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
   ]);
   const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
+  const [serverIp, setServerIp] = useState<string>('Connecting...');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setServerIp(window.location.hostname);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/drives/available')
@@ -238,7 +245,7 @@ export default function Sidebar({
 
       {/* Footer Branding or Info */}
       <div className="pt-2.5 border-t border-neutral-200/30 flex items-center justify-between px-1.5 text-neutral-400 text-[10px]">
-        <span className="font-semibold text-neutral-500">alyncco@gmail.com</span>
+        <span className="font-semibold text-neutral-500">{serverIp}</span>
         <span className="opacity-75">Cloud Sync Active</span>
       </div>
 

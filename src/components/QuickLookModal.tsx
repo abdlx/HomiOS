@@ -99,11 +99,11 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-[#111827] flex items-center justify-center z-50 overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Main container */}
-      <div className="bg-[#111827]/95 backdrop-blur-2xl text-slate-100 rounded-2xl w-full max-w-2xl border border-white/8 shadow-[0_32px_80px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col max-h-[88vh]">
+      <div className="bg-[#111827] text-slate-100 w-full h-full flex flex-col">
 
         {/* ── Title Bar ── */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-950/40 border-b border-white/5">
@@ -145,19 +145,19 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
         </div>
 
         {/* ── Content ── */}
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col space-y-4">
+        <div className="flex-1 overflow-hidden p-5 flex flex-col space-y-4">
 
           {/* Image Preview */}
           {file.type === 'image' && (
-            <div className="w-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden min-h-[200px] max-h-[440px] p-2">
-              <img src={fileUrl} alt={file.name} className="max-h-[430px] max-w-full object-contain rounded-lg" />
+            <div className="w-full h-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden p-2">
+              <img src={fileUrl} alt={file.name} className="max-h-full max-w-full object-contain rounded-lg" />
             </div>
           )}
 
           {/* Video Preview */}
           {file.type === 'video' && (
-            <div className="w-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden min-h-[200px] max-h-[440px]">
-              <video src={fileUrl} controls autoPlay className="max-h-[430px] max-w-full object-contain rounded-lg" />
+            <div className="w-full h-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden">
+              <video src={fileUrl} controls autoPlay className="max-h-full max-w-full object-contain rounded-lg" />
             </div>
           )}
 
@@ -210,25 +210,15 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
                 />
               )}
 
-              {/* Tag & Save row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Tag size={12} className="text-slate-500" />
-                  <select
-                    value={selectedTag}
-                    onChange={(e) => setSelectedTag(e.target.value)}
-                    className="bg-slate-800/80 border border-white/8 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
+              {/* Save row */}
+              <div className="flex items-center justify-end">
                 <button
                   onClick={handleSaveContent}
                   disabled={file.type !== 'text' || isLoadingContent}
-                  className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold text-xs px-4 py-1.5 rounded-lg shadow transition-all flex items-center space-x-1.5"
+                  className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold text-xs px-6 py-2 rounded-lg shadow transition-all flex items-center space-x-1.5"
                 >
-                  <Check size={12} />
-                  <span>{isSaved ? '✓ Saved!' : 'Save'}</span>
+                  <Check size={14} />
+                  <span>{isSaved ? '✓ Saved!' : 'Save Document'}</span>
                 </button>
               </div>
             </div>
