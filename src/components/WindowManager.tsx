@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import DesktopEnvironment from './DesktopEnvironment';
 import App from '../App';
 import SettingsApp from './SettingsApp';
-import TerminalApp from './TerminalApp';
 
+const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
   initialView?: 'desktop' | 'files' | 'settings' | 'terminal';
   username?: string;
