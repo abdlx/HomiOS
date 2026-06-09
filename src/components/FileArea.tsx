@@ -19,7 +19,8 @@ import {
   Code,
   Music,
   File,
-  MoreVertical
+  MoreVertical,
+  Share2
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
@@ -39,6 +40,7 @@ interface FileAreaProps {
   setClipboard?: (state: { action: 'copy' | 'cut'; file: FileItem } | null) => void;
   onAddNewFile?: (name: string, type: 'document' | 'text' | 'image') => void;
   onAddNewFolder?: (name: string, color?: 'blue' | 'orange' | 'green') => void;
+  onShare?: (file: FileItem) => void;
 }
 
 export default function FileArea({
@@ -55,7 +57,8 @@ export default function FileArea({
   clipboardState,
   setClipboard,
   onAddNewFile,
-  onAddNewFolder
+  onAddNewFolder,
+  onShare
 }: FileAreaProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -292,6 +295,13 @@ export default function FileArea({
                     })}
                   </div>
                 )}
+
+                {/* Shared badge overlay */}
+                {file.isShared && (
+                  <div className="absolute -bottom-1 -right-1 bg-blue-100 text-blue-600 rounded-full p-1 border border-blue-200 shadow-sm" title="Shared Folder">
+                    <Share2 size={10} strokeWidth={3} />
+                  </div>
+                )}
               </div>
 
               {/* Title wrapper */}
@@ -366,8 +376,13 @@ export default function FileArea({
                       <FileText size={16} className="text-neutral-500" />
                     )}
                     <span className="truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
+                    {file.isShared && (
+                      <span title="Shared Folder" className="ml-1.5 flex-shrink-0 flex items-center">
+                        <Share2 size={12} className="text-blue-500" strokeWidth={3} />
+                      </span>
+                    )}
                     {file.name === 'Notes' && (
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full inline-block animate-pulse" />
+                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full inline-block animate-pulse ml-1.5" />
                     )}
                   </td>
                   <td className="py-2.5 px-3 capitalize text-neutral-500 hidden sm:table-cell">{file.type}</td>
@@ -644,6 +659,7 @@ export default function FileArea({
           } : undefined}
           onFavorite={contextMenu.file ? (f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name }) : undefined}
           onDelete={contextMenu.file ? (fId) => onDeleteFile(fId) : undefined}
+          onShare={onShare}
           onCreateFile={() => {
             const name = prompt('Enter file name (e.g. Note.txt):');
             if (name && name.trim()) onAddNewFile?.(name.trim(), 'text');

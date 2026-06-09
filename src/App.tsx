@@ -9,8 +9,9 @@ import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
 import StorageDashboard from './components/StorageDashboard';
+import SambaPanel from './components/SambaPanel';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
-import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight, Share2 } from 'lucide-react';
 import MobileHomeScreen from './components/MobileHomeScreen';
 
 interface AppProps {
@@ -31,13 +32,16 @@ export default function App({ onClose }: AppProps = {}) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('nextcloud');
   const [showStorage, setShowStorage] = useState(false);
+  const [showShared, setShowShared] = useState(false);
+  const [shareTarget, setShareTarget] = useState<string | undefined>(undefined);
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
+  const [sharedPaths, setSharedPaths] = useState<string[]>([]);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'files' | 'favorites' | 'storage'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'files' | 'favorites' | 'storage' | 'shared'>('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
   const [drives, setDrives] = useState<DriveItem[]>([]);
@@ -102,7 +106,18 @@ export default function App({ onClose }: AppProps = {}) {
     setLoading(true);
     const apiPath = getApiPath();
     try {
-      const res = await fetch(`/api/files?path=/${apiPath}`);
+      // Parallel fetch files and shared paths
+      const [res, sharesRes] = await Promise.all([
+        fetch(`/api/files?path=/${apiPath}`),
+        fetch('/api/shares')
+      ]);
+
+      let shares: any[] = [];
+      if (sharesRes.ok) {
+        shares = await sharesRes.json();
+        setSharedPaths(shares.map((s: any) => s.path));
+      }
+
       if (res.status === 401) {
         window.location.href = '/login';
         return;
@@ -122,6 +137,7 @@ export default function App({ onClose }: AppProps = {}) {
           size: file.isDir ? '--' : `${(file.size / 1024).toFixed(1)} KB`,
           updatedAt: file.modified ? file.modified.split('T')[0] : new Date().toISOString().split('T')[0],
           folderColor: 'blue',
+          isShared: file.isDir && shares.some((s: any) => s.path === `/${apiPath}/${file.name}`.replace(/\/\//g, '/')),
         }));
         setCurrentFiles(formatted);
       } else {
@@ -232,6 +248,14 @@ export default function App({ onClose }: AppProps = {}) {
       if (selectedFileId === id) setSelectedFileId(null);
       loadFiles();
     }
+  };
+
+  const handleShare = (file: FileItem) => {
+    setShareTarget(`/${getApiPath()}/${file.name}`.replace(/\/\//g, '/'));
+    setShowShared(true);
+    setShowStorage(false);
+    setActiveSection('shared');
+    setActiveTab('shared');
   };
 
   const handleUploadFiles = async (files: FileList | File[]) => {
@@ -529,7 +553,8 @@ export default function App({ onClose }: AppProps = {}) {
                 setSelectedTag={setSelectedTag}
                 onNavigateHome={handleNavigateHome}
                 onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
-                onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
+                onNavigateStorage={() => { setShowStorage(true); setShowShared(false); setActiveSection('storage'); }}
+                onNavigateShared={() => { setShowShared(true); setShowStorage(false); setActiveSection('shared'); setActiveTab('shared'); }}
                 starredFolders={starredFolders}
                 onCloseDrawer={() => {
                   if (onClose) onClose();
@@ -595,6 +620,7 @@ export default function App({ onClose }: AppProps = {}) {
                     setClipboard={setClipboard}
                     onAddNewFile={handleAddNewFile}
                     onAddNewFolder={handleAddNewFolder}
+                    onShare={handleShare}
                   />
                 </>
               )}
@@ -610,12 +636,18 @@ export default function App({ onClose }: AppProps = {}) {
                   }}
                 />
               )}
+
+              {activeTab === 'shared' && (
+                <SambaPanel defaultPath={shareTarget} />
+              )}
             </>
           ) : (
             // Desktop conditional views
             <>
               {showStorage ? (
                 <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
+              ) : showShared ? (
+                <SambaPanel defaultPath={shareTarget} />
               ) : (
                 <>
                   <Toolbar
@@ -648,6 +680,7 @@ export default function App({ onClose }: AppProps = {}) {
                     setClipboard={setClipboard}
                     onAddNewFile={handleAddNewFile}
                     onAddNewFolder={handleAddNewFolder}
+                    onShare={handleShare}
                   />
                 </>
               )}
@@ -699,6 +732,15 @@ export default function App({ onClose }: AppProps = {}) {
           >
             <HardDrive size={22} strokeWidth={activeTab === 'storage' ? 2.5 : 1.5} className="mb-0.5" />
             <span className="text-[10px] font-medium">Drives</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('shared'); setShowShared(true); setShowStorage(false); }}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'shared' ? 'text-[#007aff]' : 'text-[#8e8e93]'
+              }`}
+          >
+            <Share2 size={22} strokeWidth={activeTab === 'shared' ? 2.5 : 1.5} className="mb-0.5" />
+            <span className="text-[10px] font-medium">Shared</span>
           </button>
         </nav>
       )}

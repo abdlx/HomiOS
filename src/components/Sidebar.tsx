@@ -14,6 +14,7 @@ interface SidebarProps {
   starredFolders?: SidebarItem[];
   isMobileDrawer?: boolean;
   onCloseDrawer?: () => void;
+  onNavigateShared?: () => void;
 }
 
 export default function Sidebar({
@@ -27,6 +28,7 @@ export default function Sidebar({
   starredFolders = [],
   isMobileDrawer = false,
   onCloseDrawer,
+  onNavigateShared,
 }: SidebarProps) {
   const [realFolders, setRealFolders] = useState<SidebarItem[]>([
     { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true }
@@ -302,6 +304,25 @@ export default function Sidebar({
                 );
               })}
             </div>
+          </div>
+
+          {/* Network Sharing shortcut */}
+          <div className="mt-4 mb-2">
+            <button
+              onClick={() => { 
+                setActiveSection('shared'); 
+                onNavigateShared?.(); 
+                if (isMobileDrawer && onCloseDrawer) onCloseDrawer();
+              }}
+              className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
+                ${activeSection === 'shared'
+                  ? 'bg-blue-600/10 text-blue-600 font-bold'
+                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                }`}
+            >
+              {renderIcon('Share2', activeSection === 'shared' ? '#2563eb' : undefined, 16)}
+              <span className="truncate flex-1">Samba Sharing</span>
+            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste } from 'lucide-react';
+import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2 } from 'lucide-react';
 import { FileItem } from '../types';
 
 interface ContextMenuProps {
@@ -18,12 +18,13 @@ interface ContextMenuProps {
   onCut?: (file: FileItem) => void;
   onPaste?: () => void;
   onTag?: (file: FileItem, tag: string) => void;
+  onShare?: (file: FileItem) => void;
 }
 
 export default function ContextMenu({
   file, x, y, clipboardState, onClose,
   onQuickLook, onRename, onFavorite, onDelete,
-  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag
+  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&raw=true` : '';
@@ -95,6 +96,9 @@ export default function ContextMenu({
           <Item icon={<Eye size={13} />} label="Quick Look" onClick={() => onQuickLook?.(file)} />
           {file?.type === 'folder' && (
             <Item icon={<Star size={13} />} label={file.isFavorite ? 'Unstar Folder' : 'Star Folder'} onClick={() => onFavorite?.(file)} />
+          )}
+          {file?.type === 'folder' && (
+            <Item icon={<Share2 size={13} />} label="Share Folder..." onClick={() => onShare?.(file)} />
           )}
           <Item icon={<Edit3 size={13} />} label="Rename" onClick={() => onRename?.(file)} />
           <Item icon={<Copy size={13} />} label="Copy" onClick={() => onCopy?.(file)} />

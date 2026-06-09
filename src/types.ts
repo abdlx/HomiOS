@@ -14,6 +14,7 @@ export interface FileItem {
   content?: string;
   isCustomUrl?: boolean;
   isFavorite?: boolean;
+  isShared?: boolean;
 }
 
 export interface FolderNode {
