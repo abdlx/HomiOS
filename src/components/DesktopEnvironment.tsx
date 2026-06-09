@@ -164,7 +164,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                    </div>
                  </div>
                </div>
-               <span className="text-white font-semibold text-sm">{stats ? (stats.memory.total / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
+               <span className="text-white font-semibold text-[13px] tracking-tight">{stats ? `${(stats.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.memory.total / 1024 / 1024 / 1024).toFixed(1)}` : '0'} <span className="text-white/50 text-[10px]">GB</span></span>
             </div>
 
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-1"></div>
@@ -182,7 +182,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                    </div>
                  </div>
                </div>
-               <span className="text-white font-semibold text-sm">{stats ? (stats.disk.total / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
+               <span className="text-white font-semibold text-[13px] tracking-tight">{stats ? `${((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.disk.total / 1024 / 1024 / 1024).toFixed(1)}` : '0'} <span className="text-white/50 text-[10px]">GB</span></span>
             </div>
           </div>
 
