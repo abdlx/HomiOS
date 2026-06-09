@@ -96,7 +96,18 @@ export function regenerateSmbConf(db: ReturnType<typeof Database>) {
 export function setSambaPassword(username: string, password: string): { ok: boolean; error?: string } {
   try {
     // First ensure the OS user exists (required by smbpasswd)
-    spawnSync('id', [username]); // will fail silently — smbpasswd will catch it
+    const idCheck = spawnSync('id', ['-u', username]);
+    if (idCheck.status !== 0) {
+      // Create a system user without home directory and no shell
+      const userAdd = spawnSync('useradd', ['-M', '-s', '/sbin/nologin', username]);
+      if (userAdd.status !== 0) {
+        // Fallback for Alpine Linux
+        const adduser = spawnSync('adduser', ['-D', '-s', '/sbin/nologin', '-H', username]);
+        if (adduser.status !== 0) {
+          return { ok: false, error: 'Failed to create system user. ' + (userAdd.stderr?.toString() || '') + ' ' + (adduser.stderr?.toString() || '') };
+        }
+      }
+    }
 
     // Pipe password twice (new + confirm) to smbpasswd -a -s
     const result = spawnSync(
