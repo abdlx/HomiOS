@@ -1,20 +1,92 @@
+# OpenFinder OS
+
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+  <p><strong>A hyper-premium, Apple-inspired Web GUI for your Linux Server.</strong></p>
 </div>
 
-# Run and deploy your AI Studio app
+OpenFinder is a drop-in web dashboard and file manager that brings a beautiful, desktop-class experience to any headless Linux machine. It installs directly on top of your existing bare-metal Linux OS (like Ubuntu or Debian), allowing you to manage files, create authenticated network drives, and execute terminal commands—all from a stunning web interface.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/bd6db466-3be0-4564-9e97-2550d6889161
+## 🌟 Why OpenFinder?
 
-## Run Locally
+We compared OpenFinder against the leading home server dashboards:
 
-**Prerequisites:**  Node.js
+| Feature | CasaOS | Umbrel | ZimaOS | OpenFinder |
+| :--- | :---: | :---: | :---: | :---: |
+| **Installs on existing Linux** | ✅ | ✅ | ❌ | ✅ |
+| **Premium UI** | ❌ | ✅ | ✅ | ✅ |
+| **Samba user auth (UI)** | ❌ | ❌ | ✅ | ✅ |
+| **File manager** | ✅ | ✅ | ✅ | ✅ |
+| **Browser terminal** | ✅ | ✅ | ✅ | ✅ |
 
+*OpenFinder is the only solution that gives you granular Samba user authentication and a truly premium interface while still allowing you to keep your existing Linux installation completely intact.*
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## ✨ Features
+
+- 🍏 **Apple-Inspired Design:** Fluid animations, glassmorphism, responsive grid/list views, and a meticulously crafted UI.
+- 📁 **Advanced File Management:** Drag-and-drop operations, context menus, tags, favorites, and detailed file properties.
+- 🌐 **Samba Share Management:** A dedicated dashboard to create network shares, toggle read-only access, and explicitly manage individual Samba user credentials right from the UI.
+- 👁️ **QuickLook Previews:** Spacebar-to-preview functionality supporting images, videos, markdown, JSON, and syntax-highlighted code.
+- 💻 **Browser Terminal:** Full system-level command execution with a beautiful built-in web terminal wrapper.
+- 💽 **Storage & Mounts:** Monitor system storage, RAM usage, and manage mounted physical drives effortlessly.
+- 📱 **Mobile Ready:** A fully responsive mobile layout with iOS-style bottom navigation.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- A Linux host (Ubuntu, Debian, Alpine, etc.)
+- Node.js (v18+)
+- Samba (Optional, if you wish to use the network sharing features: `sudo apt install samba`)
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/abdlx/OpenFinder-shell.git
+   cd OpenFinder-shell
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment:**
+   Copy the example environment file and set your credentials.
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` to set your desired `ADMIN_USER` and `ADMIN_PASS`.
+
+4. **Run the server:**
+   ```bash
+   # Development mode
+   npm run dev
+
+   # Production build
+   npm run build
+   npm run start
+   ```
+
+5. **Access the Dashboard:**
+   Open your browser and navigate to `http://<your-server-ip>:3000`. Log in using the credentials you set in the `.env` file.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework:** Next.js & React
+- **Styling:** Tailwind CSS & Lucide Icons
+- **Backend:** Node.js API Routes & Better-SQLite3
+- **System Integration:** Direct execution of core Linux utilities (`bash`, `smbpasswd`, `useradd`, etc.)
+
+---
+
+## 📝 License
+
+OpenFinder is open-source software licensed under the MIT license.
