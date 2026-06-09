@@ -52,8 +52,24 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   useEffect(() => {
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
-    if (savedGrid) setGridAppIds(JSON.parse(savedGrid));
-    if (savedDock) setDockAppIds(JSON.parse(savedDock));
+    
+    let currentGrid = ['files'];
+    let currentDock = ['activity', 'terminal', 'settings', 'finder'];
+
+    if (savedGrid) currentGrid = JSON.parse(savedGrid);
+    if (savedDock) currentDock = JSON.parse(savedDock);
+
+    // Ensure no active apps are permanently lost if removed from both dock and grid
+    const activeAppIds = Object.keys(ALL_APPS);
+    const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
+    
+    if (missingApps.length > 0) {
+      currentGrid = [...currentGrid, ...missingApps];
+      localStorage.setItem('openfinder_grid_apps', JSON.stringify(currentGrid));
+    }
+
+    setGridAppIds(currentGrid);
+    setDockAppIds(currentDock);
 
     const handleClick = () => setContextMenu(null);
     window.addEventListener('click', handleClick);
