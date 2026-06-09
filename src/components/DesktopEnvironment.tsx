@@ -75,7 +75,23 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const handleContextMenu = (e: React.MouseEvent, appId: string, source: 'grid' | 'dock') => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, appId, source });
+    
+    // Prevent menu from rendering outside the viewport
+    const menuWidth = 192; // w-48 = 12rem = 192px
+    const menuHeight = 90; // approximate height for 2 menu items
+    
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - 8;
+    }
+    
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - 8;
+    }
+    
+    setContextMenu({ x, y, appId, source });
   };
 
   const getOnClick = (id: string) => {
