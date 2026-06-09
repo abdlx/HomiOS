@@ -171,12 +171,18 @@ export default function App({ onClose }: AppProps = {}) {
     setPathHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
     setSelectedFileId(null);
+    setShowStorage(false);
+    setShowShared(false);
+    if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
   };
 
   const handleNavigateBack = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       setSelectedFileId(null);
+      setShowStorage(false);
+      setShowShared(false);
+      if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
     }
   };
 
@@ -184,6 +190,9 @@ export default function App({ onClose }: AppProps = {}) {
     if (historyIndex < pathHistory.length - 1) {
       setHistoryIndex(historyIndex + 1);
       setSelectedFileId(null);
+      setShowStorage(false);
+      setShowShared(false);
+      if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
     }
   };
 
@@ -550,7 +559,12 @@ export default function App({ onClose }: AppProps = {}) {
                 activeSection={activeSection}
                 setActiveSection={setActiveSection}
                 selectedTag={selectedTag}
-                setSelectedTag={setSelectedTag}
+                setSelectedTag={(tag) => {
+                  setSelectedTag(tag);
+                  setShowStorage(false);
+                  setShowShared(false);
+                  if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
+                }}
                 onNavigateHome={handleNavigateHome}
                 onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
                 onNavigateStorage={() => { setShowStorage(true); setShowShared(false); setActiveSection('storage'); }}
@@ -766,6 +780,8 @@ export default function App({ onClose }: AppProps = {}) {
               selectedTag={selectedTag}
               setSelectedTag={(tag) => {
                 setSelectedTag(tag);
+                setShowStorage(false);
+                setShowShared(false);
                 setActiveTab('files');
               }}
               onNavigateHome={handleNavigateHome}
