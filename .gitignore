@@ -13,3 +13,10 @@ filebrowser/
 filebrowser_temp/
 coolify-4.x/
 .agent/
+
+# Next-PWA generated service worker files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/swe-worker-*.js
+public/fallback-*.js
