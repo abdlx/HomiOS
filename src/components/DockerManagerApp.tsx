@@ -42,16 +42,36 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
   }, [initialAppId]);
 
   const fetchProjects = async () => {
-    const res = await fetch('/api/docker/projects');
-    const data = await res.json();
-    setProjects(data);
-    if (!selectedProject && data.length > 0 && !initialAppId) setSelectedProject(data[0].id);
+    try {
+      const res = await fetch('/api/docker/projects');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setProjects(data);
+        if (!selectedProject && data.length > 0 && !initialAppId) setSelectedProject(data[0].id);
+      } else {
+        console.error('Failed to fetch projects:', data);
+        setProjects([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setProjects([]);
+    }
   };
 
   const fetchApps = async (projectId: string) => {
-    const res = await fetch(`/api/docker/projects/${projectId}/apps`);
-    const data = await res.json();
-    setApps(data);
+    try {
+      const res = await fetch(`/api/docker/projects/${projectId}/apps`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setApps(data);
+      } else {
+        console.error('Failed to fetch apps:', data);
+        setApps([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setApps([]);
+    }
   };
 
   const handleCreateProject = async () => {

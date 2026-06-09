@@ -41,7 +41,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         const res = await fetch('/api/docker/apps');
         if (res.ok) {
           const data = await res.json();
-          setDockerApps(data);
+          if (Array.isArray(data)) {
+            setDockerApps(data);
+          } else {
+            console.error('Docker apps response is not an array:', data);
+          }
         }
       } catch (e) {
         console.error('Failed to fetch docker apps', e);
