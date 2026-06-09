@@ -38,13 +38,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       disk: {
         free: diskFree,
-        total: diskTotal
+        total: diskTotal,
+        used: diskTotal - diskFree
       },
       os: {
         uptime: os.uptime(),
         platform: os.platform(),
-        arch: os.arch()
-      }
+        arch: os.arch(),
+        hostname: os.hostname(),
+        version: os.version ? os.version() : os.release()
+      },
+      network: os.networkInterfaces()
     });
 
   } catch (error) {

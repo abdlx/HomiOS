@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { 
   Settings, Monitor, Users, Wifi, Info, CheckCircle2, 
@@ -21,8 +21,22 @@ const WALLPAPERS = [
 ];
 
 export default function SettingsApp({ onClose }: SettingsAppProps) {
-  const [activeTab, setActiveTab] = useState('appearance');
+  const [activeTab, setActiveTab] = useState('general');
   const { wallpaper, changeWallpaper } = useWallpaper();
+  const [sysStats, setSysStats] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/system/stats')
+      .then(res => res.json())
+      .then(data => setSysStats(data))
+      .catch(console.error);
+    
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => setUsers(data))
+      .catch(console.error);
+  }, []);
 
   const tabs = [
     { id: 'general', label: 'General', icon: Settings },
@@ -89,7 +103,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <div className="grid grid-cols-3 items-center gap-4 border-b border-slate-100 pb-4">
                     <label className="text-sm font-medium text-slate-600">Hostname</label>
                     <div className="col-span-2">
-                      <input type="text" defaultValue="openfinder-nas" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" value={sysStats?.os?.hostname || 'Loading...'} readOnly className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-500 cursor-default" />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 items-center gap-4 border-b border-slate-100 pb-4">
@@ -105,11 +119,9 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-sm font-medium text-slate-600">Timezone</label>
                     <div className="col-span-2">
-                      <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" defaultValue="est">
+                      <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" defaultValue="local">
+                        <option value="local">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local Time'}</option>
                         <option value="utc">UTC - Coordinated Universal Time</option>
-                        <option value="est">America/New_York (EST)</option>
-                        <option value="pst">America/Los_Angeles (PST)</option>
-                        <option value="gmt">Europe/London (GMT)</option>
                       </select>
                     </div>
                   </div>
@@ -174,26 +186,21 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-                    <div className="flex items-center space-x-4">
-                      <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" className="w-10 h-10 rounded-full" alt="Admin" />
-                      <div>
-                        <p className="font-semibold text-slate-800">Administrator</p>
-                        <p className="text-xs text-slate-500">admin@openfinder.local • Superuser</p>
+                  {users.map((user: any) => (
+                    <div key={user.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                      <div className="flex items-center space-x-4">
+                        <img src={`https://ui-avatars.com/api/?name=${user.email}&background=0D8ABC&color=fff`} className="w-10 h-10 rounded-full" alt={user.email} />
+                        <div>
+                          <p className="font-semibold text-slate-800">{user.email.split('@')[0]}</p>
+                          <p className="text-xs text-slate-500">{user.email} • Admin</p>
+                        </div>
                       </div>
+                      <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">Active</span>
                     </div>
-                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">Active</span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-                    <div className="flex items-center space-x-4">
-                      <img src="https://ui-avatars.com/api/?name=Guest&background=e2e8f0&color=475569" className="w-10 h-10 rounded-full" alt="Guest" />
-                      <div>
-                        <p className="font-semibold text-slate-800">Guest User</p>
-                        <p className="text-xs text-slate-500">guest • Standard User</p>
-                      </div>
-                    </div>
-                    <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">Inactive</span>
-                  </div>
+                  ))}
+                  {users.length === 0 && (
+                    <div className="p-4 text-center text-slate-500 text-sm">Loading users...</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -214,26 +221,27 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
-                      <div>
-                        <p className="font-semibold text-slate-800">Ethernet (eth0)</p>
-                        <p className="text-sm text-slate-500">Connected • 192.168.0.4</p>
+                  {!sysStats?.network && (
+                    <div className="text-center text-sm text-slate-500">Loading interfaces...</div>
+                  )}
+                  {sysStats?.network && Object.keys(sysStats.network).map((ifaceName) => {
+                    const addrs = sysStats.network[ifaceName];
+                    const ipv4 = addrs.find((a: any) => a.family === 'IPv4');
+                    if (!ipv4) return null;
+                    const isLoopback = ipv4.internal;
+                    return (
+                      <div key={ifaceName} className={`p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center justify-between ${isLoopback ? 'opacity-60' : ''}`}>
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-3 h-3 rounded-full ${isLoopback ? 'bg-slate-300' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse'}`} />
+                          <div>
+                            <p className="font-semibold text-slate-800">{ifaceName}</p>
+                            <p className="text-sm text-slate-500">{isLoopback ? 'Internal' : 'Connected'} • {ipv4.address}</p>
+                          </div>
+                        </div>
+                        <button className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Configure</button>
                       </div>
-                    </div>
-                    <button className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Configure</button>
-                  </div>
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center justify-between opacity-60">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-3 h-3 rounded-full bg-slate-300" />
-                      <div>
-                        <p className="font-semibold text-slate-800">Wi-Fi (wlan0)</p>
-                        <p className="text-sm text-slate-500">Not Connected</p>
-                      </div>
-                    </div>
-                    <button className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Turn On</button>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -257,12 +265,14 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-semibold text-slate-700 flex items-center"><HardDrive size={16} className="mr-2 text-slate-400" /> System Volume (/)</span>
-                      <span className="text-slate-500">45 GB / 256 GB (18% used)</span>
+                      <span className="text-slate-500">
+                        {sysStats ? `${(sysStats.disk.used / (1024 ** 3)).toFixed(1)} GB / ${(sysStats.disk.total / (1024 ** 3)).toFixed(1)} GB (${((sysStats.disk.used / sysStats.disk.total) * 100).toFixed(1)}% used)` : 'Loading...'}
+                      </span>
                     </div>
                     <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden border border-black/5">
-                      <div className="h-full bg-purple-500 rounded-full" style={{ width: '18%' }} />
+                      <div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{ width: sysStats ? `${(sysStats.disk.used / sysStats.disk.total) * 100}%` : '0%' }} />
                     </div>
-                    <p className="text-xs text-slate-400">Mount: /dev/sda1 • Ext4</p>
+                    <p className="text-xs text-slate-400">Mount: /</p>
                   </div>
 
                   <div className="space-y-2">
@@ -294,7 +304,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <ShieldCheck size={40} />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2">System is up to date</h3>
-                <p className="text-slate-500 mb-6">OpenFinder OS 1.0.4 • Last checked today at 10:42 AM</p>
+                <p className="text-slate-500 mb-6">OpenFinder OS 1.0.4 • Last checked today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                 
                 <button className="bg-slate-800 text-white px-6 py-2.5 rounded-xl hover:bg-slate-700 transition-colors font-medium">
                   Check for Updates
@@ -340,10 +350,10 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 <p className="text-slate-500 font-medium mb-8 relative z-10">Version 1.0.4 (Build 24E214)</p>
                 
                 <div className="w-full max-w-sm border-t border-slate-100 pt-8 text-sm text-slate-600 space-y-4 relative z-10">
-                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Processor</span> <span>Intel Core i9-12900K</span></div>
-                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Memory</span> <span>64 GB 3200 MHz DDR4</span></div>
-                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Graphics</span> <span>Integrated HD Graphics</span></div>
-                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Serial Number</span> <span>C02XR4J9JGH7</span></div>
+                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Processor</span> <span>{sysStats?.cpu?.model || 'Loading...'}</span></div>
+                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Memory</span> <span>{sysStats ? `${(sysStats.memory.total / (1024 ** 3)).toFixed(1)} GB` : 'Loading...'}</span></div>
+                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Platform</span> <span className="capitalize">{sysStats?.os?.platform || 'Loading...'} {sysStats?.os?.arch}</span></div>
+                  <div className="flex justify-between"><span className="font-semibold text-slate-800">Hostname</span> <span>{sysStats?.os?.hostname || 'Loading...'}</span></div>
                 </div>
               </div>
             </div>
