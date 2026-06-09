@@ -245,33 +245,52 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           {contextMenu.source === 'grid' && (
-            <button 
-              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-blue-500 transition-colors"
-              onClick={() => {
-                updateGrid(gridAppIds.filter(id => id !== contextMenu.appId));
-                if (!dockAppIds.includes(contextMenu.appId)) {
-                  updateDock([...dockAppIds, contextMenu.appId]);
-                }
-              }}
-            >
-              Move to Dock
-            </button>
+            <>
+              <button 
+                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-blue-500 transition-colors"
+                onClick={() => {
+                  if (!dockAppIds.includes(contextMenu.appId)) {
+                    updateDock([...dockAppIds, contextMenu.appId]);
+                  }
+                }}
+              >
+                Add to Dock
+              </button>
+              <button 
+                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-500 transition-colors"
+                onClick={() => {
+                  updateGrid(gridAppIds.filter(id => id !== contextMenu.appId));
+                }}
+              >
+                Remove from Desktop
+              </button>
+            </>
           )}
           {contextMenu.source === 'dock' && (
-            <button 
-              className={`w-full text-left px-4 py-2 text-sm text-white transition-colors ${FACTORY_DOCK_APPS.includes(contextMenu.appId) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500'}`}
-              disabled={FACTORY_DOCK_APPS.includes(contextMenu.appId)}
-              onClick={() => {
-                if (!FACTORY_DOCK_APPS.includes(contextMenu.appId)) {
-                   updateDock(dockAppIds.filter(id => id !== contextMenu.appId));
-                   if (!gridAppIds.includes(contextMenu.appId)) {
-                     updateGrid([...gridAppIds, contextMenu.appId]);
-                   }
-                }
-              }}
-            >
-              Remove from Dock
-            </button>
+            <>
+              <button 
+                className={`w-full text-left px-4 py-2 text-sm text-white transition-colors ${gridAppIds.includes(contextMenu.appId) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500'}`}
+                disabled={gridAppIds.includes(contextMenu.appId)}
+                onClick={() => {
+                  if (!gridAppIds.includes(contextMenu.appId)) {
+                    updateGrid([...gridAppIds, contextMenu.appId]);
+                  }
+                }}
+              >
+                Add to Desktop
+              </button>
+              <button 
+                className={`w-full text-left px-4 py-2 text-sm text-white transition-colors ${FACTORY_DOCK_APPS.includes(contextMenu.appId) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500'}`}
+                disabled={FACTORY_DOCK_APPS.includes(contextMenu.appId)}
+                onClick={() => {
+                  if (!FACTORY_DOCK_APPS.includes(contextMenu.appId)) {
+                     updateDock(dockAppIds.filter(id => id !== contextMenu.appId));
+                  }
+                }}
+              >
+                Remove from Dock
+              </button>
+            </>
           )}
         </div>
       )}
