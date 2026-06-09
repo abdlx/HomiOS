@@ -153,7 +153,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
           
-          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
+          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-[40px] -mr-10 -mt-10 transition-transform duration-700 group-hover:scale-150"></div>
             
             <div className="flex justify-between items-start mb-4 relative z-10">
@@ -181,7 +181,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </div>
           </div>
 
-          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
+          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-[40px] -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-150"></div>
             
             <div className="relative z-10 flex items-center justify-between mb-4">
@@ -217,7 +217,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </div>
           </div>
 
-          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
+          <div className="min-w-[85vw] md:min-w-0 snap-center w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] transition-transform duration-700 group-hover:scale-150"></div>
             
             <div className="flex justify-between items-start relative z-10">
@@ -311,7 +311,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
         </div>
 
-        <div className="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 hover:bg-black/50 transition-colors duration-500 flex items-center space-x-4">
+        <div className="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 hover:bg-black/50 transition-colors duration-500 flex items-center space-x-4">
           {dockAppIds.map((id) => {
             const app = ALL_APPS[id];
             if (!app) return null;
