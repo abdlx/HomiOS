@@ -278,7 +278,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
         </div>
 
-        <div className="bg-[#1c1c1e]/50 backdrop-blur-3xl rounded-[32px] p-3 shadow-2xl border border-white/10 flex items-center space-x-4">
+        <div className="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 hover:bg-black/50 transition-colors duration-500 flex items-center space-x-4">
           {dockAppIds.map((id) => {
             const app = ALL_APPS[id];
             if (!app) return null;
