@@ -185,17 +185,25 @@ app.prepare().then(async () => {
           } catch (e) {}
         }
         args.push(`${app.docker_image}:${app.docker_image_tag}`);
-        child = spawn('docker', args);
+        const isWin = os.platform() === 'win32';
+        child = spawn('docker', args, { shell: isWin });
       } else if (app.build_pack === 'dockercompose') {
         const dir = path.join(os.tmpdir(), `openfinder-docker-${app.id}`);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         const composePath = path.join(dir, 'docker-compose.yml');
         fs.writeFileSync(composePath, app.compose_content || '');
         appendLog(`Written compose file to ${composePath}\n`);
-        child = spawn('docker', ['compose', '-f', composePath, '-p', app.id, 'up', '-d']);
+        const isWin = os.platform() === 'win32';
+        child = spawn('docker', ['compose', '-f', composePath, '-p', app.id, 'up', '-d'], { shell: isWin });
       } else {
         throw new Error('Unsupported build_pack: ' + app.build_pack);
       }
+
+      child.on('error', (err) => {
+        appendLog(`Spawn Error: ${err.message}\nCheck if Docker is installed and running.\n`);
+        updateDeployment(deploymentId, 'error', '');
+        updateAppStatus(appId, 'error');
+      });
 
       child.stdout.on('data', appendLog);
       child.stderr.on('data', appendLog);
