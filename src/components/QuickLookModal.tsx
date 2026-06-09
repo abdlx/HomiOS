@@ -115,102 +115,76 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-hidden p-6"
+      className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-2xl flex items-center justify-center z-[100] overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Main container */}
-      <div className="bg-[#1c1c1e]/80 backdrop-blur-3xl text-slate-100 w-full max-w-5xl h-[85vh] rounded-[24px] shadow-[0_32px_64px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col overflow-hidden transform transition-all">
+      <div className="w-full h-full flex flex-col text-slate-100 bg-transparent">
 
         {/* ── Title Bar ── */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
-          <div className="flex items-center space-x-2 w-1/4">
-            {/* macOS traffic lights */}
-            <div className="flex space-x-2">
-              <button onClick={onClose} className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600 shadow-inner flex items-center justify-center group transition-colors">
-                <X size={8} className="opacity-0 group-hover:opacity-100 text-red-900" />
-              </button>
-              <button className="w-3.5 h-3.5 rounded-full bg-amber-500 hover:bg-amber-600 shadow-inner transition-colors"></button>
-              <button className="w-3.5 h-3.5 rounded-full bg-green-500 hover:bg-green-600 shadow-inner transition-colors"></button>
-            </div>
+        <div className="flex items-center justify-between px-6 py-4 z-10">
+          <div className="flex items-center space-x-3 w-1/3">
+             <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 rounded-full transition-all backdrop-blur-md border border-white/5 shadow-sm">
+                <X size={18} />
+             </button>
+             <span className="text-[10px] font-mono font-bold tracking-wider text-slate-400 bg-slate-800/40 px-3 py-1.5 rounded-full border border-white/5 backdrop-blur-md shadow-sm">
+                {language.toUpperCase()}
+             </span>
           </div>
 
           {/* Editable title */}
-          <div className="flex items-center space-x-2 flex-grow justify-center w-2/4">
+          <div className="flex items-center space-x-2 justify-center w-1/3">
             {isEditingName ? (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-2">
                 <input
                   type="text"
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); }}
-                  className="bg-black/30 border border-blue-500/50 rounded px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-slate-900/50 border border-blue-500/50 rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 backdrop-blur-md w-64 text-center"
                   autoFocus
                 />
-                <button onClick={handleSaveName} className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] transition-colors">
-                  <Check size={12} />
+                <button onClick={handleSaveName} className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+                  <Check size={14} />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-1.5 cursor-pointer group" onClick={() => setIsEditingName(true)}>
-                <h3 className="text-sm font-semibold text-slate-200 truncate max-w-[300px]" title={file.name}>{file.name}</h3>
-                <Edit3 size={11} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center space-x-2 cursor-pointer group" onClick={() => setIsEditingName(true)}>
+                <h3 className="text-sm font-semibold text-white truncate max-w-[400px] drop-shadow-md">{file.name}</h3>
+                <Edit3 size={12} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
           </div>
 
-          <div className="flex items-center justify-end w-1/4">
-            <span className="text-[10px] font-mono font-semibold text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-              {language.toUpperCase()}
-            </span>
+          <div className="flex items-center justify-end space-x-3 w-1/3">
+            <button
+              onClick={() => { if (confirm(`Delete "${file.name}"?`)) { onDelete(file.id); onClose(); } }}
+              className="text-red-400 hover:text-white hover:bg-red-500 p-2.5 rounded-full transition-all bg-slate-800/40 border border-white/5 backdrop-blur-md shadow-sm"
+              title="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+            <a
+              href={fileUrl}
+              download={file.name}
+              className="text-white bg-blue-600/90 hover:bg-blue-500 p-2.5 rounded-full transition-all border border-blue-400/20 shadow-[0_0_15px_rgba(37,99,235,0.3)] backdrop-blur-md"
+              title="Download"
+            >
+              <Download size={16} />
+            </a>
           </div>
         </div>
 
         {/* ── Content ── */}
-        <div className="flex-1 overflow-hidden p-6 flex flex-col space-y-4 relative">
-
-          {/* Media Toolbar */}
-          {(file.type === 'image' || file.type === 'video') && (
-            <div className="flex items-center justify-center space-x-2 bg-black/40 backdrop-blur-md rounded-xl p-2 border border-white/10 w-max mx-auto mb-2 shadow-lg z-10">
-              <button onClick={handleZoomOut} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Zoom Out">
-                <ZoomOut size={16} />
-              </button>
-              <span className="text-xs text-slate-300 font-mono w-12 text-center">{Math.round(zoom * 100)}%</span>
-              <button onClick={handleZoomIn} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Zoom In">
-                <ZoomIn size={16} />
-              </button>
-              
-              <div className="w-px h-4 bg-white/10 mx-2" />
-              
-              {file.type === 'image' && (
-                <button onClick={handleRotate} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Rotate">
-                  <RotateCw size={16} />
-                </button>
-              )}
-
-              {file.type === 'video' && (
-                <>
-                  <button onClick={handleRewind} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Backward 10s">
-                    <Rewind size={16} />
-                  </button>
-                  <button onClick={handleFastForward} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Forward 10s">
-                    <FastForward size={16} />
-                  </button>
-                </>
-              )}
-              
-              <button onClick={handleReset} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Reset">
-                <Maximize2 size={16} />
-              </button>
-            </div>
-          )}
+        <div className="flex-1 overflow-hidden relative flex flex-col p-6">
 
           {/* Image Preview */}
           {file.type === 'image' && (
-            <div className="w-full flex-1 flex justify-center items-center rounded-xl bg-black/20 border border-white/5 overflow-hidden p-2 relative">
+            <div className="absolute inset-0 flex justify-center items-center p-12 overflow-hidden pointer-events-none">
               <img 
                 src={fileUrl} 
                 alt={file.name} 
-                className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200" 
+                className="max-h-full max-w-full object-contain drop-shadow-2xl transition-transform duration-300 ease-out pointer-events-auto" 
                 style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
               />
             </div>
@@ -218,53 +192,90 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
 
           {/* Video Preview */}
           {file.type === 'video' && (
-            <div className="w-full flex-1 flex justify-center items-center rounded-xl bg-black/20 border border-white/5 overflow-hidden p-2 relative">
+            <div className="absolute inset-0 flex justify-center items-center p-12 overflow-hidden pointer-events-none">
               <video 
                 ref={videoRef}
                 src={fileUrl} 
                 controls 
                 autoPlay 
-                className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200" 
+                className="max-h-full max-w-full drop-shadow-2xl transition-transform duration-300 ease-out rounded-lg pointer-events-auto" 
                 style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
               />
             </div>
           )}
 
+          {/* Media Toolbar Floating */}
+          {(file.type === 'image' || file.type === 'video') && (
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center justify-center space-x-2 bg-slate-900/80 backdrop-blur-2xl rounded-full px-4 py-2 border border-white/10 shadow-2xl z-20 pointer-events-auto">
+              <button onClick={handleZoomOut} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Zoom Out">
+                <ZoomOut size={16} />
+              </button>
+              <span className="text-xs text-slate-300 font-mono w-12 text-center font-medium">{Math.round(zoom * 100)}%</span>
+              <button onClick={handleZoomIn} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Zoom In">
+                <ZoomIn size={16} />
+              </button>
+              
+              <div className="w-px h-5 bg-white/10 mx-2" />
+              
+              {file.type === 'image' && (
+                <button onClick={handleRotate} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Rotate">
+                  <RotateCw size={16} />
+                </button>
+              )}
+
+              {file.type === 'video' && (
+                <>
+                  <button onClick={handleRewind} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Backward 10s">
+                    <Rewind size={16} />
+                  </button>
+                  <button onClick={handleFastForward} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Forward 10s">
+                    <FastForward size={16} />
+                  </button>
+                </>
+              )}
+              
+              <button onClick={handleReset} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors" title="Reset">
+                <Maximize2 size={16} />
+              </button>
+            </div>
+          )}
+
           {/* Text / Code Editor */}
           {(file.type === 'text' || file.type === 'document') && (
-            <div className="flex flex-col space-y-3 w-full">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="flex flex-col space-y-4 w-full max-w-5xl mx-auto h-full pb-8">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-1">
                 {monacoAvailable ? `Monaco Editor · ${language}` : 'File Content'}
               </label>
 
               {isLoadingContent ? (
-                <div className="w-full h-64 bg-black/30 border border-white/5 rounded-xl flex items-center justify-center text-xs text-slate-600 animate-pulse">
+                <div className="w-full flex-1 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center text-xs text-slate-500 animate-pulse backdrop-blur-md">
                   Loading…
                 </div>
               ) : monacoAvailable ? (
                 <Suspense fallback={
-                  <div className="w-full h-64 bg-black/30 border border-white/5 rounded-xl flex items-center justify-center text-xs text-slate-600">
+                  <div className="w-full flex-1 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center text-xs text-slate-500 backdrop-blur-md">
                     Loading Monaco…
                   </div>
                 }>
-                  <div className="w-full h-72 rounded-xl overflow-hidden border border-white/8">
+                  <div className="w-full flex-1 rounded-2xl overflow-hidden border border-white/10 shadow-2xl backdrop-blur-md bg-black/40">
                     <MonacoEditor
                       height="100%"
                       language={language}
                       value={textContent}
-                      onChange={(val) => setTextContent(val ?? '')}
+                      onChange={(val: any) => setTextContent(val ?? '')}
                       theme="vs-dark"
                       options={{
-                        fontSize: 12,
+                        fontSize: 13,
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         lineNumbers: 'on',
                         wordWrap: 'on',
                         readOnly: file.type !== 'text',
-                        padding: { top: 12, bottom: 12 },
-                        scrollbar: { verticalScrollbarSize: 4 },
+                        padding: { top: 16, bottom: 16 },
+                        scrollbar: { verticalScrollbarSize: 8 },
                         renderLineHighlight: 'gutter',
                         smoothScrolling: true,
+                        fontFamily: 'JetBrains Mono, monospace',
                       }}
                     />
                   </div>
@@ -273,76 +284,42 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
                 <textarea
                   value={textContent}
                   onChange={(e) => setTextContent(e.target.value)}
-                  className="w-full h-64 bg-black/30 border border-white/8 rounded-xl p-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-300 resize-none placeholder-slate-600"
+                  className="w-full flex-1 bg-black/40 border border-white/10 rounded-2xl p-5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-200 resize-none placeholder-slate-600 shadow-2xl backdrop-blur-md"
                   placeholder="Empty file…"
                   disabled={file.type !== 'text'}
                 />
               )}
 
-              {/* Save row */}
-              <div className="flex items-center justify-end">
+              {/* Save row & Stats */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex space-x-3 text-xs text-slate-400">
+                  <div className="bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-xl px-4 py-2 flex items-center space-x-2">
+                    <Calendar size={14} className="text-blue-400" />
+                    <div>
+                      <p className="text-[9px] text-slate-500 uppercase font-semibold">Modified</p>
+                      <p className="text-[11px] font-medium text-slate-300">{file.updatedAt || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-xl px-4 py-2 flex items-center space-x-2">
+                    <Clock size={14} className="text-purple-400" />
+                    <div>
+                      <p className="text-[9px] text-slate-500 uppercase font-semibold">Size</p>
+                      <p className="text-[11px] font-mono font-medium text-slate-300">{file.size}</p>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleSaveContent}
                   disabled={file.type !== 'text' || isLoadingContent}
-                  className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold text-xs px-6 py-2 rounded-lg shadow transition-all flex items-center space-x-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center space-x-2"
                 >
-                  <Check size={14} />
-                  <span>{isSaved ? '✓ Saved!' : 'Save Document'}</span>
+                  <Check size={16} />
+                  <span>{isSaved ? 'Saved!' : 'Save Changes'}</span>
                 </button>
               </div>
             </div>
           )}
-
-          {/* Quick stats */}
-          <div className="grid grid-cols-3 gap-2 text-xs text-slate-400">
-            <div className="bg-slate-900/60 border border-white/5 rounded-xl p-2.5 flex items-center space-x-2">
-              <Calendar size={13} className="text-blue-400 flex-shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-600 uppercase font-semibold">Modified</p>
-                <p className="text-[10px] font-medium">{file.updatedAt || '—'}</p>
-              </div>
-            </div>
-            <div className="bg-slate-900/60 border border-white/5 rounded-xl p-2.5 flex items-center space-x-2">
-              <Clock size={13} className="text-purple-400 flex-shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-600 uppercase font-semibold">Size</p>
-                <p className="text-[10px] font-mono font-medium">{file.size}</p>
-              </div>
-            </div>
-            <div className="bg-slate-900/60 border border-white/5 rounded-xl p-2.5 flex items-center space-x-2">
-              <Flame size={13} className="text-amber-400 animate-pulse flex-shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-600 uppercase font-semibold">Access</p>
-                <p className="text-[10px] font-medium text-emerald-400">Writeable</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="px-5 py-4 bg-white/5 border-t border-white/10 flex items-center justify-between mt-auto">
-          <button
-            onClick={() => { if (confirm(`Delete "${file.name}"?`)) { onDelete(file.id); onClose(); } }}
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all"
-          >
-            <Trash2 size={12} />
-            <span>Delete</span>
-          </button>
-          <div className="flex items-center space-x-2">
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-              Close
-            </button>
-            <a
-              href={fileUrl}
-              download={file.name}
-              target="_blank"
-              rel="noreferrer"
-              className="bg-white/10 hover:bg-white/20 border border-white/10 text-slate-100 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm"
-            >
-              <Download size={12} />
-              <span>Download</span>
-            </a>
-          </div>
         </div>
       </div>
     </div>
