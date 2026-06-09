@@ -11,3 +11,5 @@ coverage/
 data/
 filebrowser/
 filebrowser_temp/
+coolify-4.x/
+.agent/

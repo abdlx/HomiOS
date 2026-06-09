@@ -12,13 +12,16 @@ interface DesktopEnvironmentProps {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
+  onOpenDockerManager: (appId?: string) => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, username: propUsername }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenDockerManager, username: propUsername }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
+
+  const [dockerApps, setDockerApps] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -32,8 +35,25 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         console.error('Failed to fetch stats', e);
       }
     };
+    
+    const fetchDockerApps = async () => {
+      try {
+        const res = await fetch('/api/docker/apps');
+        if (res.ok) {
+          const data = await res.json();
+          setDockerApps(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch docker apps', e);
+      }
+    };
+
     fetchStats();
-    const timer = setInterval(fetchStats, 5000);
+    fetchDockerApps();
+    const timer = setInterval(() => {
+      fetchStats();
+      fetchDockerApps();
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
   
@@ -42,13 +62,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     'settings': { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
     'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
     'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
-    'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' }
+    'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
+    'docker_manager': { id: 'docker_manager', label: 'Docker Manager', icon: Server, color: 'from-[#0db7ed] to-[#0684a8]' }
   };
 
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'docker_manager'];
 
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
-  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'settings', 'finder']);
+  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'docker_manager', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
 
   useEffect(() => {
@@ -56,12 +77,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const savedDock = localStorage.getItem('openfinder_dock_apps');
     
     let currentGrid = ['files'];
-    let currentDock = ['activity', 'terminal', 'settings', 'finder'];
+    let currentDock = ['activity', 'terminal', 'docker_manager', 'settings', 'finder'];
 
     if (savedGrid) currentGrid = JSON.parse(savedGrid);
     if (savedDock) currentDock = JSON.parse(savedDock);
 
-    // Ensure no active apps are permanently lost if removed from both dock and grid
     const activeAppIds = Object.keys(ALL_APPS);
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     
@@ -92,20 +112,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     e.preventDefault();
     e.stopPropagation();
     
-    // Prevent menu from rendering outside the viewport
-    const menuWidth = 192; // w-48 = 12rem = 192px
-    const menuHeight = 90; // approximate height for 2 menu items
+    const menuWidth = 192;
+    const menuHeight = 90;
     
     let x = e.clientX;
     let y = e.clientY;
     
-    if (x + menuWidth > window.innerWidth) {
-      x = window.innerWidth - menuWidth - 8;
-    }
-    
-    if (y + menuHeight > window.innerHeight) {
-      y = window.innerHeight - menuHeight - 8;
-    }
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 8;
+    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 8;
     
     setContextMenu({ x, y, appId, source });
   };
@@ -115,6 +129,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
+    if (id === 'docker_manager') return () => onOpenDockerManager();
     return undefined;
   };
 
@@ -124,20 +139,16 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       style={{ backgroundImage: `url('${wallpaper}')` }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-black/20" />
 
       <div className="relative z-10 flex-1 flex flex-col items-center pt-12 px-8 overflow-y-auto">
         
-        {/* Header */}
         <div className="flex flex-col items-center mb-10">
           <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, {username || 'User'}.</h1>
         </div>
 
-        {/* Monitoring Widget Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 w-full max-w-[1050px]">
           
-          {/* Card 1: CPU Activity */}
           <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-[40px] -mr-10 -mt-10 transition-transform duration-700 group-hover:scale-150"></div>
             
@@ -166,11 +177,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </div>
           </div>
 
-          {/* Card 2: Memory & Storage */}
           <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-[40px] -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-150"></div>
             
-            {/* Memory */}
             <div className="relative z-10 flex items-center justify-between mb-4">
                <div className="flex items-center space-x-3">
                  <div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400">
@@ -188,7 +197,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-1"></div>
 
-            {/* Storage */}
             <div className="relative z-10 flex items-center justify-between mt-4">
                <div className="flex items-center space-x-3">
                  <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400">
@@ -205,7 +213,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </div>
           </div>
 
-          {/* Card 3: System Load & Info */}
           <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] transition-transform duration-700 group-hover:scale-150"></div>
             
@@ -238,7 +245,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
         </div>
 
-        {/* App Grid */}
         <div className="flex items-center justify-center w-full max-w-[900px] mb-8 relative">
 
           <div className="flex flex-col space-y-8 px-12 z-10 w-full">
@@ -263,6 +269,29 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                   </div>
                 );
               })}
+
+              {/* Render deployed Docker Apps directly on Desktop */}
+              {dockerApps.map(app => (
+                <div 
+                  key={`docker-${app.id}`} 
+                  className="flex flex-col items-center group cursor-pointer relative" 
+                  onClick={() => onOpenDockerManager(app.id)}
+                >
+                  <div className={`w-[70px] h-[70px] rounded-[22px] bg-gradient-to-b from-[#1E293B] to-[#0F172A] flex items-center justify-center text-[#38BDF8] shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.2),inset_0_-2px_4px_rgba(0,0,0,0.2)] group-hover:-translate-y-2 group-hover:scale-[1.05] transition-all duration-300 ease-out mb-2 border border-white/10 relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none rounded-[22px]" />
+                    <Box size={34} strokeWidth={1.5} className="drop-shadow-md z-10" />
+                    {app.status === 'running' && (
+                      <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0F172A] shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    )}
+                  </div>
+                  <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md text-center leading-tight">
+                    {app.name}
+                  </span>
+                  <span className="text-white/50 text-[10px] font-medium tracking-wide text-center uppercase mt-0.5 drop-shadow-md">
+                    {app.project_name || 'Docker App'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -270,9 +299,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       </div>
 
-      {/* Dock Area with Search Bar Pinned Above */}
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
-        {/* Search Bar */}
         <div className="flex items-center space-x-2 text-white/50 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg mb-4 pointer-events-auto cursor-pointer hover:bg-black/30 transition-colors">
           <span className="text-xs font-medium">Search</span>
           <div className="flex items-center space-x-1 bg-white/10 rounded px-1.5 py-0.5">
@@ -301,7 +328,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         </div>
       </div>
 
-      {/* Context Menu Overlay */}
       {contextMenu && (
         <div 
           className="fixed z-[100] bg-[#1c1c1e]/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-1 w-48 overflow-hidden transform origin-top-left animate-in fade-in zoom-in-95 duration-150"
@@ -315,6 +341,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                   if (!dockAppIds.includes(contextMenu.appId)) {
                     updateDock([...dockAppIds, contextMenu.appId]);
                   }
+                  setContextMenu(null);
                 }}
               >
                 Add to Dock
@@ -323,6 +350,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                 className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-500 transition-colors"
                 onClick={() => {
                   updateGrid(gridAppIds.filter(id => id !== contextMenu.appId));
+                  setContextMenu(null);
                 }}
               >
                 Remove from Desktop
@@ -338,6 +366,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                   if (!gridAppIds.includes(contextMenu.appId)) {
                     updateGrid([...gridAppIds, contextMenu.appId]);
                   }
+                  setContextMenu(null);
                 }}
               >
                 Add to Desktop
@@ -349,6 +378,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                   if (!FACTORY_DOCK_APPS.includes(contextMenu.appId)) {
                      updateDock(dockAppIds.filter(id => id !== contextMenu.appId));
                   }
+                  setContextMenu(null);
                 }}
               >
                 Remove from Dock

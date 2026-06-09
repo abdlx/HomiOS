@@ -4,15 +4,17 @@ import DesktopEnvironment from './DesktopEnvironment';
 import App from '../App';
 import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
+import DockerManagerApp from './DockerManagerApp';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'docker_manager';
   username?: string;
 }
 
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
   const [view, setView] = useState<string>(initialView);
+  const [dockerAppId, setDockerAppId] = useState<string | null>(null);
 
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
@@ -26,6 +28,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/terminal');
     } else if (view === 'activity') {
       window.history.pushState(null, '', '/activity');
+    } else if (view === 'docker_manager') {
+      window.history.pushState(null, '', '/docker');
     }
   }, [view]);
 
@@ -39,6 +43,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           onOpenSettings={() => setView('settings')}
           onOpenTerminal={() => setView('terminal')}
           onOpenActivity={() => setView('activity')}
+          onOpenDockerManager={(appId) => {
+             if (appId) setDockerAppId(appId);
+             else setDockerAppId(null);
+             setView('docker_manager');
+          }}
           username={username} 
         />
       </div>
@@ -92,6 +101,19 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-gray-50 shadow-2xl relative">
           <ActivityApp onClose={() => setView('desktop')} />
+        </div>
+      </div>
+
+      {/* Docker Manager overlay */}
+      <div 
+        className={`absolute z-50 top-8 bottom-[120px] left-16 right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom ${
+          view === 'docker_manager' 
+            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
+            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
+        }`}
+      >
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+          <DockerManagerApp initialAppId={dockerAppId} onClose={() => setView('desktop')} />
         </div>
       </div>
 

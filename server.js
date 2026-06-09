@@ -121,13 +121,124 @@ app.prepare().then(async () => {
       socket.on('disconnect', () => {
         ptyProcess.kill();
       });
+
+      // Docker manager room
+      socket.on('join_deployment', (deploymentId) => {
+        socket.join(`deployment:${deploymentId}`);
+      });
     });
     
+    global.io = io;
     console.log('✅ Terminal Socket.IO server mounted');
   } catch (e) {
     console.warn('⚠️  Terminal dependencies not installed (node-pty, socket.io). Terminal disabled.');
     console.warn(e);
   }
+
+  // ── Docker Manager Deployment Endpoints ────────────────────────────────
+  server.use('/api/docker/apps/:id/deploy', express.json());
+  server.post('/api/docker/apps/:id/deploy', async (req, res) => {
+    const { id: appId } = req.params;
+    const { spawn } = await import('child_process');
+    const crypto = await import('crypto');
+    const fs = await import('fs');
+    const path = await import('path');
+    const os = await import('os');
+    const { getApp, updateAppStatus, createDeployment, updateDeployment } = await import('./lib/docker-db.js');
+    
+    const app = getApp(appId);
+    if (!app) return res.status(404).json({ error: 'App not found' });
+    
+    const deploymentId = crypto.randomUUID();
+    createDeployment(deploymentId, appId);
+    updateAppStatus(appId, 'deploying');
+    
+    res.status(200).json({ deploymentId, status: 'deploying' });
+    
+    const appendLog = (data) => {
+      const text = data.toString();
+      updateDeployment(deploymentId, 'in_progress', text);
+      if (global.io) global.io.to(`deployment:${deploymentId}`).emit('log', text);
+    };
+
+    appendLog(`Starting deployment for app ${app.name} (${appId})...\n`);
+
+    try {
+      let child;
+      if (app.build_pack === 'dockerimage') {
+        appendLog(`Pulling image ${app.docker_image}:${app.docker_image_tag}...\n`);
+        const args = ['run', '-d', '--name', app.id];
+        if (app.ports) {
+          try {
+            const parsedPorts = JSON.parse(app.ports);
+            for (const p of parsedPorts) {
+              args.push('-p', `${p.host}:${p.container}`);
+            }
+          } catch (e) {}
+        }
+        if (app.env_vars) {
+          try {
+            const parsedEnvs = JSON.parse(app.env_vars);
+            for (const [k, v] of Object.entries(parsedEnvs)) {
+              args.push('-e', `${k}=${v}`);
+            }
+          } catch (e) {}
+        }
+        args.push(`${app.docker_image}:${app.docker_image_tag}`);
+        child = spawn('docker', args);
+      } else if (app.build_pack === 'dockercompose') {
+        const dir = path.join(os.tmpdir(), `openfinder-docker-${app.id}`);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const composePath = path.join(dir, 'docker-compose.yml');
+        fs.writeFileSync(composePath, app.compose_content || '');
+        appendLog(`Written compose file to ${composePath}\n`);
+        child = spawn('docker', ['compose', '-f', composePath, '-p', app.id, 'up', '-d']);
+      } else {
+        throw new Error('Unsupported build_pack: ' + app.build_pack);
+      }
+
+      child.stdout.on('data', appendLog);
+      child.stderr.on('data', appendLog);
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          appendLog(`Deployment successful.\n`);
+          updateDeployment(deploymentId, 'success', '');
+          updateAppStatus(appId, 'running');
+        } else {
+          appendLog(`Deployment failed with exit code ${code}.\n`);
+          updateDeployment(deploymentId, 'error', '');
+          updateAppStatus(appId, 'error');
+        }
+      });
+    } catch (err) {
+      appendLog(`ERROR: ${err.message}\n`);
+      updateDeployment(deploymentId, 'error', '');
+      updateAppStatus(appId, 'error');
+    }
+  });
+
+  server.post('/api/docker/apps/:id/stop', async (req, res) => {
+    const { id: appId } = req.params;
+    const { exec } = await import('child_process');
+    const { getApp, updateAppStatus } = await import('./lib/docker-db.js');
+    
+    const app = getApp(appId);
+    if (!app) return res.status(404).json({ error: 'App not found' });
+    
+    if (app.build_pack === 'dockerimage') {
+      exec(`docker stop ${app.id} && docker rm ${app.id}`, (err) => {
+        if (err) console.error('Stop error:', err);
+        updateAppStatus(appId, 'stopped');
+      });
+    } else if (app.build_pack === 'dockercompose') {
+      exec(`docker compose -p ${app.id} down`, (err) => {
+        if (err) console.error('Stop error:', err);
+        updateAppStatus(appId, 'stopped');
+      });
+    }
+    res.status(200).json({ status: 'stopping' });
+  });
 
   server.all('*', (req, res) => {
     return handle(req, res);
