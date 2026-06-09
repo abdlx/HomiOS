@@ -29,13 +29,13 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
 
       {/* Files App overlay */}
       <div 
-        className={`absolute z-10 transition-all duration-300 ${
+        className={`absolute z-10 top-8 bottom-[120px] left-16 right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom ${
           view === 'files' 
-            ? 'opacity-100 pointer-events-auto scale-100 top-8 bottom-24 left-16 right-16 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]' 
-            : 'opacity-0 pointer-events-none scale-95 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%]'
+            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
+            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full rounded-[24px] border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
           {/* We keep App permanently mounted inside so it holds its state and renders instantly */}
           <App onClose={() => setView('desktop')} />
         </div>
