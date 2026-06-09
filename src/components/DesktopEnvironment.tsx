@@ -180,8 +180,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         {/* App Grid */}
         <div className="flex items-center justify-center w-full max-w-[900px] mb-8 relative">
 
-          <div className="flex flex-col space-y-8 px-12 z-10">
-            <div className="flex flex-wrap gap-x-[52px] gap-y-8 justify-center">
+          <div className="flex flex-col space-y-8 px-12 z-10 w-full">
+            <div className="grid grid-cols-4 md:grid-cols-6 gap-x-[52px] gap-y-8">
               {gridAppIds.map((id) => {
                 const app = ALL_APPS[id];
                 if (!app) return null;

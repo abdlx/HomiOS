@@ -80,10 +80,10 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
   }, [isFullScreen, term]);
 
   return (
-    <div className={`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+    <div className={`absolute bg-[#1c1c1e] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
       isFullScreen 
         ? 'top-0 left-0 right-0 bottom-0 z-[100] rounded-none' 
-        : 'top-10 left-10 right-10 bottom-24 z-50 rounded-[40px] border border-white/20'
+        : 'top-0 left-0 right-0 bottom-0 z-50 rounded-[40px]'
     }`}>
       {/* Title Bar */}
       <div className="bg-[#2c2c2e] h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-black/20">
