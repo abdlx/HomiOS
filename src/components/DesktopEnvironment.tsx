@@ -4,14 +4,17 @@ import {
   Monitor, FolderOpen, Folder, Terminal, Globe, Calendar, Clock, Calculator, Mail, MessageSquare, Music, Video, Image as ImageIcon, Box,
   Download, Zap, Hash, Radio, Server, Triangle, Settings
 } from 'lucide-react';
+import { useWallpaper } from '../hooks/useWallpaper';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
+  onOpenSettings: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, username }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, username }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
+  const { wallpaper } = useWallpaper();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -40,15 +43,16 @@ export default function DesktopEnvironment({ onOpenFinder, username }: DesktopEn
     { id: 'home', icon: Box, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
     { id: 'mail', icon: Mail, color: 'bg-gradient-to-br from-blue-500 to-blue-700' },
     { id: 'calendar', icon: Calendar, color: 'bg-gradient-to-br from-orange-400 to-red-500' },
-    { id: 'settings', icon: Settings, color: 'bg-gradient-to-br from-slate-500 to-slate-700' },
+    { id: 'settings', icon: Settings, color: 'bg-gradient-to-br from-slate-500 to-slate-700', onClick: onOpenSettings },
     { id: 'activity', icon: Activity, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
     { id: 'finder', icon: FolderOpen, color: 'bg-gradient-to-br from-blue-400 to-cyan-500', onClick: onOpenFinder },
   ];
 
   return (
     <div 
-      className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white" 
-      style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1506744031586-b523e727fdd4?q=80&w=2070&auto=format&fit=crop")' }}
+      className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white transition-all duration-1000" 
+      style={{ backgroundImage: `url('${wallpaper}')` }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-black/20" />
