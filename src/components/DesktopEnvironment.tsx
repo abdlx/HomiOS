@@ -137,19 +137,13 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
               <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
             </div>
 
-            <div className="relative h-14 w-full flex items-end space-x-1.5 z-10">
-              {Array.from({ length: 15 }).map((_, i) => {
-                const isLast = i === 14;
-                const height = isLast ? (stats?.cpu?.usagePercent || 10) : Math.max(10, Math.random() * 80);
-                return (
-                  <div key={i} className="flex-1 bg-white/10 rounded-t-sm relative overflow-hidden" style={{ height: '100%' }}>
-                    <div 
-                      className={`absolute bottom-0 left-0 right-0 rounded-t-sm transition-all duration-[800ms] ${isLast ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.6)]' : 'bg-blue-500/40'}`} 
-                      style={{ height: `${height}%` }}
-                    />
-                  </div>
-                );
-              })}
+            <div className="relative h-14 w-full flex items-center z-10">
+              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-400 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(96,165,250,0.6)]" 
+                  style={{ width: `${stats?.cpu?.usagePercent || 0}%` }}
+                ></div>
+              </div>
             </div>
           </div>
 
@@ -170,7 +164,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                    </div>
                  </div>
                </div>
-               <span className="text-white font-semibold text-sm">{stats ? (stats.memory.used / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
+               <span className="text-white font-semibold text-sm">{stats ? (stats.memory.total / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
             </div>
 
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-1"></div>
@@ -188,7 +182,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                    </div>
                  </div>
                </div>
-               <span className="text-white font-semibold text-sm">{stats ? ((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
+               <span className="text-white font-semibold text-sm">{stats ? (stats.disk.total / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
             </div>
           </div>
 
@@ -215,7 +209,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="bg-white/5 rounded-xl p-3 border border-white/5">
                   <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Cores</span>
-                  <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats?.cpu?.cores || 0}</span>
+                  <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats ? Math.max(1, Math.round(stats.cpu.cores / 2)) : 0}</span>
                 </div>
                 <div className="bg-white/5 rounded-xl p-3 border border-white/5">
                   <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Platform</span>
