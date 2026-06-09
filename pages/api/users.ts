@@ -1,22 +1,17 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
-import path from 'path';
+import Database from 'better-sqlite3';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const db = await open({
-      filename: path.join(process.cwd(), 'openfinder.db'),
-      driver: sqlite3.Database
-    });
+    const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
 
     // Check if the users table exists before querying
-    const tableExists = await db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='users'`);
+    const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='users'`).get();
     if (!tableExists) {
       return res.status(200).json([]);
     }
 
-    const users = await db.all('SELECT id, email FROM users');
+    const users = db.prepare('SELECT id, email FROM users').all();
     res.status(200).json(users);
   } catch (error) {
     console.error('Users API error:', error);
