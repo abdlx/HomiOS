@@ -60,6 +60,16 @@ else
   log "Node.js $(node -v) already installed."
 fi
 
+# ── 3. Docker & Docker Compose ────────────────────────────────
+if ! command -v docker &>/dev/null; then
+  log "Installing Docker engine..."
+  curl -fsSL https://get.docker.com | sh > /dev/null 2>&1
+  systemctl enable docker --quiet
+  systemctl start docker --quiet || true
+else
+  log "Docker already installed."
+fi
+
 # ── 3. App directory & clone/update ──────────────────────────
 INSTALL_DIR="/opt/openfinder"
 REPO_URL="https://github.com/abdlx/OpenFinder-shell.git"
@@ -199,6 +209,15 @@ log "Nginx configured — proxying port 80 → Node.js :3000"
 cat > /usr/local/bin/openfinder-update <<UPDATEEOF
 #!/bin/bash
 set -e
+
+# Ensure Docker is installed during updates
+if ! command -v docker &>/dev/null; then
+  echo "Installing missing Docker engine..."
+  curl -fsSL https://get.docker.com | sh > /dev/null 2>&1
+  systemctl enable docker --quiet
+  systemctl start docker --quiet || true
+fi
+
 cd $INSTALL_DIR
 git pull
 npm install --legacy-peer-deps --silent

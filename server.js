@@ -163,67 +163,69 @@ app.prepare().then(async () => {
 
     appendLog(`Starting deployment for app ${app.name} (${appId})...\n`);
 
-    try {
-      let child;
-      if (app.build_pack === 'dockerimage') {
-        appendLog(`Pulling image ${app.docker_image}:${app.docker_image_tag}...\n`);
-        const args = ['run', '-d', '--name', app.id];
-        if (app.ports) {
-          try {
-            const parsedPorts = JSON.parse(app.ports);
-            for (const p of parsedPorts) {
-              args.push('-p', `${p.host}:${p.container}`);
-            }
-          } catch (e) {}
-        }
-        if (app.env_vars) {
-          try {
-            const parsedEnvs = JSON.parse(app.env_vars);
-            for (const [k, v] of Object.entries(parsedEnvs)) {
-              args.push('-e', `${k}=${v}`);
-            }
-          } catch (e) {}
-        }
-        args.push(`${app.docker_image}:${app.docker_image_tag}`);
-        const isWin = os.platform() === 'win32';
-        child = spawn('docker', args, { shell: isWin });
-      } else if (app.build_pack === 'dockercompose') {
-        const dir = path.join(os.tmpdir(), `openfinder-docker-${app.id}`);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        const composePath = path.join(dir, 'docker-compose.yml');
-        fs.writeFileSync(composePath, app.compose_content || '');
-        appendLog(`Written compose file to ${composePath}\n`);
-        const isWin = os.platform() === 'win32';
-        child = spawn('docker', ['compose', '-f', composePath, '-p', app.id, 'up', '-d'], { shell: isWin });
-      } else {
-        throw new Error('Unsupported build_pack: ' + app.build_pack);
-      }
-
-      child.on('error', (err) => {
-        appendLog(`Spawn Error: ${err.message}\nCheck if Docker is installed and running.\n`);
-        updateDeployment(deploymentId, 'error', '');
-        updateAppStatus(appId, 'error');
-      });
-
-      child.stdout.on('data', appendLog);
-      child.stderr.on('data', appendLog);
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          appendLog(`Deployment successful.\n`);
-          updateDeployment(deploymentId, 'success', '');
-          updateAppStatus(appId, 'running');
+    setTimeout(() => {
+      try {
+        let child;
+        if (app.build_pack === 'dockerimage') {
+          appendLog(`Pulling image ${app.docker_image}:${app.docker_image_tag}...\n`);
+          const args = ['run', '-d', '--name', app.id];
+          if (app.ports) {
+            try {
+              const parsedPorts = JSON.parse(app.ports);
+              for (const p of parsedPorts) {
+                args.push('-p', `${p.host}:${p.container}`);
+              }
+            } catch (e) {}
+          }
+          if (app.env_vars) {
+            try {
+              const parsedEnvs = JSON.parse(app.env_vars);
+              for (const [k, v] of Object.entries(parsedEnvs)) {
+                args.push('-e', `${k}=${v}`);
+              }
+            } catch (e) {}
+          }
+          args.push(`${app.docker_image}:${app.docker_image_tag}`);
+          const isWin = os.platform() === 'win32';
+          child = spawn('docker', args, { shell: isWin });
+        } else if (app.build_pack === 'dockercompose') {
+          const dir = path.join(os.tmpdir(), `openfinder-docker-${app.id}`);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          const composePath = path.join(dir, 'docker-compose.yml');
+          fs.writeFileSync(composePath, app.compose_content || '');
+          appendLog(`Written compose file to ${composePath}\n`);
+          const isWin = os.platform() === 'win32';
+          child = spawn('docker', ['compose', '-f', composePath, '-p', app.id, 'up', '-d'], { shell: isWin });
         } else {
-          appendLog(`Deployment failed with exit code ${code}.\n`);
+          throw new Error('Unsupported build_pack: ' + app.build_pack);
+        }
+
+        child.on('error', (err) => {
+          appendLog(`Spawn Error: ${err.message}\nCheck if Docker is installed and running.\n`);
           updateDeployment(deploymentId, 'error', '');
           updateAppStatus(appId, 'error');
-        }
-      });
-    } catch (err) {
-      appendLog(`ERROR: ${err.message}\n`);
-      updateDeployment(deploymentId, 'error', '');
-      updateAppStatus(appId, 'error');
-    }
+        });
+
+        child.stdout.on('data', appendLog);
+        child.stderr.on('data', appendLog);
+
+        child.on('close', (code) => {
+          if (code === 0) {
+            appendLog(`Deployment successful.\n`);
+            updateDeployment(deploymentId, 'success', '');
+            updateAppStatus(appId, 'running');
+          } else {
+            appendLog(`Deployment failed with exit code ${code}.\n`);
+            updateDeployment(deploymentId, 'error', '');
+            updateAppStatus(appId, 'error');
+          }
+        });
+      } catch (err) {
+        appendLog(`ERROR: ${err.message}\n`);
+        updateDeployment(deploymentId, 'error', '');
+        updateAppStatus(appId, 'error');
+      }
+    }, 1000); // 1s delay to allow client to connect to socket stream
   });
 
   server.post('/api/docker/apps/:id/stop', async (req, res) => {
