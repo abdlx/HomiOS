@@ -73,7 +73,7 @@ export function regenerateSmbConf(db: ReturnType<typeof Database>) {
   valid users = ${validUsers || '@nobody'}
   create mask = 0664
   directory mask = 0775
-  force group = sambashare
+  force user = root
 
 `;
     }
