@@ -50,7 +50,9 @@ export function regenerateSmbConf(db: ReturnType<typeof Database>) {
   log file = /var/log/samba/log.%m
   max log size = 50
   passdb backend = tdbsam
-  smb encrypt = desired
+  server min protocol = SMB2
+  client min protocol = SMB2
+  ntlm auth = yes
 
 `;
 
