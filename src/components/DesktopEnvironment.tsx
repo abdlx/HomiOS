@@ -121,23 +121,25 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 w-full max-w-[1050px]">
           
           {/* Card 1: CPU Activity */}
-          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500">
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-[40px] -mr-10 -mt-10 transition-transform duration-700 group-hover:scale-150"></div>
             
-            <div className="flex justify-between items-start mb-6 relative z-10">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="flex items-start space-x-3 max-w-[70%]">
+                <div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400 flex-shrink-0 mt-0.5">
                   <Activity size={22} strokeWidth={2} />
                 </div>
                 <div>
-                  <h3 className="text-white/90 text-sm font-semibold tracking-wide">CPU Usage</h3>
-                  <p className="text-white/50 text-[11px] font-medium mt-0.5">{stats?.cpu?.model || 'Processor'}</p>
+                  <h3 className="text-white/90 text-sm font-semibold tracking-wide leading-tight mt-1">CPU Usage</h3>
+                  <p className="text-white/50 text-[11px] font-medium mt-1 line-clamp-2 leading-snug pr-2" title={stats?.cpu?.model || 'Processor'}>
+                    {stats?.cpu?.model || 'Processor'}
+                  </p>
                 </div>
               </div>
-              <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
+              <span className="text-2xl font-bold text-white tracking-tight flex-shrink-0 mt-1">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
             </div>
 
-            <div className="relative h-14 w-full flex items-center z-10">
+            <div className="relative w-full flex items-center z-10 mt-auto pt-2">
               <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-blue-400 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(96,165,250,0.6)]" 
@@ -148,7 +150,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
 
           {/* Card 2: Memory & Storage */}
-          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between">
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-[40px] -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-150"></div>
             
             {/* Memory */}
@@ -187,34 +189,32 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
 
           {/* Card 3: System Load & Info */}
-          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500">
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] transition-transform duration-700 group-hover:scale-150"></div>
             
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400">
-                    <Zap size={22} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <h3 className="text-white/90 text-sm font-semibold tracking-wide">System Load</h3>
-                    <p className="text-white/50 text-[11px] font-medium mt-0.5">Avg over 1 min</p>
-                  </div>
+            <div className="flex justify-between items-start relative z-10">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400">
+                  <Zap size={22} strokeWidth={2} />
                 </div>
-                <div className="flex items-baseline space-x-1">
-                  <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span>
+                <div>
+                  <h3 className="text-white/90 text-sm font-semibold tracking-wide">System Load</h3>
+                  <p className="text-white/50 text-[11px] font-medium mt-0.5">Avg over 1 min</p>
                 </div>
               </div>
+              <div className="flex items-baseline space-x-1">
+                <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span>
+              </div>
+            </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                  <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Cores</span>
-                  <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats ? Math.max(1, Math.round(stats.cpu.cores / 2)) : 0}</span>
-                </div>
-                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                  <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Platform</span>
-                  <span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400"/> {stats?.os?.platform || 'N/A'}</span>
-                </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 relative z-10">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Cores</span>
+                <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats ? Math.max(1, Math.round(stats.cpu.cores / 2)) : 0}</span>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Platform</span>
+                <span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400"/> {stats?.os?.platform || 'N/A'}</span>
               </div>
             </div>
           </div>
