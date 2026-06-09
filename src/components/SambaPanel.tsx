@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Share2, Users, HardDrive, Shield, Plus, Trash2, Edit2, Lock, Save, X, Check, RefreshCw } from 'lucide-react';
+import { Share2, Users, HardDrive, Shield, Plus, Trash2, Edit2, Lock, Save, X, Check, RefreshCw, Folder } from 'lucide-react';
 
 interface SambaShare {
   id: number;
@@ -24,6 +24,8 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   const [shares, setShares] = useState<SambaShare[]>([]);
   const [users, setUsers] = useState<SambaUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const host = typeof window !== 'undefined' ? window.location.hostname : 'server';
 
   // New Share form state
   const [isAddingShare, setIsAddingShare] = useState(false);
@@ -286,8 +288,23 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                       <Share2 size={20} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-800">\\\\server\\{share.name}</h3>
-                      <p className="text-xs text-slate-500 font-mono mt-0.5">{share.path}</p>
+                      <div className="flex flex-col gap-1.5 mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 select-all">
+                            \\\\{host}\\{share.name}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Windows</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 select-all">
+                            smb://{host}/{share.name}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mac / Linux</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 font-mono mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2">
+                        <Folder size={12} className="text-slate-400" /> {share.path}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
