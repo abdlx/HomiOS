@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Cloud, Search, Umbrella, Activity, Cpu, HardDrive, Thermometer, Database, MemoryStick, ChevronLeft, ChevronRight,
-  Monitor, FolderOpen, Terminal, Globe, Calendar, Clock, Calculator, Mail, MessageSquare, Music, Video, Image as ImageIcon, Box,
+  Monitor, FolderOpen, Folder, Terminal, Globe, Calendar, Clock, Calculator, Mail, MessageSquare, Music, Video, Image as ImageIcon, Box,
   Download, Zap, Hash, Radio, Server, Triangle, Settings
 } from 'lucide-react';
 
@@ -30,22 +30,10 @@ export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentP
   }, []);
   
   const appsRow1 = [
-    { id: 'nextcloud', label: 'Nextcloud', icon: Cloud, color: 'bg-gradient-to-b from-cyan-400 to-blue-500', onClick: onOpenFinder },
-    { id: 'bitcoin', label: 'Bitcoin Node', icon: Database, color: 'bg-gradient-to-b from-yellow-400 to-orange-500' },
-    { id: 'homeassistant', label: 'Home Assistant', icon: Box, color: 'bg-gradient-to-b from-blue-400 to-blue-600' },
-    { id: 'pihole', label: 'Pi-hole', icon: Server, color: 'bg-gradient-to-b from-red-500 to-red-700' },
-    { id: 'plex', label: 'Plex', icon: ChevronRight, color: 'bg-gradient-to-b from-yellow-500 to-amber-600' },
-    { id: 'lightning', label: 'Lightning Node', icon: Zap, color: 'bg-gradient-to-b from-purple-400 to-purple-600' },
+    { id: 'files', label: 'Files', icon: Folder, color: 'bg-gradient-to-br from-blue-400 to-cyan-500', onClick: onOpenFinder },
   ];
 
-  const appsRow2 = [
-    { id: 'jellyfin', label: 'Jellyfin', icon: Triangle, color: 'bg-gradient-to-b from-indigo-500 to-purple-600' },
-    { id: 'portainer', label: 'Portainer', icon: Box, color: 'bg-gradient-to-b from-teal-400 to-teal-600' },
-    { id: 'electra', label: 'Electra', icon: Radio, color: 'bg-gradient-to-b from-blue-300 to-blue-500' },
-    { id: 'mempool', label: 'mempool', icon: Hash, color: 'bg-gradient-to-b from-slate-600 to-slate-800' },
-    { id: 'transmission', label: 'Transmission', icon: Download, color: 'bg-gradient-to-b from-gray-200 to-gray-400 text-black' },
-    { id: 'sonarr', label: 'Sonarr', icon: Server, color: 'bg-gradient-to-b from-cyan-500 to-cyan-700' },
-  ];
+  const appsRow2 = [] as any[];
 
   const dockApps = [
     { id: 'home', icon: Box, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },

@@ -1,5 +1,4 @@
-import { useRouter } from 'next/router';
-import DesktopEnvironment from '../src/components/DesktopEnvironment';
+import App from '../src/App';
 import { getSession, isAppInitialized } from '../lib/auth';
 
 export async function getServerSideProps(context: any) {
@@ -15,7 +14,6 @@ export async function getServerSideProps(context: any) {
   return { props: {} };
 }
 
-export default function Dashboard() {
-  const router = useRouter();
-  return <DesktopEnvironment onOpenFinder={() => router.push('/files')} />;
+export default function Files() {
+  return <App />;
 }

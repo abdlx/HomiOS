@@ -12,10 +12,8 @@ import StorageDashboard from './components/StorageDashboard';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
 import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight } from 'lucide-react';
 import MobileHomeScreen from './components/MobileHomeScreen';
-import DesktopEnvironment from './components/DesktopEnvironment';
 
 export default function App() {
-  const [isFinderOpen, setIsFinderOpen] = useState(false);
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
@@ -487,25 +485,9 @@ export default function App() {
 
   return (
     <div
-      className="relative h-screen w-full select-none overflow-hidden font-sans bg-black"
+      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Desktop Background Environment */}
-      {!isMobile && (
-        <div className="absolute inset-0 z-0">
-          <DesktopEnvironment onOpenFinder={() => setIsFinderOpen(true)} />
-        </div>
-      )}
-
-      {/* Main Application Container */}
-      {(isMobile || isFinderOpen) && (
-        <div 
-          className={`absolute flex flex-col bg-gray-50 z-10 ${
-            isMobile 
-              ? 'inset-0' 
-              : 'top-8 bottom-24 left-16 right-16 rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-neutral-200/50 overflow-hidden'
-          }`}
-        >
           {/* Mobile Top Header */}
           {isMobile && (
             <header 
@@ -545,7 +527,7 @@ export default function App() {
                 onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
                 onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
                 starredFolders={starredFolders}
-                onCloseDrawer={() => setIsFinderOpen(false)}
+                onCloseDrawer={() => window.location.href = '/dashboard'}
               />
             )}
 
@@ -712,8 +694,6 @@ export default function App() {
             <span className="text-[10px] font-medium">Drives</span>
           </button>
         </nav>
-      )}
-      </div>
       )}
 
       {/* Slide-out Mobile Drawer */}
