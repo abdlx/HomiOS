@@ -132,8 +132,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
 
           {/* APPEARANCE TAB */}
           {activeTab === 'appearance' && (
-            <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
+            <div className="flex flex-col lg:flex-row items-start gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50 sticky top-0 z-10">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Current Wallpaper</h3>
                 <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-inner border border-black/5 relative group">
                   <img src={wallpaper} alt="Wallpaper Preview" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
