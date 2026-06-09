@@ -7,9 +7,10 @@ import {
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
+  username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, username }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentP
         
         {/* Header */}
         <div className="flex flex-col items-center mb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, Chad.</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, {username || 'Chad'}.</h1>
         </div>
 
         {/* 3 Monitoring Cards */}
@@ -135,12 +136,8 @@ export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentP
 
         </div>
 
-        {/* App Grid with Navigation Arrows */}
+        {/* App Grid */}
         <div className="flex items-center justify-center w-full max-w-[900px] mb-8 relative">
-          
-          <button className="absolute -left-4 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-black/40 transition z-20">
-            <ChevronLeft size={16} className="text-white/70" />
-          </button>
 
           <div className="flex flex-col space-y-8 px-12 z-10">
             <div className="grid grid-cols-6 gap-x-[52px] gap-y-8">
@@ -169,31 +166,21 @@ export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentP
             </div>
           </div>
 
-          <button className="absolute -right-4 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-black/40 transition z-20">
-            <ChevronRight size={16} className="text-white/70" />
-          </button>
-
         </div>
 
-        {/* Pagination Dots */}
-        <div className="flex space-x-2 mb-6">
-          <div className="w-6 h-1.5 rounded-full bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
-        </div>
+      </div>
 
+      {/* Dock Area with Search Bar Pinned Above */}
+      <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
         {/* Search Bar */}
-        <div className="flex items-center space-x-2 text-white/50 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 mb-auto shadow-lg">
+        <div className="flex items-center space-x-2 text-white/50 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg mb-4 pointer-events-auto cursor-pointer hover:bg-black/30 transition-colors">
           <span className="text-xs font-medium">Search</span>
           <div className="flex items-center space-x-1 bg-white/10 rounded px-1.5 py-0.5">
             <span className="text-[10px] font-semibold">⌘K</span>
           </div>
         </div>
 
-      </div>
-
-      {/* Dock Area */}
-      <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-4">
-        <div className="bg-[#1c1c1e]/50 backdrop-blur-3xl rounded-[32px] p-3 shadow-2xl border border-white/10 flex items-center space-x-4 mb-4">
+        <div className="bg-[#1c1c1e]/50 backdrop-blur-3xl rounded-[32px] p-3 shadow-2xl border border-white/10 flex items-center space-x-4">
           {dockApps.map((app: any) => (
             <div 
               key={`dock-${app.id}`}
@@ -206,8 +193,6 @@ export default function DesktopEnvironment({ onOpenFinder }: DesktopEnvironmentP
             </div>
           ))}
         </div>
-        {/* iOS Home Indicator */}
-        <div className="w-36 h-1.5 bg-white/90 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
       </div>
 
     </div>

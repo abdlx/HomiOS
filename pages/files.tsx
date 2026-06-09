@@ -1,4 +1,4 @@
-import App from '../src/App';
+import WindowManager from '../src/components/WindowManager';
 import { getSession, isAppInitialized } from '../lib/auth';
 
 export async function getServerSideProps(context: any) {
@@ -11,9 +11,15 @@ export async function getServerSideProps(context: any) {
     return { redirect: { destination: '/login', permanent: false } };
   }
   
-  return { props: {} };
+  let username = 'User';
+  if (session.email) {
+    const rawName = session.email.split('@')[0];
+    username = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  }
+  
+  return { props: { username } };
 }
 
-export default function Files() {
-  return <App />;
+export default function Files({ username }: { username: string }) {
+  return <WindowManager initialView="files" username={username} />;
 }

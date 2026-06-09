@@ -13,7 +13,11 @@ import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './type
 import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight } from 'lucide-react';
 import MobileHomeScreen from './components/MobileHomeScreen';
 
-export default function App() {
+interface AppProps {
+  onClose?: () => void;
+}
+
+export default function App({ onClose }: AppProps = {}) {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
@@ -485,7 +489,7 @@ export default function App() {
 
   return (
     <div
-      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
+      className="h-full w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
       onContextMenu={(e) => e.preventDefault()}
     >
           {/* Mobile Top Header */}
@@ -527,7 +531,10 @@ export default function App() {
                 onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
                 onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
                 starredFolders={starredFolders}
-                onCloseDrawer={() => window.location.href = '/dashboard'}
+                onCloseDrawer={() => {
+                  if (onClose) onClose();
+                  else window.location.href = '/dashboard';
+                }}
               />
             )}
 

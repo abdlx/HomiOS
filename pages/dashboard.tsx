@@ -1,5 +1,4 @@
-import { useRouter } from 'next/router';
-import DesktopEnvironment from '../src/components/DesktopEnvironment';
+import WindowManager from '../src/components/WindowManager';
 import { getSession, isAppInitialized } from '../lib/auth';
 
 export async function getServerSideProps(context: any) {
@@ -12,10 +11,15 @@ export async function getServerSideProps(context: any) {
     return { redirect: { destination: '/login', permanent: false } };
   }
   
-  return { props: {} };
+  let username = 'User';
+  if (session.email) {
+    const rawName = session.email.split('@')[0];
+    username = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  }
+  
+  return { props: { username } };
 }
 
-export default function Dashboard() {
-  const router = useRouter();
-  return <DesktopEnvironment onOpenFinder={() => router.push('/files')} />;
+export default function Dashboard({ username }: { username: string }) {
+  return <WindowManager initialView="desktop" username={username} />;
 }

@@ -11,7 +11,12 @@ export async function getSession(req: any) {
 
     try {
       const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
-      const session = db.prepare('SELECT user_id, expires_at FROM sessions WHERE id = ?').get(sessionId) as {user_id: number, expires_at: string} | undefined;
+      const session = db.prepare(`
+        SELECT s.user_id, s.expires_at, u.email 
+        FROM sessions s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE s.id = ?
+      `).get(sessionId) as {user_id: number, expires_at: string, email: string} | undefined;
       
       if (!session) return null;
 
@@ -20,7 +25,7 @@ export async function getSession(req: any) {
         return null;
       }
 
-      return { userId: session.user_id };
+      return { userId: session.user_id, email: session.email };
     } catch (dbErr) {
       return null;
     }
