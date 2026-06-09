@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useRef } from 'react';
 import {
   X,
   Download,
@@ -10,6 +10,12 @@ import {
   Edit3,
   Flame,
   ChevronDown,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Rewind,
+  FastForward,
+  Maximize2
 } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -59,6 +65,16 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
   const [selectedTag, setSelectedTag] = useState<string>(file.tags?.[0] || '');
   const [isLoadingContent, setIsLoadingContent] = useState(file.type === 'text');
   const [monacoAvailable, setMonacoAvailable] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleZoomIn = () => setZoom(z => Math.min(z + 0.25, 4));
+  const handleZoomOut = () => setZoom(z => Math.max(z - 0.25, 0.25));
+  const handleRotate = () => setRotation(r => r + 90);
+  const handleRewind = () => { if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10); };
+  const handleFastForward = () => { if (videoRef.current) videoRef.current.currentTime += 10; };
+  const handleReset = () => { setZoom(1); setRotation(0); };
 
   const fileUrl = `/api/files?path=${encodeURIComponent(file.id)}&raw=true`;
   const language = resolveLanguage(file.name);
@@ -99,22 +115,27 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
 
   return (
     <div
-      className="fixed inset-0 bg-[#111827] flex items-center justify-center z-50 overflow-hidden"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-hidden p-6"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Main container */}
-      <div className="bg-[#111827] text-slate-100 w-full h-full flex flex-col">
+      <div className="bg-[#1c1c1e]/80 backdrop-blur-3xl text-slate-100 w-full max-w-5xl h-[85vh] rounded-[24px] shadow-[0_32px_64px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col overflow-hidden transform transition-all">
 
         {/* ── Title Bar ── */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-950/40 border-b border-white/5">
-          <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-mono font-semibold text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded border border-white/5">
-              {language.toUpperCase()}
-            </span>
+        <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
+          <div className="flex items-center space-x-2 w-1/4">
+            {/* macOS traffic lights */}
+            <div className="flex space-x-2">
+              <button onClick={onClose} className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600 shadow-inner flex items-center justify-center group transition-colors">
+                <X size={8} className="opacity-0 group-hover:opacity-100 text-red-900" />
+              </button>
+              <button className="w-3.5 h-3.5 rounded-full bg-amber-500 hover:bg-amber-600 shadow-inner transition-colors"></button>
+              <button className="w-3.5 h-3.5 rounded-full bg-green-500 hover:bg-green-600 shadow-inner transition-colors"></button>
+            </div>
           </div>
 
           {/* Editable title */}
-          <div className="flex items-center space-x-2 flex-grow justify-center max-w-[280px]">
+          <div className="flex items-center space-x-2 flex-grow justify-center w-2/4">
             {isEditingName ? (
               <div className="flex items-center space-x-1">
                 <input
@@ -122,42 +143,90 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); }}
-                  className="bg-slate-800 border border-blue-500/50 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-black/30 border border-blue-500/50 rounded px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
-                <button onClick={handleSaveName} className="p-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] transition-colors">
-                  <Check size={11} />
+                <button onClick={handleSaveName} className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] transition-colors">
+                  <Check size={12} />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-1.5">
-                <h3 className="text-xs font-bold text-slate-200 truncate max-w-[210px]" title={file.name}>{file.name}</h3>
-                <button onClick={() => setIsEditingName(true)} className="p-1 text-slate-600 hover:text-slate-300 transition-colors">
-                  <Edit3 size={11} />
-                </button>
+              <div className="flex items-center space-x-1.5 cursor-pointer group" onClick={() => setIsEditingName(true)}>
+                <h3 className="text-sm font-semibold text-slate-200 truncate max-w-[300px]" title={file.name}>{file.name}</h3>
+                <Edit3 size={11} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
           </div>
 
-          <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-200 rounded-lg hover:bg-slate-700/50 transition-all">
-            <X size={15} />
-          </button>
+          <div className="flex items-center justify-end w-1/4">
+            <span className="text-[10px] font-mono font-semibold text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+              {language.toUpperCase()}
+            </span>
+          </div>
         </div>
 
         {/* ── Content ── */}
-        <div className="flex-1 overflow-hidden p-5 flex flex-col space-y-4">
+        <div className="flex-1 overflow-hidden p-6 flex flex-col space-y-4 relative">
+
+          {/* Media Toolbar */}
+          {(file.type === 'image' || file.type === 'video') && (
+            <div className="flex items-center justify-center space-x-2 bg-black/40 backdrop-blur-md rounded-xl p-2 border border-white/10 w-max mx-auto mb-2 shadow-lg z-10">
+              <button onClick={handleZoomOut} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Zoom Out">
+                <ZoomOut size={16} />
+              </button>
+              <span className="text-xs text-slate-300 font-mono w-12 text-center">{Math.round(zoom * 100)}%</span>
+              <button onClick={handleZoomIn} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Zoom In">
+                <ZoomIn size={16} />
+              </button>
+              
+              <div className="w-px h-4 bg-white/10 mx-2" />
+              
+              {file.type === 'image' && (
+                <button onClick={handleRotate} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Rotate">
+                  <RotateCw size={16} />
+                </button>
+              )}
+
+              {file.type === 'video' && (
+                <>
+                  <button onClick={handleRewind} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Backward 10s">
+                    <Rewind size={16} />
+                  </button>
+                  <button onClick={handleFastForward} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Forward 10s">
+                    <FastForward size={16} />
+                  </button>
+                </>
+              )}
+              
+              <button onClick={handleReset} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Reset">
+                <Maximize2 size={16} />
+              </button>
+            </div>
+          )}
 
           {/* Image Preview */}
           {file.type === 'image' && (
-            <div className="w-full h-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden p-2">
-              <img src={fileUrl} alt={file.name} className="max-h-full max-w-full object-contain rounded-lg" />
+            <div className="w-full flex-1 flex justify-center items-center rounded-xl bg-black/20 border border-white/5 overflow-hidden p-2 relative">
+              <img 
+                src={fileUrl} 
+                alt={file.name} 
+                className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200" 
+                style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+              />
             </div>
           )}
 
           {/* Video Preview */}
           {file.type === 'video' && (
-            <div className="w-full h-full flex justify-center items-center rounded-xl bg-black/40 border border-white/5 overflow-hidden">
-              <video src={fileUrl} controls autoPlay className="max-h-full max-w-full object-contain rounded-lg" />
+            <div className="w-full flex-1 flex justify-center items-center rounded-xl bg-black/20 border border-white/5 overflow-hidden p-2 relative">
+              <video 
+                ref={videoRef}
+                src={fileUrl} 
+                controls 
+                autoPlay 
+                className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200" 
+                style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+              />
             </div>
           )}
 
@@ -251,7 +320,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
         </div>
 
         {/* ── Footer ── */}
-        <div className="px-5 py-3 bg-slate-950/40 border-t border-white/5 flex items-center justify-between">
+        <div className="px-5 py-4 bg-white/5 border-t border-white/10 flex items-center justify-between mt-auto">
           <button
             onClick={() => { if (confirm(`Delete "${file.name}"?`)) { onDelete(file.id); onClose(); } }}
             className="text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all"
@@ -260,7 +329,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
             <span>Delete</span>
           </button>
           <div className="flex items-center space-x-2">
-            <button onClick={onClose} className="text-slate-500 hover:text-slate-300 px-3 py-1.5 rounded-lg text-xs transition-colors">
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
               Close
             </button>
             <a
@@ -268,7 +337,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
               download={file.name}
               target="_blank"
               rel="noreferrer"
-              className="bg-white/8 hover:bg-white/12 border border-white/10 text-slate-200 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all"
+              className="bg-white/10 hover:bg-white/20 border border-white/10 text-slate-100 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm"
             >
               <Download size={12} />
               <span>Download</span>
