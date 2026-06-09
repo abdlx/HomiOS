@@ -35,14 +35,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   }, []);
   
   const ALL_APPS: Record<string, any> = {
-    'files': { id: 'files', label: 'Files', icon: Folder, color: 'bg-gradient-to-br from-blue-400 to-cyan-500' },
-    'home': { id: 'home', label: 'Home', icon: Box, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
-    'mail': { id: 'mail', label: 'Mail', icon: Mail, color: 'bg-gradient-to-br from-blue-500 to-blue-700' },
-    'calendar': { id: 'calendar', label: 'Calendar', icon: Calendar, color: 'bg-gradient-to-br from-orange-400 to-red-500' },
-    'settings': { id: 'settings', label: 'Settings', icon: Settings, color: 'bg-gradient-to-br from-slate-500 to-slate-700' },
-    'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
-    'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'bg-gradient-to-br from-slate-800 to-black' },
-    'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'bg-gradient-to-br from-blue-400 to-cyan-500' }
+    'files': { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
+    'home': { id: 'home', label: 'Home', icon: Box, color: 'from-[#5E5CE6] to-[#3634A3]' },
+    'mail': { id: 'mail', label: 'Mail', icon: Mail, color: 'from-[#30D158] to-[#148332]' },
+    'calendar': { id: 'calendar', label: 'Calendar', icon: Calendar, color: 'from-[#FF453A] to-[#B31209]' },
+    'settings': { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
+    'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
+    'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
+    'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' }
   };
 
   const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal'];
@@ -117,78 +117,112 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, {username || 'Chad'}.</h1>
         </div>
 
-        {/* 3 Monitoring Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 w-full max-w-[1000px]">
+        {/* Monitoring Widget Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 w-full max-w-[1050px]">
           
-          {/* Card 1: CPU Usage */}
-          <div className="flex flex-col items-center">
-            <div className="w-full bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[24px] p-6 shadow-2xl border border-white/5 h-[140px] flex flex-col justify-center">
-              <span className="text-white/60 text-xs font-medium mb-2">CPU Utilization</span>
-              <span className="text-[32px] font-bold mb-4 text-white leading-none">
-                {stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%
-              </span>
-              <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
-                <div 
-                  className="bg-white/70 h-1.5 rounded-full transition-all duration-500" 
-                  style={{ width: `${stats?.cpu?.usagePercent || 0}%` }}
-                ></div>
+          {/* Card 1: CPU Activity */}
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-[40px] -mr-10 -mt-10 transition-transform duration-700 group-hover:scale-150"></div>
+            
+            <div className="flex justify-between items-start mb-6 relative z-10">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400">
+                  <Activity size={22} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-white/90 text-sm font-semibold tracking-wide">CPU Usage</h3>
+                  <p className="text-white/50 text-[11px] font-medium mt-0.5">{stats?.cpu?.model || 'Processor'}</p>
+                </div>
               </div>
+              <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
             </div>
-            <span className="text-white/60 text-xs mt-3">{stats?.cpu?.model || 'Processor'}</span>
+
+            <div className="relative h-14 w-full flex items-end space-x-1.5 z-10">
+              {Array.from({ length: 15 }).map((_, i) => {
+                const isLast = i === 14;
+                const height = isLast ? (stats?.cpu?.usagePercent || 10) : Math.max(10, Math.random() * 80);
+                return (
+                  <div key={i} className="flex-1 bg-white/10 rounded-t-sm relative overflow-hidden" style={{ height: '100%' }}>
+                    <div 
+                      className={`absolute bottom-0 left-0 right-0 rounded-t-sm transition-all duration-[800ms] ${isLast ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.6)]' : 'bg-blue-500/40'}`} 
+                      style={{ height: `${height}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Card 2: System Stats */}
-          <div className="flex flex-col items-center">
-            <div className="w-full bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[24px] p-6 shadow-2xl border border-white/5 h-[140px] flex justify-between items-center px-8">
-              <div className="flex flex-col items-center justify-center">
-                <Thermometer size={18} className="text-white/50 mb-2" />
-                <span className="text-white/60 text-[10px] uppercase font-bold mb-1">Load</span>
-                <span className="text-white text-[13px] font-bold">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex flex-col items-center justify-center">
-                <HardDrive size={18} className="text-white/50 mb-2" />
-                <span className="text-white/60 text-[10px] uppercase font-bold mb-1">Free</span>
-                <span className="text-white text-[13px] font-bold">
-                  {stats ? (stats.disk.free / 1024 / 1024 / 1024).toFixed(1) : '0'} GB
-                </span>
-              </div>
-              <div className="flex flex-col items-center justify-center">
-                <Cpu size={18} className="text-white/50 mb-2" />
-                <span className="text-white/60 text-[10px] uppercase font-bold mb-1">Memory</span>
-                <span className="text-white text-[13px] font-bold">
-                  {stats ? (stats.memory.used / 1024 / 1024 / 1024).toFixed(1) : '0'} GB
-                </span>
-              </div>
+          {/* Card 2: Memory & Storage */}
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500 flex flex-col justify-between">
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-[40px] -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-150"></div>
+            
+            {/* Memory */}
+            <div className="relative z-10 flex items-center justify-between mb-4">
+               <div className="flex items-center space-x-3">
+                 <div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400">
+                   <Cpu size={18} strokeWidth={2} />
+                 </div>
+                 <div>
+                   <h3 className="text-white/80 text-[13px] font-semibold tracking-wide">Memory</h3>
+                   <div className="w-24 h-1.5 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                     <div className="h-full bg-purple-400 rounded-full transition-all duration-500" style={{ width: `${stats ? (stats.memory.used/stats.memory.total)*100 : 0}%` }}></div>
+                   </div>
+                 </div>
+               </div>
+               <span className="text-white font-semibold text-sm">{stats ? (stats.memory.used / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
             </div>
-            <span className="text-white/60 text-xs mt-3">System Resources</span>
+
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-1"></div>
+
+            {/* Storage */}
+            <div className="relative z-10 flex items-center justify-between mt-4">
+               <div className="flex items-center space-x-3">
+                 <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400">
+                   <HardDrive size={18} strokeWidth={2} />
+                 </div>
+                 <div>
+                   <h3 className="text-white/80 text-[13px] font-semibold tracking-wide">Storage</h3>
+                   <div className="w-24 h-1.5 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                     <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${stats ? ((stats.disk.total - stats.disk.free)/stats.disk.total)*100 : 0}%` }}></div>
+                   </div>
+                 </div>
+               </div>
+               <span className="text-white font-semibold text-sm">{stats ? ((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1) : '0'} <span className="text-white/50 text-xs">GB</span></span>
+            </div>
           </div>
 
-          {/* Card 3: OS Info */}
-          <div className="flex flex-col items-center">
-            <div className="w-full bg-[#1c1c1e]/80 backdrop-blur-xl rounded-[24px] p-5 shadow-2xl border border-white/5 h-[140px] relative overflow-hidden">
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-blue-500" />
-                <span className="text-white/90 text-xs font-semibold">Environment</span>
-              </div>
-              <div className="space-y-1.5 relative z-10 ml-2">
-                <div className="flex items-center space-x-2 opacity-80">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  <span className="text-[10px] uppercase">{stats?.os?.platform || 'Unknown'} Platform</span>
+          {/* Card 3: System Load & Info */}
+          <div className="w-full bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group hover:bg-black/50 transition-colors duration-500">
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] transition-transform duration-700 group-hover:scale-150"></div>
+            
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400">
+                    <Zap size={22} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h3 className="text-white/90 text-sm font-semibold tracking-wide">System Load</h3>
+                    <p className="text-white/50 text-[11px] font-medium mt-0.5">Avg over 1 min</p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2 opacity-80">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                  <span className="text-[10px] uppercase">{stats?.os?.arch || 'Unknown'} Architecture</span>
-                </div>
-                <div className="flex items-center space-x-2 opacity-80">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-[10px] uppercase">{stats?.cpu?.cores || 0} CPU Cores</span>
+                <div className="flex items-baseline space-x-1">
+                  <span className="text-2xl font-bold text-white tracking-tight">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span>
                 </div>
               </div>
-              <div className="absolute -right-2 -bottom-2 text-7xl font-bold text-white/[0.04] z-0 pointer-events-none tracking-tighter">
-                OS
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                  <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Cores</span>
+                  <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats?.cpu?.cores || 0}</span>
+                </div>
+                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                  <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Platform</span>
+                  <span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400"/> {stats?.os?.platform || 'N/A'}</span>
+                </div>
               </div>
             </div>
-            <span className="text-white/60 text-xs mt-3">Host Information</span>
           </div>
 
         </div>
@@ -208,10 +242,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                     onClick={getOnClick(app.id)}
                     onContextMenu={(e) => handleContextMenu(e, app.id, 'grid')}
                   >
-                    <div className={`w-[70px] h-[70px] rounded-[20px] ${app.color} flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-300 ease-out mb-2.5 border border-white/10`}>
-                      <app.icon size={34} strokeWidth={1.5} className={app.color.includes('text-black') ? 'text-black' : 'text-white'} />
+                    <div className={`w-[70px] h-[70px] rounded-[22px] bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] group-hover:-translate-y-2 group-hover:scale-[1.05] group-hover:shadow-[0_12px_24px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] transition-all duration-300 ease-out mb-2 border border-white/10 relative overflow-hidden`}>
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none rounded-[22px]" />
+                      <app.icon size={34} strokeWidth={1.5} className="drop-shadow-md z-10" />
                     </div>
-                    <span className="text-white/80 text-[11px] font-medium tracking-wide">
+                    <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md">
                       {app.label}
                     </span>
                   </div>
@@ -245,8 +280,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                 onClick={getOnClick(app.id)}
                 onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
               >
-                <div className={`w-[56px] h-[56px] rounded-[16px] ${app.color} flex items-center justify-center text-white shadow-xl hover:-translate-y-2 hover:scale-110 transition-all duration-300 ease-out border border-white/20`}>
-                  <app.icon size={28} strokeWidth={1.5} />
+                <div className={`w-[56px] h-[56px] rounded-[18px] bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] hover:-translate-y-2 hover:scale-[1.1] hover:shadow-[0_12px_24px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] transition-all duration-300 ease-out border border-white/20 relative overflow-hidden group/dockicon`}>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none rounded-[18px]" />
+                  <app.icon size={28} strokeWidth={1.5} className="drop-shadow-md z-10" />
                 </div>
               </div>
             );
