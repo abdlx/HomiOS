@@ -3,10 +3,11 @@ import dynamic from 'next/dynamic';
 import DesktopEnvironment from './DesktopEnvironment';
 import App from '../App';
 import SettingsApp from './SettingsApp';
+import ActivityApp from './ActivityApp';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity';
   username?: string;
 }
 
@@ -23,6 +24,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/settings');
     } else if (view === 'terminal') {
       window.history.pushState(null, '', '/terminal');
+    } else if (view === 'activity') {
+      window.history.pushState(null, '', '/activity');
     }
   }, [view]);
 
@@ -35,6 +38,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           onOpenFinder={() => setView('files')} 
           onOpenSettings={() => setView('settings')}
           onOpenTerminal={() => setView('terminal')}
+          onOpenActivity={() => setView('activity')}
           username={username} 
         />
       </div>
@@ -75,6 +79,19 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-black shadow-2xl relative">
           <TerminalApp onClose={() => setView('desktop')} />
+        </div>
+      </div>
+
+      {/* Activity App overlay */}
+      <div 
+        className={`absolute z-40 top-8 bottom-[120px] left-16 right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom ${
+          view === 'activity' 
+            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
+            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
+        }`}
+      >
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-[#1c1c1e] shadow-2xl relative">
+          <ActivityApp onClose={() => setView('desktop')} />
         </div>
       </div>
 

@@ -10,10 +10,11 @@ interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
+  onOpenActivity: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, username }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, username }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
 
@@ -36,19 +37,16 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   
   const ALL_APPS: Record<string, any> = {
     'files': { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
-    'home': { id: 'home', label: 'Home', icon: Box, color: 'from-[#5E5CE6] to-[#3634A3]' },
-    'mail': { id: 'mail', label: 'Mail', icon: Mail, color: 'from-[#30D158] to-[#148332]' },
-    'calendar': { id: 'calendar', label: 'Calendar', icon: Calendar, color: 'from-[#FF453A] to-[#B31209]' },
     'settings': { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
     'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
     'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
     'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' }
   };
 
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity'];
 
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
-  const [dockAppIds, setDockAppIds] = useState<string[]>(['home', 'mail', 'calendar', 'activity', 'terminal', 'settings', 'finder']);
+  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
 
   useEffect(() => {
@@ -98,6 +96,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'finder' || id === 'files') return onOpenFinder;
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;
+    if (id === 'activity') return onOpenActivity;
     return undefined;
   };
 
