@@ -12,8 +12,6 @@ import StorageDashboard from './components/StorageDashboard';
 import SambaPanel from './components/SambaPanel';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
 import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight, Share2 } from 'lucide-react';
-import MobileHomeScreen from './components/MobileHomeScreen';
-
 interface AppProps {
   onClose?: () => void;
 }
@@ -41,7 +39,6 @@ export default function App({ onClose }: AppProps = {}) {
   const [sharedPaths, setSharedPaths] = useState<string[]>([]);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'files' | 'favorites' | 'storage' | 'shared'>('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
   const [drives, setDrives] = useState<DriveItem[]>([]);
@@ -173,7 +170,6 @@ export default function App({ onClose }: AppProps = {}) {
     setSelectedFileId(null);
     setShowStorage(false);
     setShowShared(false);
-    if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
   };
 
   const handleNavigateBack = () => {
@@ -182,7 +178,6 @@ export default function App({ onClose }: AppProps = {}) {
       setSelectedFileId(null);
       setShowStorage(false);
       setShowShared(false);
-      if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
     }
   };
 
@@ -192,7 +187,6 @@ export default function App({ onClose }: AppProps = {}) {
       setSelectedFileId(null);
       setShowStorage(false);
       setShowShared(false);
-      if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
     }
   };
 
@@ -264,7 +258,6 @@ export default function App({ onClose }: AppProps = {}) {
     setShowShared(true);
     setShowStorage(false);
     setActiveSection('shared');
-    setActiveTab('shared');
   };
 
   const handleUploadFiles = async (files: FileList | File[]) => {
@@ -428,236 +421,59 @@ export default function App({ onClose }: AppProps = {}) {
       isFavorite: true
     }));
 
-  const renderFavoritesTab = () => {
-    return (
-      <div className="flex-1 bg-[#f2f2f7] p-4 overflow-y-auto space-y-6 pb-[90px]">
-        <div>
-          <h2 className="text-[22px] font-bold text-black mb-3 px-1 tracking-tight">Favorites</h2>
-          {starredFolders.length === 0 ? (
-            <div className="bg-white rounded-[10px] p-6 text-center text-[15px] text-[#8e8e93]">
-              No favorites yet.
-            </div>
-          ) : (
-            <div className="bg-white rounded-[10px] overflow-hidden">
-              {starredFolders.map((item, index) => (
-                <React.Fragment key={item.id}>
-                  <button
-                    onClick={() => {
-                      setSelectedTag(null);
-                      setActiveSection(item.id);
-                      if (item.path) {
-                        pushPath(['Root', item.path]);
-                      } else {
-                        pushPath(['Root', item.label]);
-                      }
-                      setActiveTab('files');
-                    }}
-                    className="w-full flex items-center px-4 py-3 active:bg-[#e5e5ea] transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-md bg-[#ffcc00] flex items-center justify-center flex-shrink-0">
-                      <Star size={18} color="white" fill="white" />
-                    </div>
-                    <div className="ml-4 flex-1 text-left flex items-center justify-between">
-                      <span className="text-[17px] font-normal text-black truncate pr-4">{item.label}</span>
-                      <ChevronRight size={20} className="text-[#c6c6c8] flex-shrink-0" />
-                    </div>
-                  </button>
-                  {index < starredFolders.length - 1 && (
-                    <div className="ml-[56px] border-b border-[#c6c6c8]" />
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h2 className="text-[22px] font-bold text-black mb-3 px-1 tracking-tight">Tags</h2>
-          <div className="bg-white rounded-[10px] overflow-hidden">
-            {[
-              { id: 'Red', color: '#ff3b30' },
-              { id: 'Orange', color: '#ff9500' },
-              { id: 'Yellow', color: '#ffcc00' },
-              { id: 'Green', color: '#34c759' },
-              { id: 'Blue', color: '#007aff' },
-              { id: 'Purple', color: '#af52de' },
-              { id: 'Gray', color: '#8e8e93' },
-            ].map((tag, index, arr) => {
-              const isActive = selectedTag === tag.id;
-              return (
-                <React.Fragment key={tag.id}>
-                  <button
-                    onClick={() => {
-                      if (selectedTag === tag.id) {
-                        setSelectedTag(null);
-                      } else {
-                        setSelectedTag(tag.id);
-                        setActiveSection('root');
-                      }
-                      setActiveTab('files');
-                    }}
-                    className="w-full flex items-center px-4 py-3 active:bg-[#e5e5ea] transition-colors"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: tag.color }} />
-                      <span className={`text-[17px] ${isActive ? 'font-semibold text-black' : 'font-normal text-black'}`}>
-                        {tag.id}
-                      </span>
-                    </div>
-                    {isActive && (
-                      <CheckCircle size={20} className="text-[#007aff]" />
-                    )}
-                  </button>
-                  {index < arr.length - 1 && (
-                    <div className="ml-[48px] border-b border-[#c6c6c8]" />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div
       className="h-full w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
       onContextMenu={(e) => e.preventDefault()}
     >
-          {/* Mobile Top Header */}
-          {isMobile && (
-            <header 
-              className="bg-white/85 backdrop-blur-md border-b border-[#c6c6c8] px-4 flex items-center justify-between sticky top-0 z-30 select-none"
-              style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: '12px' }}
-            >
-              <div className="flex-1 flex items-center">
-                <button
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="text-[#007aff] active:opacity-50 transition-all cursor-pointer"
-                >
-                  <Menu size={24} strokeWidth={2} />
-                </button>
-              </div>
-              
-              <div className="flex-2 text-center absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 8px)' }}>
-                <span className="font-semibold text-[17px] text-black tracking-tight">
-                  {activeTab === 'home' ? 'OpenFinder' : activeTab === 'files' ? 'Files' : activeTab === 'favorites' ? 'Favorites' : 'Drives'}
-                </span>
-              </div>
-
-              <div className="flex-1 flex items-center justify-end">
-              </div>
-            </header>
-          )}
-
           {/* Main Container */}
-          <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
-            {/* Desktop Sidebar (hidden on mobile) */}
-            {!isMobile && (
-              <Sidebar
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                selectedTag={selectedTag}
-                setSelectedTag={(tag) => {
-                  setSelectedTag(tag);
-                  setShowStorage(false);
-                  setShowShared(false);
-                  if (activeTab === 'storage' || activeTab === 'shared') setActiveTab('files');
-                }}
-                onNavigateHome={handleNavigateHome}
-                onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
-                onNavigateStorage={() => { setShowStorage(true); setShowShared(false); setActiveSection('storage'); }}
-                onNavigateShared={() => { setShowShared(true); setShowStorage(false); setActiveSection('shared'); setActiveTab('shared'); }}
-                starredFolders={starredFolders}
-                onCloseDrawer={() => {
-                  if (onClose) onClose();
-                  else window.location.href = '/dashboard';
-                }}
-              />
+          <main className="flex-1 w-full flex overflow-hidden bg-gray-50 relative">
+            {/* Mobile Sidebar Overlay */}
+            {isDrawerOpen && (
+              <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsDrawerOpen(false)} />
             )}
 
+            {/* Responsive Sidebar */}
+            <Sidebar
+              activeSection={activeSection}
+              setActiveSection={setActiveSection}
+              selectedTag={selectedTag}
+              setSelectedTag={(tag) => {
+                setSelectedTag(tag);
+                setShowStorage(false);
+                setShowShared(false);
+              }}
+              onNavigateHome={handleNavigateHome}
+              onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
+              onNavigateStorage={() => { setShowStorage(true); setShowShared(false); setActiveSection('storage'); }}
+              onNavigateShared={() => { setShowShared(true); setShowStorage(false); setActiveSection('shared'); }}
+              starredFolders={starredFolders}
+              isMobileDrawer={isDrawerOpen}
+              onCloseDrawer={() => {
+                if (isMobile && isDrawerOpen) {
+                  setIsDrawerOpen(false);
+                } else if (onClose) {
+                  onClose();
+                } else {
+                  window.location.href = '/dashboard';
+                }
+              }}
+            />
+
         {/* Dynamic Body */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
-          {isMobile ? (
-            // Mobile Tab-driven views
-            <>
-              {activeTab === 'home' && (
-                <MobileHomeScreen
-                  drives={drives}
-                  shortcuts={shortcuts}
-                  recentFiles={currentFiles}
-                  onNavigateShortcut={(shortcutPath) => {
-                    setSelectedTag(null);
-                    pushPath(['Root', shortcutPath]);
-                    setActiveTab('files');
-                  }}
-                  onNavigateStorage={() => setActiveTab('storage')}
-                  onNavigateTab={(tab) => {
-                    setActiveTab(tab);
-                    if (tab === 'files') setShowStorage(false);
-                  }}
-                  onOpenFile={(file) => setQuickLookFile(file)}
-                  serverIp={serverIp}
-                />
-              )}
-
-              {activeTab === 'files' && (
-                <>
-                  <Toolbar
-                    currentPath={currentPath}
-                    onNavigateBack={handleNavigateBack}
-                    onNavigateForward={handleNavigateForward}
-                    canNavigateBack={historyIndex > 0}
-                    canNavigateForward={historyIndex < pathHistory.length - 1}
-                    viewMode={viewMode}
-                    setViewMode={setViewMode}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    onAddNewFile={handleAddNewFile}
-                    onAddNewFolder={handleAddNewFolder}
-                    sortOption={sortOption}
-                    setSortOption={setSortOption}
-                  />
-                  <FileArea
-                    files={processedFiles}
-                    selectedFileId={selectedFileId}
-                    setSelectedFileId={setSelectedFileId}
-                    onFileDoubleClick={handleFileDoubleClick}
-                    onDeleteFile={handleDeleteFile}
-                    onRenameFile={handleRenameFile}
-                    onUploadFiles={handleUploadFiles}
-                    viewMode={viewMode}
-                    currentPath={currentPath}
-                    onUpdateMetadata={updateFileMetadata}
-                    clipboardState={clipboard}
-                    setClipboard={setClipboard}
-                    onAddNewFile={handleAddNewFile}
-                    onAddNewFolder={handleAddNewFolder}
-                    onShare={handleShare}
-                  />
-                </>
-              )}
-
-              {activeTab === 'favorites' && renderFavoritesTab()}
-
-              {activeTab === 'storage' && (
-                <StorageDashboard
-                  onNavigateDrive={(drivePath) => {
-                    setActiveTab('files');
-                    setShowStorage(false);
-                    pushPath(['Root', drivePath]);
-                  }}
-                />
-              )}
-
-              {activeTab === 'shared' && (
-                <SambaPanel defaultPath={shareTarget} />
-              )}
-            </>
-          ) : (
-            // Desktop conditional views
-            <>
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 w-full md:pt-3 md:pr-3 md:pb-3">
+          {/* Mobile hamburger for body */}
+          <div className="md:hidden flex items-center p-4 bg-white border-b border-neutral-100">
+            <button onClick={() => setIsDrawerOpen(true)} className="text-gray-500 hover:text-gray-800 transition mr-3">
+              <Menu size={20} />
+            </button>
+            <h1 className="font-semibold text-gray-800">
+              {showStorage ? 'Storage' : showShared ? 'Shared' : 'Files'}
+            </h1>
+          </div>
+          
+          <div className="flex flex-col h-full bg-white md:rounded-[32px] md:border border-neutral-200/50 shadow-sm overflow-hidden transform-gpu">
               {showStorage ? (
                 <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
               ) : showShared ? (
@@ -698,109 +514,9 @@ export default function App({ onClose }: AppProps = {}) {
                   />
                 </>
               )}
-            </>
-          )}
-        </div>
-      </main>
-
-      {/* Mobile Bottom Navigation Bar */}
-      {isMobile && (
-        <nav 
-          className="fixed bottom-0 left-0 right-0 bg-[#f8f8f8]/90 backdrop-blur-md border-t border-[#c6c6c8] flex items-center justify-around px-2 z-40 select-none"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', height: 'calc(49px + max(env(safe-area-inset-bottom), 16px))' }}
-        >
-          <button
-            onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'home' ? 'text-[#007aff]' : 'text-[#8e8e93]'
-              }`}
-          >
-            <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 1.5} className="mb-0.5" />
-            <span className="text-[10px] font-medium">Home</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('files');
-              setShowStorage(false);
-            }}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'files' ? 'text-[#007aff]' : 'text-[#8e8e93]'
-              }`}
-          >
-            <Folder size={22} strokeWidth={activeTab === 'files' ? 2.5 : 1.5} className="mb-0.5" />
-            <span className="text-[10px] font-medium">Files</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'favorites' ? 'text-[#007aff]' : 'text-[#8e8e93]'
-              }`}
-          >
-            <Star size={22} strokeWidth={activeTab === 'favorites' ? 2.5 : 1.5} className="mb-0.5" />
-            <span className="text-[10px] font-medium">Favorites</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('storage')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'storage' ? 'text-[#007aff]' : 'text-[#8e8e93]'
-              }`}
-          >
-            <HardDrive size={22} strokeWidth={activeTab === 'storage' ? 2.5 : 1.5} className="mb-0.5" />
-            <span className="text-[10px] font-medium">Drives</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('shared'); setShowShared(true); setShowStorage(false); }}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors cursor-pointer ${activeTab === 'shared' ? 'text-[#007aff]' : 'text-[#8e8e93]'
-              }`}
-          >
-            <Share2 size={22} strokeWidth={activeTab === 'shared' ? 2.5 : 1.5} className="mb-0.5" />
-            <span className="text-[10px] font-medium">Shared</span>
-          </button>
-        </nav>
-      )}
-
-      {/* Slide-out Mobile Drawer */}
-      {isMobile && isDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-300"
-            onClick={() => setIsDrawerOpen(false)}
-          />
-          <div className="relative flex flex-col w-[280px] h-full max-w-sm bg-white shadow-2xl animate-in slide-in-from-left duration-300">
-            <Sidebar
-              activeSection={activeSection}
-              setActiveSection={(section) => {
-                setActiveSection(section);
-                if (section === 'storage') {
-                  setActiveTab('storage');
-                } else {
-                  setActiveTab('files');
-                }
-              }}
-              selectedTag={selectedTag}
-              setSelectedTag={(tag) => {
-                setSelectedTag(tag);
-                setShowStorage(false);
-                setShowShared(false);
-                setActiveTab('files');
-              }}
-              onNavigateHome={handleNavigateHome}
-              onNavigateFolder={(folderPath) => {
-                pushPath(['Root', folderPath]);
-                setActiveTab('files');
-              }}
-              onNavigateStorage={() => {
-                setShowStorage(true);
-                setActiveSection('storage');
-                setActiveTab('storage');
-              }}
-              starredFolders={starredFolders}
-              isMobileDrawer={true}
-              onCloseDrawer={() => setIsDrawerOpen(false)}
-            />
           </div>
         </div>
-      )}
+      </main>
 
       {/* Modal and Panel overlays */}
       {quickLookFile && (

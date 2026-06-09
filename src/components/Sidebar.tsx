@@ -124,10 +124,10 @@ export default function Sidebar({
   const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
 
   return (
-    <div className={`relative flex flex-col select-none justify-between bg-white border-neutral-200/50 ${
+    <div className={`relative flex flex-col select-none justify-between bg-white md:border border-neutral-200/50 ${
       isMobileDrawer 
-        ? 'w-full h-full p-4 pt-5' 
-        : 'hidden md:flex w-[240px] md:w-[250px] border shadow-sm m-3 rounded-[32px] p-4 pt-5'
+        ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300' 
+        : 'hidden md:flex w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5'
     }`}>
       
       {/* Top Part: Title with macOS controls */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Wifi, Monitor, Zap } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Wifi, Monitor, Zap, Menu } from 'lucide-react';
 
 interface ActivityAppProps {
   onClose?: () => void;
@@ -13,6 +13,7 @@ interface HistoryPoint {
 
 export default function ActivityApp({ onClose }: ActivityAppProps) {
   const [activeTab, setActiveTab] = useState('cpu');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
 
@@ -95,10 +96,15 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
   };
 
   return (
-    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 font-sans text-slate-800" onContextMenu={(e) => e.preventDefault()}>
+    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 font-sans text-slate-800 relative" onContextMenu={(e) => e.preventDefault()}>
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <div className="flex flex-col bg-white border-r border-neutral-200/50 w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5 z-10 flex-shrink-0">
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full md:h-auto transition-transform duration-300 ease-in-out flex flex-col bg-white border-r border-neutral-200/50 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
         <div className="flex items-center space-x-2 mb-8 px-1">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" onClick={() => { if (onClose) onClose(); else window.location.href = '/dashboard'; }} />
           <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
@@ -110,7 +116,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
               className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all text-sm font-medium ${
                 activeTab === tab.id 
                   ? 'bg-blue-500/10 text-blue-600' 
@@ -128,12 +134,17 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
       <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden relative">
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none z-10" />
         
-        <div className="flex-1 overflow-y-auto pt-10 px-12 pb-24 z-0">
+        <div className="flex-1 overflow-y-auto pt-6 md:pt-10 px-6 md:px-12 pb-24 z-0">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-800">
-              {tabs.find(t => t.id === activeTab)?.label} Analytics
-            </h1>
-            <div className="flex items-center space-x-2 text-xs font-medium text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-neutral-200/50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <button className="md:hidden text-slate-500 hover:text-slate-800 transition" onClick={() => setIsSidebarOpen(true)}>
+                <Menu size={24} />
+              </button>
+              <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-800 m-0">
+                {tabs.find(t => t.id === activeTab)?.label} Analytics
+              </h1>
+            </div>
+            <div className="flex items-center space-x-2 text-[10px] md:text-xs font-medium text-slate-500 bg-white px-2 py-1 md:px-3 md:py-1.5 rounded-lg border border-neutral-200/50 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>Live Updates</span>
             </div>
@@ -144,7 +155,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {renderLineChart('cpu', '#3b82f6', 'cpuGradient')}
               
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white shadow-sm rounded-2xl p-5 border border-neutral-200/50">
                   <span className="text-slate-400 text-xs font-medium uppercase tracking-wider block mb-1">Model</span>
                   <span className="text-slate-800 text-sm font-semibold truncate block">{stats?.cpu?.model || 'Loading...'}</span>
@@ -161,7 +172,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
                   <span className="text-slate-400 text-xs font-medium uppercase tracking-wider block mb-1">Physical Cores</span>
                   <span className="text-slate-800 text-xl font-bold">{stats ? Math.max(1, Math.round(stats.cpu.cores / 2)) : 0}</span>
                 </div>
-                <div className="bg-white shadow-sm rounded-2xl p-5 border border-neutral-200/50 col-span-2">
+                <div className="bg-white shadow-sm rounded-2xl p-5 border border-neutral-200/50 md:col-span-2">
                   <span className="text-slate-400 text-xs font-medium uppercase tracking-wider block mb-1">System Load (1m, 5m, 15m)</span>
                   <span className="text-slate-800 text-xl font-bold">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span>
                 </div>
@@ -174,7 +185,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {renderLineChart('memory', '#8b5cf6', 'memGradient')}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white shadow-sm rounded-2xl p-6 border border-neutral-200/50 flex flex-col justify-center">
                   <span className="text-slate-400 text-xs font-medium uppercase tracking-wider block mb-2">Memory Usage</span>
                   <div className="flex items-end space-x-2">
@@ -215,7 +226,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-12 w-full max-w-md text-center">
+                <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-12 w-full max-w-md text-center">
                   <div>
                     <span className="text-slate-400 text-xs font-medium uppercase tracking-wider block mb-1">Used Space</span>
                     <span className="text-slate-800 text-2xl font-bold">{stats ? ((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1) : '0'} GB</span>

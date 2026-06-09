@@ -3,7 +3,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { 
   Settings, Monitor, Users, Wifi, Info, CheckCircle2, 
-  HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server
+  HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server, Menu
 } from 'lucide-react';
 
 interface SettingsAppProps {
@@ -23,6 +23,7 @@ const WALLPAPERS = [
 
 export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [activeTab, setActiveTab] = useState('general');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { wallpaper, changeWallpaper } = useWallpaper();
   const { username, changeUsername } = useUsername();
   const [sysStats, setSysStats] = useState<any>(null);
@@ -51,10 +52,15 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   ];
 
   return (
-    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 font-sans text-slate-800" onContextMenu={(e) => e.preventDefault()}>
+    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 font-sans text-slate-800 relative" onContextMenu={(e) => e.preventDefault()}>
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <div className="flex flex-col bg-white border-r border-neutral-200/50 w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5 z-10 flex-shrink-0">
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full md:h-auto transition-transform duration-300 ease-in-out flex flex-col bg-white border-r border-neutral-200/50 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
         <div className="flex items-center space-x-2 mb-8 px-1">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" onClick={() => { if (onClose) onClose(); else window.location.href = '/dashboard'; }} />
           <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
@@ -66,7 +72,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
               className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all text-sm font-medium ${
                 activeTab === tab.id 
                   ? 'bg-blue-500/10 text-blue-600' 
@@ -84,8 +90,13 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
       <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden relative">
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none z-10" />
         
-        <div className="flex-1 overflow-y-auto pt-10 px-12 pb-24 z-0">
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-800 mb-8">{tabs.find(t => t.id === activeTab)?.label}</h1>
+        <div className="flex-1 overflow-y-auto pt-6 md:pt-10 px-6 md:px-12 pb-24 z-0">
+          <div className="flex items-center gap-3 mb-8">
+            <button className="md:hidden text-slate-500 hover:text-slate-800 transition" onClick={() => setIsSidebarOpen(true)}>
+              <Menu size={24} />
+            </button>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-800 m-0">{tabs.find(t => t.id === activeTab)?.label}</h1>
+          </div>
           
           {/* GENERAL TAB */}
           {activeTab === 'general' && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Play, Square, Terminal, Plus, Trash, Server, X, Activity, ChevronRight, Layers, LayoutGrid } from 'lucide-react';
+import { Box, Play, Square, Terminal, Plus, Trash, Server, X, Activity, ChevronRight, Layers, LayoutGrid, Menu } from 'lucide-react';
 import io from 'socket.io-client';
 
 interface AppProps {
@@ -20,6 +20,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
   
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -158,10 +159,15 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
   }, [activeTab, selectedApp]);
 
   return (
-    <div className="h-full w-full flex bg-gray-50 select-none overflow-hidden font-sans">
+    <div className="h-full w-full flex bg-gray-50 select-none overflow-hidden font-sans relative">
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Floating Apple-Style Sidebar */}
-      <div className="hidden md:flex flex-col justify-between w-[240px] md:w-[250px] bg-white border border-neutral-200/50 shadow-sm m-3 rounded-[32px] p-4 pt-5">
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full md:h-auto transition-transform duration-300 ease-in-out flex flex-col justify-between w-[240px] md:w-[250px] bg-white md:border md:border-neutral-200/50 shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5`}>
         <div className="flex flex-col h-full">
           {/* macOS Window Controls */}
           <div className="flex items-center justify-between mb-6 px-1">
@@ -189,7 +195,10 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
               return (
                 <button 
                   key={p.id}
-                  onClick={() => setSelectedProject(p)}
+                  onClick={() => {
+                    setSelectedProject(p);
+                    setIsSidebarOpen(false);
+                  }}
                   className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                     ${isActive 
                       ? 'bg-blue-600/10 text-blue-600 font-bold' 
@@ -209,17 +218,19 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 pt-3 pr-3 pb-3">
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 md:pt-3 md:pr-3 md:pb-3 w-full">
         {selectedProject ? (
           selectedApp ? (
             // ── App Details View ──
-            <div className="flex flex-col h-full bg-white rounded-[32px] border border-neutral-200/50 shadow-sm overflow-hidden">
-              <div className="px-8 py-6 border-b border-neutral-100 flex justify-between items-start">
-                <div>
-                  <button onClick={() => setSelectedApp(null)} className="flex items-center text-xs font-medium text-gray-400 hover:text-blue-500 mb-3 transition-colors">
-                     ← Back to {selectedProject.name}
-                  </button>
-                  <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+            <div className="flex flex-col h-full bg-white md:rounded-[32px] md:border border-neutral-200/50 shadow-sm overflow-hidden transform-gpu">
+              <div className="px-4 md:px-8 py-6 border-b border-neutral-100 flex justify-between items-start md:rounded-t-[32px] bg-white">
+                <div className="flex gap-3">
+                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mt-1 text-gray-500 hover:text-gray-800 transition"><Menu size={20}/></button>
+                  <div>
+                    <button onClick={() => setSelectedApp(null)} className="flex items-center text-xs font-medium text-gray-400 hover:text-blue-500 mb-3 transition-colors">
+                       ← Back to {selectedProject.name}
+                    </button>
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-2">
                     {selectedApp.name}
                     <span className={`ml-3 px-2.5 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider 
                       ${selectedApp.status === 'running' ? 'bg-green-100 text-green-700' : 
@@ -228,12 +239,10 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                         'bg-gray-100 text-gray-600'}`}>
                       {selectedApp.status}
                     </span>
-                  </h1>
-                  <p className="text-sm text-gray-500 mt-1 flex items-center">
-                    <Box size={14} className="mr-1.5 opacity-70"/> {selectedApp.build_pack === 'dockerimage' ? `${selectedApp.docker_image}:${selectedApp.docker_image_tag}` : selectedApp.build_pack === 'github' ? `Git: ${selectedApp.git_repo}` : selectedApp.build_pack === 'database' ? `Database: ${selectedApp.docker_image}` : selectedApp.build_pack === 'template' ? `1-Click App Template` : 'Docker Compose'}
-                  </p>
+                    </h1>
+                  </div>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex space-x-2 md:space-x-3 flex-shrink-0">
                   {selectedApp.status === 'running' ? (
                     <button onClick={() => stopApp(selectedApp.id)} className="px-4 py-2 bg-white hover:bg-neutral-50 text-gray-700 text-sm font-medium rounded-[10px] transition border border-neutral-200 flex items-center shadow-sm">
                       <Square size={14} className="mr-2 text-red-500" /> Stop
@@ -244,9 +253,9 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                     </button>
                   )}
                 </div>
-              </div>
+                </div>
 
-              <div className="px-8 border-b border-neutral-100 flex space-x-6">
+              <div className="px-4 md:px-8 border-b border-neutral-100 flex space-x-6 overflow-x-auto hide-scrollbar">
                 {['config', 'metrics', 'logs'].map(tab => (
                   <button 
                     key={tab}
@@ -258,7 +267,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50">
                 {activeTab === 'config' && (
                   <div className="max-w-3xl space-y-8">
                     <section className="bg-white p-6 rounded-[20px] border border-neutral-200/60 shadow-sm">
@@ -361,12 +370,15 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
             </div>
           ) : (
             // ── Project Dashboard ──
-            <div className="flex flex-col h-full bg-white rounded-[32px] border border-neutral-200/50 shadow-sm overflow-hidden relative">
+            <div className="flex flex-col h-full bg-white md:rounded-[32px] md:border border-neutral-200/50 shadow-sm overflow-hidden relative transform-gpu">
               {/* Header / Toolbar */}
-              <div className="px-8 py-8 border-b border-neutral-100 flex justify-between items-end bg-white/80 backdrop-blur-md sticky top-0 z-10">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProject.name}</h1>
-                  <p className="text-gray-500 font-medium text-sm">Manage resources and containers for this project.</p>
+              <div className="px-4 md:px-8 py-6 md:py-8 border-b border-neutral-100 flex justify-between items-end bg-white/80 backdrop-blur-md sticky top-0 z-10 md:rounded-t-[32px]">
+                <div className="flex gap-3">
+                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mt-2 text-gray-500 hover:text-gray-800 transition"><Menu size={24}/></button>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProject.name}</h1>
+                    <p className="text-gray-500 font-medium text-xs md:text-sm">Manage resources and containers.</p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => setShowWizard(true)}
@@ -377,7 +389,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
               </div>
 
               {/* Grid Area */}
-              <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50">
                 {apps.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
                     <div className="w-16 h-16 bg-white border border-neutral-200 rounded-full flex items-center justify-center mb-4 shadow-sm">
@@ -427,7 +439,8 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
             </div>
           )
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center bg-white rounded-[32px] border border-neutral-200/50 shadow-sm m-0">
+          <div className="flex-1 flex flex-col items-center justify-center text-center bg-white md:rounded-[32px] md:border border-neutral-200/50 shadow-sm m-0 transform-gpu relative">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden absolute top-4 left-4 text-gray-500 hover:text-gray-800 transition"><Menu size={24}/></button>
             <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
                <Server size={28} />
             </div>
