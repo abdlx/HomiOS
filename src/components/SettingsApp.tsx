@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useWallpaper } from '../hooks/useWallpaper';
+import { useUsername } from '../hooks/useUsername';
 import { 
   Settings, Monitor, Users, Wifi, Info, CheckCircle2, 
   HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server
@@ -23,6 +24,7 @@ const WALLPAPERS = [
 export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [activeTab, setActiveTab] = useState('general');
   const { wallpaper, changeWallpaper } = useWallpaper();
+  const { username, changeUsername } = useUsername();
   const [sysStats, setSysStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -100,6 +102,18 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 </div>
                 
                 <div className="space-y-4">
+                  <div className="grid grid-cols-3 items-center gap-4 border-b border-slate-100 pb-4">
+                    <label className="text-sm font-medium text-slate-600">Username</label>
+                    <div className="col-span-2">
+                      <input 
+                        type="text" 
+                        value={username} 
+                        onChange={(e) => changeUsername(e.target.value)}
+                        placeholder="Enter your name"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" 
+                      />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 items-center gap-4 border-b border-slate-100 pb-4">
                     <label className="text-sm font-medium text-slate-600">Hostname</label>
                     <div className="col-span-2">

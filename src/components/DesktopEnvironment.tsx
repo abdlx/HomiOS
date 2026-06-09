@@ -5,6 +5,7 @@ import {
   Download, Zap, Hash, Radio, Server, Triangle, Settings
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
+import { useUsername } from '../hooks/useUsername';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
@@ -14,9 +15,10 @@ interface DesktopEnvironmentProps {
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, username }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, username: propUsername }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
+  const { username } = useUsername();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -129,7 +131,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         
         {/* Header */}
         <div className="flex flex-col items-center mb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, {username || 'Chad'}.</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">Good evening, {username || 'User'}.</h1>
         </div>
 
         {/* Monitoring Widget Dashboard */}
