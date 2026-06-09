@@ -106,6 +106,9 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
 
   const startDeployment = async (appId: string) => {
     setLiveLogs(['Initializing deployment...']);
+    setActiveTab('logs');
+    setSelectedApp((prev: any) => prev ? { ...prev, status: 'deploying' } : null);
+
     const res = await fetch(`/api/docker/apps/${appId}/deploy`, { method: 'POST' });
     const data = await res.json();
     
