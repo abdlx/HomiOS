@@ -12,8 +12,10 @@ import StorageDashboard from './components/StorageDashboard';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
 import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight } from 'lucide-react';
 import MobileHomeScreen from './components/MobileHomeScreen';
+import DesktopEnvironment from './components/DesktopEnvironment';
 
 export default function App() {
+  const [isFinderOpen, setIsFinderOpen] = useState(false);
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
@@ -485,50 +487,67 @@ export default function App() {
 
   return (
     <div
-      className="h-screen w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
+      className="relative h-screen w-full select-none overflow-hidden font-sans bg-black"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Mobile Top Header */}
-      {isMobile && (
-        <header 
-          className="bg-white/85 backdrop-blur-md border-b border-[#c6c6c8] px-4 flex items-center justify-between sticky top-0 z-30 select-none"
-          style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: '12px' }}
-        >
-          <div className="flex-1 flex items-center">
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className="text-[#007aff] active:opacity-50 transition-all cursor-pointer"
-            >
-              <Menu size={24} strokeWidth={2} />
-            </button>
-          </div>
-          
-          <div className="flex-2 text-center absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 8px)' }}>
-            <span className="font-semibold text-[17px] text-black tracking-tight">
-              {activeTab === 'home' ? 'OpenFinder' : activeTab === 'files' ? 'Files' : activeTab === 'favorites' ? 'Favorites' : 'Drives'}
-            </span>
-          </div>
-
-          <div className="flex-1 flex items-center justify-end">
-          </div>
-        </header>
+      {/* Desktop Background Environment */}
+      {!isMobile && (
+        <div className="absolute inset-0 z-0">
+          <DesktopEnvironment onOpenFinder={() => setIsFinderOpen(true)} />
+        </div>
       )}
 
-      {/* Main Container */}
-      <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
-        {/* Desktop Sidebar (hidden on mobile) */}
-        {!isMobile && (
-          <Sidebar
-            activeSection={activeSection}
-            setActiveSection={setActiveSection}
-            selectedTag={selectedTag}
-            setSelectedTag={setSelectedTag}
-            onNavigateHome={handleNavigateHome}
-            onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
-            onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
-            starredFolders={starredFolders}
-          />
-        )}
+      {/* Main Application Container */}
+      {(isMobile || isFinderOpen) && (
+        <div 
+          className={`absolute flex flex-col bg-gray-50 z-10 ${
+            isMobile 
+              ? 'inset-0' 
+              : 'top-8 bottom-24 left-16 right-16 rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-neutral-200/50 overflow-hidden'
+          }`}
+        >
+          {/* Mobile Top Header */}
+          {isMobile && (
+            <header 
+              className="bg-white/85 backdrop-blur-md border-b border-[#c6c6c8] px-4 flex items-center justify-between sticky top-0 z-30 select-none"
+              style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: '12px' }}
+            >
+              <div className="flex-1 flex items-center">
+                <button
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="text-[#007aff] active:opacity-50 transition-all cursor-pointer"
+                >
+                  <Menu size={24} strokeWidth={2} />
+                </button>
+              </div>
+              
+              <div className="flex-2 text-center absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 8px)' }}>
+                <span className="font-semibold text-[17px] text-black tracking-tight">
+                  {activeTab === 'home' ? 'OpenFinder' : activeTab === 'files' ? 'Files' : activeTab === 'favorites' ? 'Favorites' : 'Drives'}
+                </span>
+              </div>
+
+              <div className="flex-1 flex items-center justify-end">
+              </div>
+            </header>
+          )}
+
+          {/* Main Container */}
+          <main className="flex-1 w-full flex overflow-hidden bg-gray-50">
+            {/* Desktop Sidebar (hidden on mobile) */}
+            {!isMobile && (
+              <Sidebar
+                activeSection={activeSection}
+                setActiveSection={setActiveSection}
+                selectedTag={selectedTag}
+                setSelectedTag={setSelectedTag}
+                onNavigateHome={handleNavigateHome}
+                onNavigateFolder={(folderName) => { pushPath(['Root', folderName]); }}
+                onNavigateStorage={() => { setShowStorage(true); setActiveSection('storage'); }}
+                starredFolders={starredFolders}
+                onCloseDrawer={() => setIsFinderOpen(false)}
+              />
+            )}
 
         {/* Dynamic Body */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
@@ -693,6 +712,8 @@ export default function App() {
             <span className="text-[10px] font-medium">Drives</span>
           </button>
         </nav>
+      )}
+      </div>
       )}
 
       {/* Slide-out Mobile Drawer */}

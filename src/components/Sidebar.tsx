@@ -133,7 +133,11 @@ export default function Sidebar({
         {/* macOS Window Title bar actions */}
         <div className="flex items-center justify-between mb-4 px-1">
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" />
+            <div 
+              className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" 
+              title="Close" 
+              onClick={onCloseDrawer}
+            />
             <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
             <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
           </div>
