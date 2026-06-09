@@ -12,6 +12,15 @@ export default async function handler(req: any, res: any) {
       const updatedApp = updateApp(id, req.body);
       return res.status(200).json(updatedApp);
     } else if (req.method === 'DELETE') {
+      const app = getApp(id);
+      if (app) {
+        const { exec } = require('child_process');
+        if (app.build_pack === 'dockerimage' || app.build_pack === 'database' || app.build_pack === 'github') {
+          exec(`docker stop ${app.id} && docker rm ${app.id}`, () => {});
+        } else if (app.build_pack === 'dockercompose' || app.build_pack === 'template') {
+          exec(`docker compose -p ${app.id} down`, () => {});
+        }
+      }
       deleteApp(id);
       return res.status(200).json({ success: true });
     } else {

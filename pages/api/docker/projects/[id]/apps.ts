@@ -9,7 +9,7 @@ export default async function handler(req: any, res: any) {
       const apps = getAppsByProject(id);
       return res.status(200).json(apps);
     } else if (req.method === 'POST') {
-      const { name, build_pack, docker_image, docker_image_tag, compose_content, ports, env_vars } = req.body;
+      const { name, build_pack, docker_image, docker_image_tag, compose_content, ports, env_vars, domains, git_repo, git_branch, volumes } = req.body;
       const appId = crypto.randomUUID();
       const newApp = createApp(
         appId, 
@@ -20,7 +20,11 @@ export default async function handler(req: any, res: any) {
         docker_image_tag || null, 
         compose_content || null, 
         ports || null, 
-        env_vars || null
+        env_vars || null,
+        domains || null,
+        git_repo || null,
+        git_branch || null,
+        volumes || null
       );
       return res.status(201).json(newApp);
     } else {

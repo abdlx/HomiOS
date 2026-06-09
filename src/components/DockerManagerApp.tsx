@@ -12,10 +12,11 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [apps, setApps] = useState<any[]>([]);
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'config' | 'logs'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'logs' | 'metrics'>('config');
+  const [metrics, setMetrics] = useState<any[]>([]);
   
   const [showWizard, setShowWizard] = useState(false);
-  const [newApp, setNewApp] = useState({ name: '', build_pack: 'dockerimage', docker_image: '', docker_image_tag: 'latest', compose_content: '', ports: '', env_vars: '' });
+  const [newApp, setNewApp] = useState({ name: '', build_pack: 'dockerimage', docker_image: '', docker_image_tag: 'latest', compose_content: '', ports: '', env_vars: '', domains: '', git_repo: '', git_branch: 'main', volumes: '' });
   
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -93,7 +94,11 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
       body: JSON.stringify({
         ...newApp,
         ports: newApp.ports ? JSON.stringify([{ host: newApp.ports.split(':')[0], container: newApp.ports.split(':')[1] || newApp.ports.split(':')[0] }]) : '',
-        env_vars: newApp.env_vars ? JSON.stringify(Object.fromEntries(newApp.env_vars.split(',').map(kv => kv.split('=')))) : ''
+        volumes: newApp.volumes ? JSON.stringify([{ host: newApp.volumes.split(':')[0], container: newApp.volumes.split(':')[1] || newApp.volumes.split(':')[0] }]) : '',
+        env_vars: newApp.env_vars ? JSON.stringify(Object.fromEntries(newApp.env_vars.split(',').map(kv => kv.split('=')))) : '',
+        domains: newApp.domains,
+        git_repo: newApp.git_repo,
+        git_branch: newApp.git_branch
       })
     });
     const createdApp = await res.json();
@@ -135,7 +140,22 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
     await fetch(`/api/docker/apps/${appId}`, { method: 'DELETE' });
     if (selectedProject) fetchApps(selectedProject.id);
     setSelectedApp(null);
-  };
+  };  useEffect(() => {
+    let socket: any;
+    if (activeTab === 'metrics' && selectedApp && selectedApp.status === 'running') {
+      socket = io();
+      socket.emit('subscribe_stats', selectedApp.id);
+      socket.on(`stats:${selectedApp.id}`, (data: any) => {
+        setMetrics(data);
+      });
+    }
+    return () => {
+      if (socket) {
+        socket.emit('unsubscribe_stats');
+        socket.disconnect();
+      }
+    };
+  }, [activeTab, selectedApp]);
 
   return (
     <div className="h-full w-full flex bg-gray-50 select-none overflow-hidden font-sans">
@@ -210,7 +230,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                     </span>
                   </h1>
                   <p className="text-sm text-gray-500 mt-1 flex items-center">
-                    <Box size={14} className="mr-1.5 opacity-70"/> {selectedApp.build_pack === 'dockerimage' ? `${selectedApp.docker_image}:${selectedApp.docker_image_tag}` : 'Docker Compose'}
+                    <Box size={14} className="mr-1.5 opacity-70"/> {selectedApp.build_pack === 'dockerimage' ? `${selectedApp.docker_image}:${selectedApp.docker_image_tag}` : selectedApp.build_pack === 'github' ? `Git: ${selectedApp.git_repo}` : selectedApp.build_pack === 'database' ? `Database: ${selectedApp.docker_image}` : selectedApp.build_pack === 'template' ? `1-Click App Template` : 'Docker Compose'}
                   </p>
                 </div>
                 <div className="flex space-x-3">
@@ -227,7 +247,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
               </div>
 
               <div className="px-8 border-b border-neutral-100 flex space-x-6">
-                {['config', 'logs'].map(tab => (
+                {['config', 'metrics', 'logs'].map(tab => (
                   <button 
                     key={tab}
                     onClick={() => setActiveTab(tab as any)}
@@ -245,8 +265,29 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                       <h3 className="text-lg font-bold text-gray-900 mb-5">Configuration</h3>
                       <div className="space-y-4">
                         <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Webhook (CI/CD Auto-Deploy)</label>
+                          <div className="flex">
+                            <input type="text" readOnly value={`${window.location.origin}/api/docker/webhooks/deploy/${selectedApp.id}`} className="flex-1 bg-neutral-50 border border-neutral-200 rounded-l-[10px] p-2.5 text-sm text-gray-800 font-mono focus:outline-none" />
+                            <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/docker/webhooks/deploy/${selectedApp.id}`)} className="px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs rounded-r-[10px] transition">Copy</button>
+                          </div>
+                        </div>
+                        {selectedApp.build_pack === 'github' && (
+                          <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Git Repository</label>
+                            <input type="text" readOnly value={`${selectedApp.git_repo} (${selectedApp.git_branch})`} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-2.5 text-sm text-gray-800 focus:outline-none" />
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Domains (Proxy)</label>
+                          <input type="text" readOnly value={selectedApp.domains || 'None'} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-2.5 text-sm text-gray-800 focus:outline-none" />
+                        </div>
+                        <div>
                           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Ports (Host:Container)</label>
                           <input type="text" readOnly value={selectedApp.ports || 'None'} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-2.5 text-sm text-gray-800 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Persistent Volumes</label>
+                          <input type="text" readOnly value={selectedApp.volumes || 'None'} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-2.5 text-sm text-gray-800 focus:outline-none" />
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Environment Variables</label>
@@ -267,6 +308,37 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                         <Trash size={14} className="mr-2" /> Delete Resource
                       </button>
                     </section>
+                  </div>
+                )}
+                {activeTab === 'metrics' && (
+                  <div className="max-w-4xl space-y-6">
+                    {selectedApp.status !== 'running' ? (
+                       <div className="text-center py-10 text-gray-500">Deploy the application to view live metrics.</div>
+                    ) : metrics.length === 0 ? (
+                       <div className="text-center py-10 text-gray-500 flex items-center justify-center">
+                         <Activity size={16} className="mr-2 animate-pulse" /> Waiting for Docker stats...
+                       </div>
+                    ) : (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {metrics.map((m, i) => (
+                           <div key={i} className="bg-white p-5 rounded-[20px] border border-neutral-200/60 shadow-sm flex flex-col relative overflow-hidden">
+                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500" />
+                             <h4 className="font-bold text-gray-900 truncate mb-4 pr-6" title={m.name}>{m.name}</h4>
+                             
+                             <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">CPU Usage</p>
+                                 <p className="text-xl font-bold text-blue-600">{m.cpu}</p>
+                               </div>
+                               <div>
+                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Memory</p>
+                                 <p className="text-sm font-bold text-indigo-600 truncate">{m.mem}</p>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                    )}
                   </div>
                 )}
                 {activeTab === 'logs' && (
@@ -385,12 +457,164 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Source Type</label>
                     <select value={newApp.build_pack} onChange={e => setNewApp({...newApp, build_pack: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:ring-1 focus:ring-[#007aff] focus:outline-none transition appearance-none cursor-pointer">
                       <option value="dockerimage">Docker Image (Public Registry)</option>
+                      <option value="github">GitHub / Git Repository (Nixpacks)</option>
+                      <option value="database">Database (One-Click Setup)</option>
+                      <option value="template">1-Click App Templates</option>
                       <option value="dockercompose">Docker Compose (Raw Text)</option>
                     </select>
                   </div>
                 </div>
                 
                 <div className="bg-white p-5 rounded-[16px] border border-neutral-200 mb-5 shadow-sm">
+                  {newApp.build_pack === 'github' && (
+                    <div className="grid grid-cols-4 gap-4 mb-5">
+                      <div className="col-span-3">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Git Repository URL</label>
+                        <input type="text" placeholder="https://github.com/expressjs/express.git" value={newApp.git_repo} onChange={e => setNewApp({...newApp, git_repo: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:outline-none transition" />
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Branch</label>
+                        <input type="text" placeholder="main" value={newApp.git_branch} onChange={e => setNewApp({...newApp, git_branch: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:outline-none transition" />
+                      </div>
+                    </div>
+                  )}
+
+                  {newApp.build_pack === 'template' && (
+                    <div className="mb-5">
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Select Application</label>
+                      <select 
+                        onChange={e => {
+                          const tpl = e.target.value;
+                          const pwd = Math.random().toString(36).slice(-10);
+                          let compose = '';
+                          if (tpl === 'wordpress') {
+                            compose = `version: '3'
+services:
+  wordpress:
+    image: wordpress:latest
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: ${pwd}
+      WORDPRESS_DB_NAME: wp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{APP_ID}}.rule=Host(\`{{DOMAIN}}\`)"
+    networks:
+      - openfinder-proxy
+      - internal
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: ${pwd}
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - internal
+volumes:
+  db_data:
+networks:
+  openfinder-proxy:
+    external: true
+  internal:`;
+                          } else if (tpl === 'ghost') {
+                            compose = `version: '3'
+services:
+  ghost:
+    image: ghost:5-alpine
+    environment:
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: ghost
+      database__connection__password: ${pwd}
+      database__connection__database: ghost
+      url: http://{{DOMAIN}}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{APP_ID}}.rule=Host(\`{{DOMAIN}}\`)"
+    volumes:
+      - ghost_data:/var/lib/ghost/content
+    networks:
+      - openfinder-proxy
+      - internal
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: ${pwd}
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - internal
+volumes:
+  ghost_data:
+  db_data:
+networks:
+  openfinder-proxy:
+    external: true
+  internal:`;
+                          } else if (tpl === 'plausible') {
+                            compose = `version: '3'
+services:
+  plausible:
+    image: plausible/analytics:latest
+    environment:
+      BASE_URL: http://{{DOMAIN}}
+      SECRET_KEY_BASE: ${pwd}${pwd}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{APP_ID}}.rule=Host(\`{{DOMAIN}}\`)"
+    networks:
+      - openfinder-proxy
+networks:
+  openfinder-proxy:
+    external: true`;
+                          }
+                          // we actually set it as a dockercompose buildpack under the hood, so the UI switches to compose!
+                          setNewApp({...newApp, build_pack: 'dockercompose', compose_content: compose});
+                        }}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] transition appearance-none cursor-pointer"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Choose an application...</option>
+                        <option value="wordpress">WordPress (with MySQL)</option>
+                        <option value="ghost">Ghost CMS (with MySQL)</option>
+                        <option value="plausible">Plausible Analytics</option>
+                      </select>
+                      <p className="text-[10px] font-medium text-gray-400 mt-2">Selecting an application will automatically generate the docker-compose stack and switch to Compose view.</p>
+                    </div>
+                  )}
+
+                  {newApp.build_pack === 'database' && (
+                    <div className="mb-5">
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Select Database Engine</label>
+                      <select 
+                        onChange={e => {
+                          const db = e.target.value;
+                          const volName = `openfinder-vol-${Date.now()}`;
+                          if (db === 'postgres') setNewApp({...newApp, docker_image: 'postgres', docker_image_tag: '15', env_vars: 'POSTGRES_USER=admin,POSTGRES_PASSWORD=secret', volumes: `${volName}:/var/lib/postgresql/data`, ports: '5432:5432'});
+                          if (db === 'mysql') setNewApp({...newApp, docker_image: 'mysql', docker_image_tag: '8', env_vars: 'MYSQL_ROOT_PASSWORD=secret,MYSQL_DATABASE=db', volumes: `${volName}:/var/lib/mysql`, ports: '3306:3306'});
+                          if (db === 'redis') setNewApp({...newApp, docker_image: 'redis', docker_image_tag: '7', env_vars: '', volumes: `${volName}:/data`, ports: '6379:6379'});
+                          if (db === 'mongo') setNewApp({...newApp, docker_image: 'mongo', docker_image_tag: '6', env_vars: 'MONGO_INITDB_ROOT_USERNAME=admin,MONGO_INITDB_ROOT_PASSWORD=secret', volumes: `${volName}:/data/db`, ports: '27017:27017'});
+                        }}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] transition appearance-none cursor-pointer"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Choose an engine...</option>
+                        <option value="postgres">PostgreSQL 15</option>
+                        <option value="mysql">MySQL 8</option>
+                        <option value="redis">Redis 7</option>
+                        <option value="mongo">MongoDB 6</option>
+                      </select>
+                      <p className="text-[10px] font-medium text-gray-400 mt-2">Selecting an engine will automatically generate secure default credentials and configure a persistent Docker volume.</p>
+                    </div>
+                  )}
+
                   {newApp.build_pack === 'dockerimage' && (
                     <div className="grid grid-cols-4 gap-4 mb-5">
                       <div className="col-span-3">
@@ -412,9 +636,21 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                   )}
 
                   <div className="mb-4">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Domains (Automatic Proxy)</label>
+                    <input type="text" placeholder="e.g. app.mydomain.com, api.local" value={newApp.domains} onChange={e => setNewApp({...newApp, domains: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:outline-none transition" />
+                    <p className="text-[10px] font-medium text-gray-400 mt-1.5">Multiple domains separated by commas. Traefik will automatically route these domains to your container.</p>
+                  </div>
+
+                  <div className="mb-4">
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Port Mapping</label>
                     <input type="text" placeholder="e.g. 8080:80" value={newApp.ports} onChange={e => setNewApp({...newApp, ports: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:outline-none transition" />
                     <p className="text-[10px] font-medium text-gray-400 mt-1.5">Map host ports to container ports. Format: host:container</p>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Persistent Volumes</label>
+                    <input type="text" placeholder="e.g. my-volume:/var/lib/data" value={newApp.volumes} onChange={e => setNewApp({...newApp, volumes: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-[10px] p-3 text-sm text-gray-900 focus:border-[#007aff] focus:outline-none transition" />
+                    <p className="text-[10px] font-medium text-gray-400 mt-1.5">Map named Docker volumes or host directories. Format: host:container</p>
                   </div>
                   
                   <div>
@@ -428,7 +664,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
                   <button onClick={() => setShowWizard(false)} className="px-5 py-2.5 bg-white border border-neutral-200 hover:bg-neutral-50 text-gray-700 font-bold rounded-[12px] transition shadow-sm">Cancel</button>
                   <button 
                     onClick={handleDeployApp} 
-                    disabled={!newApp.name || (newApp.build_pack === 'dockerimage' && !newApp.docker_image) || (newApp.build_pack === 'dockercompose' && !newApp.compose_content)}
+                    disabled={!newApp.name || ((newApp.build_pack === 'dockerimage' || newApp.build_pack === 'database') && !newApp.docker_image) || (newApp.build_pack === 'dockercompose' && !newApp.compose_content) || (newApp.build_pack === 'github' && !newApp.git_repo)}
                     className="px-6 py-2.5 bg-[#007aff] hover:bg-[#0062cc] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-[12px] transition shadow-sm flex items-center"
                   >
                     <Play size={16} className="mr-2 fill-current" /> Save & Deploy

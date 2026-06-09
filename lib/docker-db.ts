@@ -64,13 +64,17 @@ export function getApp(appId: string) {
 export function createApp(
   id: string, projectId: string, name: string, build_pack: string, 
   docker_image: string | null, docker_image_tag: string | null, 
-  compose_content: string | null, ports: string | null, env_vars: string | null
+  compose_content: string | null, ports: string | null, env_vars: string | null,
+  domains: string | null, git_repo: string | null, git_branch: string | null,
+  volumes: string | null
 ) {
   const db = readDB();
   const newApp = {
     id, project_id: projectId, name, build_pack, 
     docker_image, docker_image_tag: docker_image_tag || 'latest', 
-    compose_content, ports, env_vars, status: 'stopped', 
+    compose_content, ports, env_vars, domains, 
+    git_repo, git_branch: git_branch || 'main',
+    volumes, status: 'stopped', 
     created_at: new Date().toISOString()
   };
   db.apps.push(newApp);
@@ -111,6 +115,11 @@ export function createDeployment(id: string, appId: string) {
   db.deployments.push(newDeployment);
   writeDB(db);
   return newDeployment;
+}
+
+export function getDeployment(id: string) {
+  const db = readDB();
+  return db.deployments.find((d: any) => d.id === id);
 }
 
 export function updateDeployment(deploymentId: string, status: string, logs: string) {
