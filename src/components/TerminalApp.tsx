@@ -80,25 +80,25 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
   }, [isFullScreen, term]);
 
   return (
-    <div className={`absolute bg-[#1c1c1e] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+    <div className={`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 font-sans ${
       isFullScreen 
         ? 'top-0 left-0 right-0 bottom-0 z-[100] rounded-none' 
         : 'top-0 left-0 right-0 bottom-0 z-50 rounded-[40px]'
     }`}>
       {/* Title Bar */}
-      <div className="bg-[#2c2c2e] h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-black/20">
+      <div className="bg-white/80 backdrop-blur-md h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-neutral-200/50 relative z-10">
         <div className="flex items-center space-x-2 w-24">
-          <button onClick={onClose} className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center group">
-            <X size={10} className="text-black/50 opacity-0 group-hover:opacity-100" />
-          </button>
-          <button className="w-3.5 h-3.5 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors flex items-center justify-center group">
-            <Minus size={10} className="text-black/50 opacity-0 group-hover:opacity-100" />
-          </button>
-          <button onClick={() => setIsFullScreen(!isFullScreen)} className="w-3.5 h-3.5 rounded-full bg-green-500 hover:bg-green-600 transition-colors flex items-center justify-center group">
-            <Maximize2 size={8} className="text-black/50 opacity-0 group-hover:opacity-100" />
-          </button>
+          <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all flex items-center justify-center group" title="Close" onClick={onClose}>
+            <X size={8} className="text-black/50 opacity-0 group-hover:opacity-100" />
+          </div>
+          <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all flex items-center justify-center group" title="Minimize">
+            <Minus size={8} className="text-black/50 opacity-0 group-hover:opacity-100" />
+          </div>
+          <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all flex items-center justify-center group" title="Zoom" onClick={() => setIsFullScreen(!isFullScreen)}>
+            <Maximize2 size={6} className="text-black/50 opacity-0 group-hover:opacity-100" />
+          </div>
         </div>
-        <div className="flex items-center space-x-2 text-white/70">
+        <div className="flex items-center space-x-2 text-slate-700">
           <TerminalIcon size={16} />
           <span className="text-sm font-semibold tracking-wide">Terminal</span>
         </div>
@@ -106,8 +106,10 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
       </div>
 
       {/* Terminal Content */}
-      <div className="flex-1 bg-[#1c1c1e] p-4 pt-6 overflow-hidden">
-        <div ref={terminalRef} className="w-full h-full xterm-container" />
+      <div className="flex-1 bg-gray-50 p-4 pt-4 overflow-hidden relative flex flex-col">
+        <div className="flex-1 bg-[#1c1c1e] rounded-[24px] shadow-inner border border-neutral-200/50 overflow-hidden p-4">
+          <div ref={terminalRef} className="w-full h-full xterm-container" />
+        </div>
       </div>
 
       <style>{`

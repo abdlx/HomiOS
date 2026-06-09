@@ -77,7 +77,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-black shadow-2xl relative">
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-gray-50 shadow-2xl relative">
           <TerminalApp onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-[#1c1c1e] shadow-2xl relative">
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-gray-50 shadow-2xl relative">
           <ActivityApp onClose={() => setView('desktop')} />
         </div>
       </div>
