@@ -73,11 +73,67 @@ app.prepare().then(async () => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  const httpServer = (await import('http')).createServer(server);
+  
+  try {
+    const { Server: SocketIOServer } = await import('socket.io');
+    const pty = await import('node-pty');
+    const os = await import('os');
+    
+    const io = new SocketIOServer(httpServer);
+    
+    io.on('connection', (socket) => {
+      // Basic security check (requires session cookie)
+      const cookieHeader = socket.request.headers.cookie;
+      if (!cookieHeader || !cookieHeader.includes('session=')) {
+        socket.disconnect();
+        return;
+      }
+      
+      const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+      
+      const ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 30,
+        cwd: process.env.HOME || process.env.USERPROFILE || process.cwd(),
+        env: process.env
+      });
+
+      ptyProcess.on('data', (data) => {
+        socket.emit('output', data);
+      });
+
+      socket.on('input', (data) => {
+        ptyProcess.write(data);
+      });
+
+      socket.on('resize', (size) => {
+        try {
+          if (size && size.cols && size.rows) {
+            ptyProcess.resize(size.cols, size.rows);
+          }
+        } catch (e) {
+          console.warn('Resize error', e);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        ptyProcess.kill();
+      });
+    });
+    
+    console.log('✅ Terminal Socket.IO server mounted');
+  } catch (e) {
+    console.warn('⚠️  Terminal dependencies not installed (node-pty, socket.io). Terminal disabled.');
+    console.warn(e);
+  }
+
   server.all('*', (req, res) => {
     return handle(req, res);
   });
 
-  server.listen(PORT, (err) => {
+  httpServer.listen(PORT, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://localhost:${PORT}`);
   });

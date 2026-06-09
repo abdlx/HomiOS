@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import DesktopEnvironment from './DesktopEnvironment';
 import App from '../App';
 import SettingsApp from './SettingsApp';
+import TerminalApp from './TerminalApp';
 
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal';
   username?: string;
 }
 
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
-  const [view, setView] = useState(initialView);
+  const [view, setView] = useState<string>(initialView);
 
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
@@ -19,6 +20,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/files');
     } else if (view === 'settings') {
       window.history.pushState(null, '', '/settings');
+    } else if (view === 'terminal') {
+      window.history.pushState(null, '', '/terminal');
     }
   }, [view]);
 
@@ -30,6 +33,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         <DesktopEnvironment 
           onOpenFinder={() => setView('files')} 
           onOpenSettings={() => setView('settings')}
+          onOpenTerminal={() => setView('terminal')}
           username={username} 
         />
       </div>
@@ -57,6 +61,19 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
           <SettingsApp onClose={() => setView('desktop')} />
+        </div>
+      </div>
+
+      {/* Terminal App overlay */}
+      <div 
+        className={`absolute z-30 top-8 bottom-[120px] left-16 right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom ${
+          view === 'terminal' 
+            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
+            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
+        }`}
+      >
+        <div className="w-full h-full rounded-[40px] border border-neutral-200/50 overflow-hidden bg-black shadow-2xl relative">
+          <TerminalApp onClose={() => setView('desktop')} />
         </div>
       </div>
 

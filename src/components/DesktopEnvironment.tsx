@@ -9,10 +9,11 @@ import { useWallpaper } from '../hooks/useWallpaper';
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
   onOpenSettings: () => void;
+  onOpenTerminal: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, username }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, username }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
 
@@ -33,20 +34,56 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, usern
     return () => clearInterval(timer);
   }, []);
   
-  const appsRow1 = [
-    { id: 'files', label: 'Files', icon: Folder, color: 'bg-gradient-to-br from-blue-400 to-cyan-500', onClick: onOpenFinder },
-  ];
+  const ALL_APPS: Record<string, any> = {
+    'files': { id: 'files', label: 'Files', icon: Folder, color: 'bg-gradient-to-br from-blue-400 to-cyan-500' },
+    'home': { id: 'home', label: 'Home', icon: Box, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
+    'mail': { id: 'mail', label: 'Mail', icon: Mail, color: 'bg-gradient-to-br from-blue-500 to-blue-700' },
+    'calendar': { id: 'calendar', label: 'Calendar', icon: Calendar, color: 'bg-gradient-to-br from-orange-400 to-red-500' },
+    'settings': { id: 'settings', label: 'Settings', icon: Settings, color: 'bg-gradient-to-br from-slate-500 to-slate-700' },
+    'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
+    'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'bg-gradient-to-br from-slate-800 to-black' },
+    'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'bg-gradient-to-br from-blue-400 to-cyan-500' }
+  };
 
-  const appsRow2 = [] as any[];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal'];
 
-  const dockApps = [
-    { id: 'home', icon: Box, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
-    { id: 'mail', icon: Mail, color: 'bg-gradient-to-br from-blue-500 to-blue-700' },
-    { id: 'calendar', icon: Calendar, color: 'bg-gradient-to-br from-orange-400 to-red-500' },
-    { id: 'settings', icon: Settings, color: 'bg-gradient-to-br from-slate-500 to-slate-700', onClick: onOpenSettings },
-    { id: 'activity', icon: Activity, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
-    { id: 'finder', icon: FolderOpen, color: 'bg-gradient-to-br from-blue-400 to-cyan-500', onClick: onOpenFinder },
-  ];
+  const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
+  const [dockAppIds, setDockAppIds] = useState<string[]>(['home', 'mail', 'calendar', 'activity', 'terminal', 'settings', 'finder']);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
+
+  useEffect(() => {
+    const savedGrid = localStorage.getItem('openfinder_grid_apps');
+    const savedDock = localStorage.getItem('openfinder_dock_apps');
+    if (savedGrid) setGridAppIds(JSON.parse(savedGrid));
+    if (savedDock) setDockAppIds(JSON.parse(savedDock));
+
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
+
+  const updateGrid = (newGrid: string[]) => {
+    setGridAppIds(newGrid);
+    localStorage.setItem('openfinder_grid_apps', JSON.stringify(newGrid));
+  };
+
+  const updateDock = (newDock: string[]) => {
+    setDockAppIds(newDock);
+    localStorage.setItem('openfinder_dock_apps', JSON.stringify(newDock));
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, appId: string, source: 'grid' | 'dock') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, appId, source });
+  };
+
+  const getOnClick = (id: string) => {
+    if (id === 'finder' || id === 'files') return onOpenFinder;
+    if (id === 'settings') return onOpenSettings;
+    if (id === 'terminal') return onOpenTerminal;
+    return undefined;
+  };
 
   return (
     <div 
@@ -144,29 +181,26 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, usern
         <div className="flex items-center justify-center w-full max-w-[900px] mb-8 relative">
 
           <div className="flex flex-col space-y-8 px-12 z-10">
-            <div className="grid grid-cols-6 gap-x-[52px] gap-y-8">
-              {appsRow1.map((app: any) => (
-                <div key={app.id} className="flex flex-col items-center group cursor-pointer" onClick={app.onClick}>
-                  <div className={`w-[70px] h-[70px] rounded-[20px] ${app.color} flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-300 ease-out mb-2.5 border border-white/10`}>
-                    <app.icon size={34} strokeWidth={1.5} className={app.color.includes('text-black') ? 'text-black' : 'text-white'} />
+            <div className="flex flex-wrap gap-x-[52px] gap-y-8 justify-center">
+              {gridAppIds.map((id) => {
+                const app = ALL_APPS[id];
+                if (!app) return null;
+                return (
+                  <div 
+                    key={app.id} 
+                    className="flex flex-col items-center group cursor-pointer relative" 
+                    onClick={getOnClick(app.id)}
+                    onContextMenu={(e) => handleContextMenu(e, app.id, 'grid')}
+                  >
+                    <div className={`w-[70px] h-[70px] rounded-[20px] ${app.color} flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-300 ease-out mb-2.5 border border-white/10`}>
+                      <app.icon size={34} strokeWidth={1.5} className={app.color.includes('text-black') ? 'text-black' : 'text-white'} />
+                    </div>
+                    <span className="text-white/80 text-[11px] font-medium tracking-wide">
+                      {app.label}
+                    </span>
                   </div>
-                  <span className="text-white/80 text-[11px] font-medium tracking-wide">
-                    {app.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-6 gap-x-[52px] gap-y-8">
-              {appsRow2.map((app: any) => (
-                <div key={app.id} className="flex flex-col items-center group cursor-pointer" onClick={app.onClick}>
-                  <div className={`w-[70px] h-[70px] rounded-[20px] ${app.color} flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-300 ease-out mb-2.5 border border-white/10`}>
-                    <app.icon size={34} strokeWidth={1.5} className={app.color.includes('text-black') ? 'text-black' : 'text-white'} />
-                  </div>
-                  <span className="text-white/80 text-[11px] font-medium tracking-wide">
-                    {app.label}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -185,20 +219,62 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, usern
         </div>
 
         <div className="bg-[#1c1c1e]/50 backdrop-blur-3xl rounded-[32px] p-3 shadow-2xl border border-white/10 flex items-center space-x-4">
-          {dockApps.map((app: any) => (
-            <div 
-              key={`dock-${app.id}`}
-              className="relative group cursor-pointer"
-              onClick={app.onClick}
-            >
-              <div className={`w-[56px] h-[56px] rounded-[16px] ${app.color} flex items-center justify-center text-white shadow-xl hover:-translate-y-2 hover:scale-110 transition-all duration-300 ease-out border border-white/20`}>
-                <app.icon size={28} strokeWidth={1.5} />
+          {dockAppIds.map((id) => {
+            const app = ALL_APPS[id];
+            if (!app) return null;
+            return (
+              <div 
+                key={`dock-${app.id}`}
+                className="relative group cursor-pointer"
+                onClick={getOnClick(app.id)}
+                onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
+              >
+                <div className={`w-[56px] h-[56px] rounded-[16px] ${app.color} flex items-center justify-center text-white shadow-xl hover:-translate-y-2 hover:scale-110 transition-all duration-300 ease-out border border-white/20`}>
+                  <app.icon size={28} strokeWidth={1.5} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
+      {/* Context Menu Overlay */}
+      {contextMenu && (
+        <div 
+          className="fixed z-[100] bg-[#1c1c1e]/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-1 w-48 overflow-hidden transform origin-top-left animate-in fade-in zoom-in-95 duration-150"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          {contextMenu.source === 'grid' && (
+            <button 
+              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-blue-500 transition-colors"
+              onClick={() => {
+                updateGrid(gridAppIds.filter(id => id !== contextMenu.appId));
+                if (!dockAppIds.includes(contextMenu.appId)) {
+                  updateDock([...dockAppIds, contextMenu.appId]);
+                }
+              }}
+            >
+              Move to Dock
+            </button>
+          )}
+          {contextMenu.source === 'dock' && (
+            <button 
+              className={`w-full text-left px-4 py-2 text-sm text-white transition-colors ${FACTORY_DOCK_APPS.includes(contextMenu.appId) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500'}`}
+              disabled={FACTORY_DOCK_APPS.includes(contextMenu.appId)}
+              onClick={() => {
+                if (!FACTORY_DOCK_APPS.includes(contextMenu.appId)) {
+                   updateDock(dockAppIds.filter(id => id !== contextMenu.appId));
+                   if (!gridAppIds.includes(contextMenu.appId)) {
+                     updateGrid([...gridAppIds, contextMenu.appId]);
+                   }
+                }
+              }}
+            >
+              Remove from Dock
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
