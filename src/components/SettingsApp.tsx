@@ -132,18 +132,18 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
 
           {/* APPEARANCE TAB */}
           {activeTab === 'appearance' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
+            <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Current Wallpaper</h3>
-                <div className="w-full max-w-2xl aspect-video rounded-2xl overflow-hidden shadow-inner border border-black/5 relative group">
+                <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-inner border border-black/5 relative group">
                   <img src={wallpaper} alt="Wallpaper Preview" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
+              <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Choose Wallpaper</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {WALLPAPERS.map((wp, i) => (
                     <div 
                       key={i} 
@@ -273,23 +273,6 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                       <div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{ width: sysStats ? `${(sysStats.disk.used / sysStats.disk.total) * 100}%` : '0%' }} />
                     </div>
                     <p className="text-xs text-slate-400">Mount: /</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-semibold text-slate-700 flex items-center"><HardDrive size={16} className="mr-2 text-slate-400" /> Data Array (/mnt/storage)</span>
-                      <span className="text-slate-500">2.1 TB / 4.0 TB (52% used)</span>
-                    </div>
-                    <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden flex border border-black/5">
-                      <div className="h-full bg-blue-500" style={{ width: '30%' }} title="Media" />
-                      <div className="h-full bg-emerald-500" style={{ width: '15%' }} title="Documents" />
-                      <div className="h-full bg-orange-400" style={{ width: '7%' }} title="Backups" />
-                    </div>
-                    <div className="flex space-x-4 text-xs mt-2">
-                      <div className="flex items-center space-x-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> <span className="text-slate-500 font-medium">Media</span></div>
-                      <div className="flex items-center space-x-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> <span className="text-slate-500 font-medium">Documents</span></div>
-                      <div className="flex items-center space-x-1"><span className="w-2.5 h-2.5 rounded-full bg-orange-400" /> <span className="text-slate-500 font-medium">Backups</span></div>
-                    </div>
                   </div>
                 </div>
               </div>
