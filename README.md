@@ -43,7 +43,21 @@ We compared OpenFinder against the leading home server dashboards:
 - Node.js (v18+)
 - Samba (Optional, if you wish to use the network sharing features: `sudo apt install samba`)
 
-### Installation
+### Quick Install (Recommended)
+
+The easiest way to install OpenFinder on a fresh Ubuntu/Debian server is using our automated installation script. This script automatically handles Node.js setup, Nginx reverse proxying, systemd service creation, and Samba configurations.
+
+Run this command as your primary user (or root):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | sudo bash
+```
+
+Once the script finishes, your dashboard will be instantly available at `http://<your-server-ip>`.
+
+---
+
+### Manual Installation (Advanced)
 
 1. **Clone the repository:**
    ```bash
