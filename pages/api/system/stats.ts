@@ -1,12 +1,35 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import os from 'os';
 import fs from 'fs';
+import { withAuth } from '../../../lib/api-auth.ts';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+/** Aggregate busy/idle tick counters across all cores. */
+function cpuTimes() {
+  let idle = 0, total = 0;
+  for (const c of os.cpus()) {
+    for (const t of Object.values(c.times)) total += t as number;
+    idle += c.times.idle;
+  }
+  return { idle, total };
+}
+
+/** Accurate cross-platform CPU% from a short two-sample delta (loadavg is 0 on Windows). */
+function sampleCpuPercent(ms = 120): Promise<number> {
+  return new Promise((resolve) => {
+    const a = cpuTimes();
+    setTimeout(() => {
+      const b = cpuTimes();
+      const idle = b.idle - a.idle;
+      const total = b.total - a.total;
+      resolve(total > 0 ? Math.min(100, Math.max(0, (1 - idle / total) * 100)) : 0);
+    }, ms);
+  });
+}
+
+export default withAuth(async (req: any, res: any) => {
   try {
     const cpus = os.cpus();
     const loadAvg = os.loadavg()[0];
-    const cpuUsagePercent = Math.min((loadAvg / Math.max(cpus.length, 1)) * 100, 100);
+    const cpuUsagePercent = await sampleCpuPercent();
 
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
@@ -47,12 +70,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         arch: os.arch(),
         hostname: os.hostname(),
         version: os.version ? os.version() : os.release()
-      },
-      network: os.networkInterfaces()
+      }
     });
 
   } catch (error) {
     console.error('Stats error:', error);
     res.status(500).json({ error: 'Failed to fetch system stats' });
   }
-}
+});

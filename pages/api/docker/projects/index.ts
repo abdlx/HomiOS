@@ -1,21 +1,23 @@
-import { getProjects, createProject } from '../../../../lib/docker-db';
+import { getProjects, createProject } from '../../../../lib/docker-db.ts';
+import { withAuth } from '../../../../lib/api-auth.ts';
+import { validateName, ValidationError } from '../../../../lib/validate.ts';
 import crypto from 'crypto';
 
-export default async function handler(req: any, res: any) {
+export default withAuth(async (req: any, res: any) => {
   try {
     if (req.method === 'GET') {
-      const projects = getProjects();
-      return res.status(200).json(projects);
-    } else if (req.method === 'POST') {
-      const { name, description } = req.body;
-      const id = crypto.randomUUID();
-      const newProject = createProject(id, name, description || '');
-      return res.status(201).json(newProject);
-    } else {
-      res.setHeader('Allow', ['GET', 'POST']);
-      return res.status(405).end(`Method ${req.method} Not Allowed`);
+      return res.status(200).json(getProjects());
     }
+    if (req.method === 'POST') {
+      const name = validateName(req.body?.name || '');
+      const description = String(req.body?.description || '').slice(0, 500);
+      const project = createProject(crypto.randomUUID(), name, description);
+      return res.status(201).json(project);
+    }
+    res.setHeader('Allow', ['GET', 'POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    const code = err instanceof ValidationError ? 400 : 500;
+    return res.status(code).json({ error: err.message });
   }
-}
+});

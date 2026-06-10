@@ -148,7 +148,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         
         <div className="flex flex-col items-center mb-8 md:mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center">Good evening, {username || 'User'}.</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center">{(() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })()}, {username || 'User'}.</h1>
         </div>
 
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
@@ -238,7 +238,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             <div className="mt-4 grid grid-cols-2 gap-3 relative z-10">
               <div className="bg-white/5 rounded-xl p-3 border border-white/5">
                 <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Cores</span>
-                <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats ? Math.max(1, Math.round(stats.cpu.cores / 2)) : 0}</span>
+                <span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400"/> {stats?.cpu?.cores || 0}</span>
               </div>
               <div className="bg-white/5 rounded-xl p-3 border border-white/5">
                 <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Platform</span>
