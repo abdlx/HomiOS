@@ -48,13 +48,13 @@ log "Installing system dependencies..."
 apt-get update -qq
 apt-get install -y \
   curl git nginx samba ntfs-3g exfatprogs \
-  util-linux sqlite3 build-essential \
+  util-linux build-essential python3-dev \
   > /dev/null 2>&1
 
-# ── 2. Node.js 20 LTS ─────────────────────────────────────────
-if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 18 ]]; then
-  log "Installing Node.js 20 LTS..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+# ── 2. Node.js 22 LTS ─────────────────────────────────────────
+if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 22 ]]; then
+  log "Installing Node.js 22 LTS..."
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - > /dev/null 2>&1
   apt-get install -y nodejs > /dev/null 2>&1
 else
   log "Node.js $(node -v) already installed."
@@ -102,6 +102,21 @@ chmod -R 700 "$INSTALL_DIR/data"  # Protect the SQLite database from other users
 
 # ── 6. Systemd service ───────────────────────────────────────
 log "Creating systemd service (openfinder.service)..."
+# Generate a stable APP_KEY for AES-256-GCM encryption of secrets at rest.
+# This key protects SSH private keys, S3 credentials, and env var values.
+# Persisted here so it survives data/ wipes — losing it = losing all secrets.
+APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
+mkdir -p "$INSTALL_DIR/data"
+if [ ! -f "$APP_KEY_FILE" ]; then
+  APP_KEY=$(openssl rand -hex 32)
+  echo -n "$APP_KEY" > "$APP_KEY_FILE"
+  chmod 600 "$APP_KEY_FILE"
+  log "Generated new APP_KEY and saved to $APP_KEY_FILE"
+else
+  APP_KEY=$(cat "$APP_KEY_FILE")
+  log "Using existing APP_KEY from $APP_KEY_FILE"
+fi
+
 cat > /etc/systemd/system/openfinder.service <<EOF
 [Unit]
 Description=OpenFinder Homelab OS
@@ -118,6 +133,7 @@ Environment=PORT=3000
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
+Environment=APP_KEY=$APP_KEY
 ExecStart=/usr/bin/npm start
 # Auto-restart on crash with 5s delay
 Restart=on-failure
@@ -222,6 +238,17 @@ cd $INSTALL_DIR
 git pull
 npm install --legacy-peer-deps --silent
 npm run build
+
+# Re-inject APP_KEY from the persisted key file into the systemd unit
+# so it's never lost after a git pull overwrites nothing (service file is
+# written outside the repo, but this guards against manual resets).
+APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
+if [ -f "\$APP_KEY_FILE" ]; then
+  CURRENT_KEY=\$(cat "\$APP_KEY_FILE")
+  sed -i "s|^Environment=APP_KEY=.*|Environment=APP_KEY=\$CURRENT_KEY|" /etc/systemd/system/openfinder.service
+  systemctl daemon-reload
+fi
+
 systemctl restart openfinder
 echo "OpenFinder updated successfully."
 UPDATEEOF

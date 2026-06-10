@@ -5,8 +5,11 @@
  * - Full lifecycle: deploy / start / stop / restart / redeploy / rollback / remove.
  * - Per-deployment image tags → real one-click rollback.
  * - Traefik reverse proxy with optional Let's Encrypt HTTPS.
+ * - Multi-server: apps with server_id deploy over SSH (lib/ssh.ts executors).
+ * - Scoped env vars (team < project < app) resolved at deploy time.
+ * - Team notifications on success/failure (lib/notify.ts).
  * - State reconciliation against `docker inspect` (DB status is derived, never trusted blindly).
- * - Zero shell strings: all Docker/git calls use spawn arg-arrays (lib/docker.ts).
+ * - Zero shell strings: all Docker/git calls use spawn arg-arrays or quoted SSH.
  */
 import crypto from 'crypto';
 import fs from 'fs';
@@ -17,14 +20,18 @@ import {
   listAppsForReconcile,
 } from './docker-db.ts';
 import {
-  docker, run, inspect, statusFromInspect, ensureNetwork, stopContainer,
+  docker, inspect, statusFromInspect, ensureNetwork, stopContainer,
   startContainer, restartContainer, removeContainer, composeArgs,
+  getExecutor, type DockerExecutor,
 } from './docker.ts';
 import {
-  validateImage, validateTag, parseDomains, parsePorts, parseEnv, parseVolumes,
+  validateImage, validateTag, parseDomains, parsePorts, parseVolumes,
   validateGitRepo, validateBranch, validateBuildPack, validateCpuLimit, validateMemLimit,
   containerSlug, composeProject,
 } from './validate.ts';
+import { resolveEnvForApp } from './env-resolve.ts';
+import { getDb } from './db.ts';
+import { notifyTeam } from './notify.ts';
 
 const PROXY_NET = 'openfinder-proxy';
 const PROXY_NAME = 'openfinder-proxy-traefik';
@@ -34,6 +41,18 @@ const HTTP_PORT = process.env.PROXY_HTTP_PORT || '80';
 const HTTPS_PORT = process.env.PROXY_HTTPS_PORT || '443';
 const STACKS_DIR = path.join(process.cwd(), 'data', 'stacks');
 
+function teamIdForApp(app: any): string | null {
+  try {
+    const p = getDb().prepare('SELECT team_id FROM docker_projects WHERE id = ?').get(app.project_id) as any;
+    return p?.team_id ?? null;
+  } catch { return null; }
+}
+
+function notifyAppEvent(app: any, event: 'deploy.success' | 'deploy.failed', detail: string): void {
+  const teamId = teamIdForApp(app);
+  if (teamId) void notifyTeam(teamId, event, detail);
+}
+
 // ── Socket log emit ──────────────────────────────────────────────────────────
 function emit(deploymentId: string, text: string, status = 'in_progress'): void {
   updateDeployment(deploymentId, status, text);
@@ -41,12 +60,18 @@ function emit(deploymentId: string, text: string, status = 'in_progress'): void 
   if (io) io.to(`deployment:${deploymentId}`).emit('log', text);
 }
 
-// ── Traefik proxy ────────────────────────────────────────────────────────────
-export async function ensureProxy(log: (s: string) => void): Promise<void> {
-  await ensureNetwork(PROXY_NET);
-  const info = await inspect(PROXY_NAME);
+// ── Traefik proxy (executor-aware: runs on the app's target server) ─────────
+export async function ensureProxy(log: (s: string) => void, exec?: DockerExecutor): Promise<void> {
+  const d = exec ? exec.docker.bind(exec) : docker;
+  if (exec) {
+    const net = await d(['network', 'inspect', PROXY_NET]);
+    if (net.code !== 0) await d(['network', 'create', PROXY_NET]);
+  } else {
+    await ensureNetwork(PROXY_NET);
+  }
+  const info = exec ? await exec.inspect(PROXY_NAME) : await inspect(PROXY_NAME);
   if (info?.State?.Running) { log(`Proxy ${PROXY_NAME} is running.\n`); return; }
-  if (info) await removeContainer(PROXY_NAME, true);
+  if (info) await d(['rm', '-f', PROXY_NAME]);
 
   const args = [
     'run', '-d', '--name', PROXY_NAME, '--restart', 'unless-stopped',
@@ -72,7 +97,7 @@ export async function ensureProxy(log: (s: string) => void): Promise<void> {
   } else {
     log('HTTPS disabled (set ACME_EMAIL to enable automatic certificates). Serving on HTTP.\n');
   }
-  const res = await docker(args, log);
+  const res = await d(args, log);
   log(res.code === 0 ? 'Reverse proxy started.\n' : `Warning: proxy failed to start (code ${res.code}).\n`);
 }
 
@@ -117,6 +142,10 @@ function buildRunArgs(slug: string, imageRef: string, cfg: {
   return args;
 }
 
+async function executorForApp(app: any): Promise<DockerExecutor> {
+  return getExecutor(app.server_id || null, STACKS_DIR);
+}
+
 // ── Deployment queue (serial) ──────────────────────────────────────────────────
 type Job = { deploymentId: string; appId: string; rollbackImage?: string };
 const queue: Job[] = [];
@@ -143,6 +172,8 @@ async function processQueue(): Promise<void> {
       catch (e: any) {
         emit(job.deploymentId, `\nFATAL: ${e?.message || e}\n`, 'error');
         updateAppStatus(job.appId, 'error');
+        const app = getApp(job.appId) as any;
+        if (app) notifyAppEvent(app, 'deploy.failed', `${app.name}: ${e?.message || e}`);
       }
     }
   } finally {
@@ -160,66 +191,73 @@ async function runDeployment(job: Job): Promise<void> {
   log(`Starting deployment for ${app.name} (${slug})...\n`);
 
   const buildPack = validateBuildPack(app.build_pack);
-  await ensureProxy(log);
+  const exec = await executorForApp(app);
+  if (exec.isRemote) log(`Target: remote server over SSH.\n`);
+  await ensureProxy(log, exec);
 
-  if (rollbackImage) { await deployImage(slug, rollbackImage, app, deploymentId, log); return; }
+  if (rollbackImage) { await deployImage(exec, slug, rollbackImage, app, deploymentId, log); return; }
 
   if (buildPack === 'dockerimage' || buildPack === 'database') {
     const image = validateImage(app.docker_image);
     const tag = validateTag(app.docker_image_tag);
     const imageRef = `${image}:${tag}`;
     log(`Pulling ${imageRef}...\n`);
-    await docker(['pull', imageRef], log);
-    await deployImage(slug, imageRef, app, deploymentId, log);
+    await exec.docker(['pull', imageRef], log);
+    await deployImage(exec, slug, imageRef, app, deploymentId, log);
   } else if (buildPack === 'dockercompose') {
-    await deployCompose(slug, app, deploymentId, log);
+    await deployCompose(exec, slug, app, deploymentId, log);
   } else if (buildPack === 'github') {
-    await deployGithub(slug, app, deploymentId, log);
+    await deployGithub(exec, slug, app, deploymentId, log);
   }
 }
 
-async function deployImage(slug: string, imageRef: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
+async function deployImage(exec: DockerExecutor, slug: string, imageRef: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
   const cfg = {
     domains: parseDomains(app.domains),
     ports: parsePorts(app.ports),
-    env: parseEnv(app.env_vars),
+    env: resolveEnvForApp(app), // merged team < project < app scopes
     volumes: parseVolumes(app.volumes),
     cpuLimit: validateCpuLimit(app.cpu_limit),
     memLimit: validateMemLimit(app.mem_limit),
   };
-  await removeContainer(slug, true); // replace any previous container
-  const res = await docker(buildRunArgs(slug, imageRef, cfg), log);
+  await exec.docker(['rm', '-f', slug]); // replace any previous container
+  const res = await exec.docker(buildRunArgs(slug, imageRef, cfg), log);
   finish(res.code, app.id, deploymentId, imageRef, log);
 }
 
-async function deployCompose(slug: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
-  const dir = path.join(STACKS_DIR, slug);
-  fs.mkdirSync(dir, { recursive: true });
+async function deployCompose(exec: DockerExecutor, slug: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
+  const dir = exec.isRemote ? `${exec.stacksDir}/${slug}` : path.join(exec.stacksDir, slug);
+  const file = exec.isRemote ? `${dir}/docker-compose.yml` : path.join(dir, 'docker-compose.yml');
   const firstDomain = parseDomains(app.domains)[0] || `${slug}.local`;
-  let content = (app.compose_content || '')
+  const content = (app.compose_content || '')
     .replace(/{{DOMAIN}}/g, firstDomain)
     .replace(/{{APP_ID}}/g, slug);
-  const file = path.join(dir, 'docker-compose.yml');
-  fs.writeFileSync(file, content);
+  await exec.writeFile(file, content);
   log(`Wrote compose stack to ${file}\n`);
-  const res = await docker(composeArgs(file, composeProject(app.id), ['up', '-d', '--remove-orphans']), log);
+  const res = await exec.docker(composeArgs(file, composeProject(app.id), ['up', '-d', '--remove-orphans']), log);
   finish(res.code, app.id, deploymentId, `compose:${slug}`, log);
 }
 
-async function deployGithub(slug: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
+async function deployGithub(exec: DockerExecutor, slug: string, app: any, deploymentId: string, log: (s: string) => void): Promise<void> {
   const repo = validateGitRepo(app.git_repo);
   const branch = validateBranch(app.git_branch);
-  const buildDir = path.join(STACKS_DIR, slug, 'src');
-  fs.rmSync(buildDir, { recursive: true, force: true });
-  fs.mkdirSync(buildDir, { recursive: true });
+  const buildDir = exec.isRemote ? `${exec.stacksDir}/${slug}/src` : path.join(exec.stacksDir, slug, 'src');
+
+  if (exec.isRemote) {
+    await exec.run('rm', ['-rf', buildDir], log);
+    await exec.run('mkdir', ['-p', buildDir], log);
+  } else {
+    fs.rmSync(buildDir, { recursive: true, force: true });
+    fs.mkdirSync(buildDir, { recursive: true });
+  }
 
   log(`Cloning ${repo} (${branch})...\n`);
-  const clone = await run('git', ['clone', '--depth', '1', '--branch', branch, '--', repo, buildDir], log);
+  const clone = await exec.run('git', ['clone', '--depth', '1', '--branch', branch, '--', repo, buildDir], log);
   if (clone.code !== 0) { finish(1, app.id, deploymentId, '', log); return; }
 
   const imageRef = `openfinder/${slug}:${deploymentId.slice(0, 8)}`;
   log(`Building image with Nixpacks → ${imageRef}\n`);
-  const build = await docker([
+  const build = await exec.docker([
     'run', '--rm',
     '-v', '/var/run/docker.sock:/var/run/docker.sock',
     '-v', `${buildDir}:/app`,
@@ -227,19 +265,22 @@ async function deployGithub(slug: string, app: any, deploymentId: string, log: (
   ], log);
   if (build.code !== 0) { finish(1, app.id, deploymentId, '', log); return; }
 
-  await deployImage(slug, imageRef, app, deploymentId, log);
+  await deployImage(exec, slug, imageRef, app, deploymentId, log);
 }
 
 function finish(code: number, appId: string, deploymentId: string, imageRef: string, log: (s: string) => void): void {
+  const app = getApp(appId) as any;
   if (code === 0) {
     if (imageRef) { setAppImageRef(appId, imageRef); setDeploymentImageRef(deploymentId, imageRef); }
     log('\n✓ Deployment successful.\n');
     emit(deploymentId, '', 'success');
     updateAppStatus(appId, 'running');
+    if (app) notifyAppEvent(app, 'deploy.success', `${app.name} deployed successfully${imageRef ? ` (${imageRef})` : ''}.`);
   } else {
     log(`\n✗ Deployment failed (exit ${code}).\n`);
     emit(deploymentId, '', 'error');
     updateAppStatus(appId, 'error');
+    if (app) notifyAppEvent(app, 'deploy.failed', `${app.name} deployment failed (exit ${code}). Check the deployment logs.`);
   }
 }
 
@@ -247,11 +288,12 @@ function finish(code: number, appId: string, deploymentId: string, imageRef: str
 export async function startApp(appId: string): Promise<void> {
   const app = getApp(appId) as any; if (!app) throw new Error('App not found');
   const slug = app.container_name || containerSlug(app.id);
+  const exec = await executorForApp(app);
   if (app.build_pack === 'dockercompose') {
-    const file = path.join(STACKS_DIR, slug, 'docker-compose.yml');
-    await docker(composeArgs(file, composeProject(app.id), ['start']));
+    const file = exec.isRemote ? `${exec.stacksDir}/${slug}/docker-compose.yml` : path.join(exec.stacksDir, slug, 'docker-compose.yml');
+    await exec.docker(composeArgs(file, composeProject(app.id), ['start']));
   } else {
-    await startContainer(slug);
+    await exec.docker(['start', slug]);
   }
   await reconcileApp(app);
 }
@@ -259,11 +301,12 @@ export async function startApp(appId: string): Promise<void> {
 export async function stopApp(appId: string): Promise<void> {
   const app = getApp(appId) as any; if (!app) throw new Error('App not found');
   const slug = app.container_name || containerSlug(app.id);
+  const exec = await executorForApp(app);
   if (app.build_pack === 'dockercompose') {
-    const file = path.join(STACKS_DIR, slug, 'docker-compose.yml');
-    await docker(composeArgs(file, composeProject(app.id), ['stop']));
+    const file = exec.isRemote ? `${exec.stacksDir}/${slug}/docker-compose.yml` : path.join(exec.stacksDir, slug, 'docker-compose.yml');
+    await exec.docker(composeArgs(file, composeProject(app.id), ['stop']));
   } else {
-    await stopContainer(slug); // STOP, not destroy — data + container preserved
+    await exec.docker(['stop', slug]); // STOP, not destroy — data + container preserved
   }
   updateAppStatus(appId, 'stopped');
 }
@@ -271,11 +314,12 @@ export async function stopApp(appId: string): Promise<void> {
 export async function restartApp(appId: string): Promise<void> {
   const app = getApp(appId) as any; if (!app) throw new Error('App not found');
   const slug = app.container_name || containerSlug(app.id);
+  const exec = await executorForApp(app);
   if (app.build_pack === 'dockercompose') {
-    const file = path.join(STACKS_DIR, slug, 'docker-compose.yml');
-    await docker(composeArgs(file, composeProject(app.id), ['restart']));
+    const file = exec.isRemote ? `${exec.stacksDir}/${slug}/docker-compose.yml` : path.join(exec.stacksDir, slug, 'docker-compose.yml');
+    await exec.docker(composeArgs(file, composeProject(app.id), ['restart']));
   } else {
-    await restartContainer(slug);
+    await exec.docker(['restart', slug]);
   }
   await reconcileApp(app);
 }
@@ -293,14 +337,21 @@ export function rollbackApp(appId: string): string {
 export async function removeAppResources(appId: string): Promise<void> {
   const app = getApp(appId) as any; if (!app) return;
   const slug = app.container_name || containerSlug(app.id);
+  const exec = await executorForApp(app);
   if (app.build_pack === 'dockercompose') {
-    const file = path.join(STACKS_DIR, slug, 'docker-compose.yml');
-    if (fs.existsSync(file)) await docker(composeArgs(file, composeProject(app.id), ['down', '--remove-orphans']));
-    fs.rmSync(path.join(STACKS_DIR, slug), { recursive: true, force: true });
+    const file = exec.isRemote ? `${exec.stacksDir}/${slug}/docker-compose.yml` : path.join(exec.stacksDir, slug, 'docker-compose.yml');
+    if (exec.isRemote) {
+      await exec.docker(composeArgs(file, composeProject(app.id), ['down', '--remove-orphans']));
+      await exec.run('rm', ['-rf', `${exec.stacksDir}/${slug}`]);
+    } else {
+      if (fs.existsSync(file)) await exec.docker(composeArgs(file, composeProject(app.id), ['down', '--remove-orphans']));
+      fs.rmSync(path.join(exec.stacksDir, slug), { recursive: true, force: true });
+    }
   } else {
-    await removeContainer(slug, true);
-    if (app.build_pack === 'github' && app.image_ref) await docker(['rmi', '-f', app.image_ref]);
-    fs.rmSync(path.join(STACKS_DIR, slug), { recursive: true, force: true });
+    await exec.docker(['rm', '-f', slug]);
+    if (app.build_pack === 'github' && app.image_ref) await exec.docker(['rmi', '-f', app.image_ref]);
+    if (exec.isRemote) await exec.run('rm', ['-rf', `${exec.stacksDir}/${slug}`]);
+    else fs.rmSync(path.join(exec.stacksDir, slug), { recursive: true, force: true });
   }
 }
 
@@ -350,10 +401,11 @@ export async function backupApp(appId: string): Promise<{ ok: boolean; files: st
 }
 
 // ── State reconciliation ──────────────────────────────────────────────────────
-async function reconcileApp(app: { id: string; container_name?: string; build_pack?: string; status?: string }): Promise<void> {
+async function reconcileApp(app: { id: string; container_name?: string; build_pack?: string; status?: string; server_id?: string | null }): Promise<void> {
   const slug = app.container_name || containerSlug(app.id);
   if (app.build_pack === 'dockercompose') return; // compose status handled by its own up/down
-  const info = await inspect(slug);
+  const exec = await getExecutor((app as any).server_id || null, STACKS_DIR);
+  const info = await exec.inspect(slug);
   if (!info) {
     if (app.status === 'running') updateAppStatus(app.id, 'stopped', 'unknown');
     return;
@@ -362,11 +414,13 @@ async function reconcileApp(app: { id: string; container_name?: string; build_pa
   updateAppStatus(app.id, status, health);
 }
 
-/** Periodic sweep: make the DB reflect real container state. */
+/** Periodic sweep: make the DB reflect real container state (local apps only —
+ *  remote apps are reconciled on demand to avoid SSH storms every 10s). */
 export async function reconcileAll(): Promise<void> {
   const apps = listAppsForReconcile() as any[];
   for (const app of apps) {
     if (app.status === 'deploying') continue; // a build is in flight; don't fight it
+    if (app.server_id) continue;              // remote: reconciled on lifecycle actions
     try { await reconcileApp(app); } catch { /* ignore per-app errors */ }
   }
 }

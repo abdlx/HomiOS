@@ -50,6 +50,7 @@ export default withAuth(async (req: any, res: any) => {
         compose_content: b.compose_content || null, ports: b.ports || null, env_vars: b.env_vars || null,
         domains: b.domains || null, git_repo: b.git_repo || null, git_branch: b.git_branch || null,
         volumes: b.volumes || null, cpu_limit: b.cpu_limit || null, mem_limit: b.mem_limit || null,
+        server_id: b.server_id || null,
       });
       return res.status(201).json(app);
     }

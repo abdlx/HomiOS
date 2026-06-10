@@ -115,3 +115,67 @@ export async function statsOnce(names: string[]): Promise<ContainerStat[]> {
 export function composeArgs(file: string, project: string, rest: string[]): string[] {
   return ['compose', '-f', file, '-p', project, ...rest];
 }
+
+// ── Server-aware execution (local spawn OR remote over SSH) ──────────────────
+//
+// Every deploy-engine call goes through an executor. serverId null/localhost
+// keeps the existing local spawn path; a remote server id routes the same
+// argument arrays through lib/ssh.ts with strict shell quoting.
+
+export type DockerExecutor = {
+  docker(args: string[], onData?: OnData): Promise<RunResult>;
+  run(bin: string, args: string[], onData?: OnData): Promise<RunResult>;
+  writeFile(filePath: string, content: string): Promise<void>;
+  inspect(name: string): Promise<any | null>;
+  isRemote: boolean;
+  stacksDir: string;
+};
+
+const REMOTE_STACKS_DIR = '/data/openfinder/stacks';
+
+export function localExecutor(stacksDir: string): DockerExecutor {
+  return {
+    isRemote: false,
+    stacksDir,
+    docker: (args, onData) => docker(args, onData),
+    run: (bin, args, onData) => run(bin, args, onData),
+    writeFile: async (filePath, content) => {
+      const fs = await import('fs');
+      const path = await import('path');
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, content);
+    },
+    inspect: (name) => inspect(name),
+  };
+}
+
+export async function getExecutor(serverId: string | null | undefined, localStacksDir: string): Promise<DockerExecutor> {
+  if (!serverId) return localExecutor(localStacksDir);
+
+  const { getDb } = await import('./db.ts');
+  const server = getDb().prepare('SELECT * FROM servers WHERE id = ?').get(serverId) as any;
+  if (!server || server.is_localhost) return localExecutor(localStacksDir);
+
+  const { sshTargetForServer, sshRun, sshWriteFile } = await import('./ssh.ts');
+  const target = sshTargetForServer(serverId);
+
+  const remoteDocker = (args: string[], onData?: OnData) => {
+    guardArgs(args);
+    return sshRun(target, 'docker', args, onData);
+  };
+  return {
+    isRemote: true,
+    stacksDir: REMOTE_STACKS_DIR,
+    docker: remoteDocker,
+    run: (bin, args, onData) => { guardArgs(args); return sshRun(target, bin, args, onData); },
+    writeFile: (filePath, content) => sshWriteFile(target, filePath, content),
+    inspect: async (name) => {
+      const res = await remoteDocker(['inspect', name]);
+      if (res.code !== 0) return null;
+      try {
+        const arr = JSON.parse(res.stdout);
+        return Array.isArray(arr) ? arr[0] : arr;
+      } catch { return null; }
+    },
+  };
+}

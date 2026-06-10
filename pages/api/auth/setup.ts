@@ -1,59 +1,29 @@
-import Database from 'better-sqlite3';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+import { getDb } from '../../../lib/db.ts';
+import { createUser, createSession } from '../../../lib/auth.ts';
+import { buildSessionCookie } from '../../../lib/api-auth.ts';
+import { logAudit } from '../../../lib/audit.ts';
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
-    const { email, password } = req.body;
+    const db = getDb();
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-    // Create tables if they don't exist
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        expires_at DATETIME NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-      );
-      CREATE TABLE IF NOT EXISTS initialized (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `);
-
-    // Check if already initialized
     const alreadyInit = db.prepare('SELECT 1 FROM initialized WHERE key = ?').get('setup_complete');
-    if (alreadyInit) {
-      return res.status(400).json({ error: 'Already initialized' });
-    }
+    if (alreadyInit) return res.status(400).json({ error: 'Already initialized' });
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // Create user
-    const stmt = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)');
-    const result = stmt.run(email, passwordHash);
-
-    // Mark as initialized
+    const userId = await createUser(String(email), String(password));
     db.prepare('INSERT INTO initialized (key, value) VALUES (?, ?)').run('setup_complete', '1');
 
-    // Create session
-    const sessionId = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
-    db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
-      .run(sessionId, result.lastInsertRowid, expiresAt);
+    const sessionId = createSession(userId);
+    logAudit({ userId, action: 'setup.admin_created', meta: { email } });
 
-    res.setHeader('Set-Cookie', `session=${sessionId}; Path=/; HttpOnly; Max-Age=2592000`);
-    res.json({ ok: true, userId: result.lastInsertRowid });
-  } catch (err) {
+    res.setHeader('Set-Cookie', buildSessionCookie(sessionId));
+    res.json({ ok: true, userId });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }

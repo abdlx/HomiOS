@@ -99,6 +99,10 @@ app.prepare().then(async () => {
           env: process.env,
         });
         ptyProcess.on('data', (data) => socket.emit('output', data));
+        ptyProcess.on('exit', () => {
+          socket.emit('output', '\r\n[process exited — reconnect to start a new shell]\r\n');
+          ptyProcess = null;
+        });
         return ptyProcess;
       };
 
@@ -160,6 +164,15 @@ app.prepare().then(async () => {
         await reconcileAll();
       } catch (e) { /* docker may be absent in dev; ignore */ }
     }, 10000);
+
+    // Background scheduler: health checks, cron tasks, scheduled backups,
+    // remote server reachability sweeps.
+    try {
+      const { startScheduler } = await import('./lib/scheduler.ts');
+      startScheduler();
+    } catch (e) {
+      console.warn('⚠️  Scheduler failed to start:', e.message);
+    }
   } catch (e) {
     console.warn('⚠️  Terminal dependencies not installed (node-pty, socket.io). Terminal disabled.');
     console.warn(e);

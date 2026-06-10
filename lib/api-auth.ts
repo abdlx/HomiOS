@@ -1,14 +1,20 @@
 /**
- * Shared authentication for API routes and the Socket.IO / Express server.
+ * Shared authentication/authorization for API routes, Socket.IO and Express.
  *
- * Before this, the entire /api/docker/* surface and the server.js deploy/stop/
- * terminal endpoints had NO real auth (the socket check was a literal
- * cookie.includes('session=')). withAuth() and validateSessionCookie() close
- * that hole with a single, consistent session check backed by the sessions table.
+ * - withAuth(handler)              — any authenticated session or API token
+ * - withAuth(handler, {ability})   — token must carry the ability (sessions always pass)
+ * - withAuth(handler, {minRole})   — team role gate: member < admin < owner
+ * - validateSessionCookie(header)  — raw Cookie header check (websocket path)
  */
-import { getSession } from './auth.ts';
+import { getSession, type Session } from './auth.ts';
 
-export type Session = { userId: number; email: string };
+export type { Session };
+
+const ROLE_RANK: Record<string, number> = { member: 1, admin: 2, owner: 3 };
+
+export function roleAtLeast(role: string | undefined, min: string): boolean {
+  return (ROLE_RANK[role || ''] || 0) >= (ROLE_RANK[min] || 0);
+}
 
 /** Validate a raw Cookie header (used by the websocket / express handlers). */
 export async function validateSessionCookie(cookieHeader: string | undefined): Promise<Session | null> {
@@ -16,13 +22,26 @@ export async function validateSessionCookie(cookieHeader: string | undefined): P
   return getSession({ headers: { cookie: cookieHeader } } as any);
 }
 
+type AuthOpts = {
+  ability?: 'read' | 'write' | 'deploy';
+  minRole?: 'member' | 'admin' | 'owner';
+};
+
 /** Wrap a Next API handler so it only runs for an authenticated session. */
 export function withAuth(
-  handler: (req: any, res: any, session: Session) => any | Promise<any>
+  handler: (req: any, res: any, session: Session) => any | Promise<any>,
+  opts: AuthOpts = {}
 ) {
   return async (req: any, res: any) => {
     const session = await getSession(req);
     if (!session) return res.status(401).json({ error: 'Unauthorized' });
+
+    if (opts.ability && session.via === 'token' && !session.abilities.includes(opts.ability)) {
+      return res.status(403).json({ error: `Token missing '${opts.ability}' ability` });
+    }
+    if (opts.minRole && !roleAtLeast(session.role, opts.minRole)) {
+      return res.status(403).json({ error: `Requires ${opts.minRole} role` });
+    }
     return handler(req, res, session);
   };
 }
@@ -31,4 +50,8 @@ export function withAuth(
 export function buildSessionCookie(sessionId: string): string {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   return `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
+}
+
+export function clearSessionCookie(): string {
+  return 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
 }

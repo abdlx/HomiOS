@@ -54,6 +54,7 @@ export type NewAppInput = {
   compose_content?: string | null; ports?: string | null; env_vars?: string | null;
   domains?: string | null; git_repo?: string | null; git_branch?: string | null;
   volumes?: string | null; cpu_limit?: string | null; mem_limit?: string | null;
+  server_id?: string | null;
 };
 
 export function createApp(input: NewAppInput) {
@@ -65,14 +66,15 @@ export function createApp(input: NewAppInput) {
     env_vars: input.env_vars ?? null, domains: input.domains ?? null,
     git_repo: input.git_repo ?? null, git_branch: input.git_branch || 'main', volumes: input.volumes ?? null,
     cpu_limit: input.cpu_limit ?? null, mem_limit: input.mem_limit ?? null,
+    server_id: input.server_id ?? null,
     status: 'stopped', health: 'unknown',
     container_name: containerSlug(input.id), image_ref: null,
     webhook_secret: crypto.randomBytes(24).toString('hex'),
     created_at: now, updated_at: now,
   };
   getDb().prepare(`INSERT INTO docker_apps
-    (id,project_id,name,build_pack,docker_image,docker_image_tag,compose_content,ports,env_vars,domains,git_repo,git_branch,volumes,cpu_limit,mem_limit,status,health,container_name,image_ref,webhook_secret,created_at,updated_at)
-    VALUES (@id,@project_id,@name,@build_pack,@docker_image,@docker_image_tag,@compose_content,@ports,@env_vars,@domains,@git_repo,@git_branch,@volumes,@cpu_limit,@mem_limit,@status,@health,@container_name,@image_ref,@webhook_secret,@created_at,@updated_at)`)
+    (id,project_id,name,build_pack,docker_image,docker_image_tag,compose_content,ports,env_vars,domains,git_repo,git_branch,volumes,cpu_limit,mem_limit,server_id,status,health,container_name,image_ref,webhook_secret,created_at,updated_at)
+    VALUES (@id,@project_id,@name,@build_pack,@docker_image,@docker_image_tag,@compose_content,@ports,@env_vars,@domains,@git_repo,@git_branch,@volumes,@cpu_limit,@mem_limit,@server_id,@status,@health,@container_name,@image_ref,@webhook_secret,@created_at,@updated_at)`)
     .run(app);
   return app;
 }
@@ -80,7 +82,8 @@ export function createApp(input: NewAppInput) {
 const MUTABLE_FIELDS = new Set([
   'name', 'docker_image', 'docker_image_tag', 'compose_content',
   'ports', 'env_vars', 'domains', 'git_repo', 'git_branch', 'volumes',
-  'cpu_limit', 'mem_limit',
+  'cpu_limit', 'mem_limit', 'server_id',
+  'hc_enabled', 'hc_path', 'hc_port', 'hc_interval',
 ]);
 
 /** Patch user-editable config fields (whitelisted). Returns the updated row. */
@@ -149,5 +152,5 @@ export function setDeploymentImageRef(deploymentId: string, imageRef: string) {
 }
 
 export function listAppsForReconcile() {
-  return getDb().prepare(`SELECT id, container_name, build_pack, status FROM docker_apps`).all();
+  return getDb().prepare(`SELECT id, container_name, build_pack, status, server_id FROM docker_apps`).all();
 }

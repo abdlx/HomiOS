@@ -1,44 +1,13 @@
-import Database from 'better-sqlite3';
+/**
+ * Samba (SMB/CIFS) integration — smb.conf generation + smbpasswd management.
+ * Schema lives in lib/db.ts; callers pass the shared connection in.
+ */
 import { writeFileSync } from 'fs';
 import { execSync, spawnSync } from 'child_process';
 
-export const DB_PATH = process.env.DATABASE_URL || './data/filemanager.db';
-
-// ─── Schema bootstrap ────────────────────────────────────────────────────────
-
-export function bootstrapSambaSchema(db: ReturnType<typeof Database>) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS shares (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id       INTEGER NOT NULL,
-      name          TEXT    NOT NULL UNIQUE,
-      path          TEXT    NOT NULL,
-      read_only     INTEGER DEFAULT 0,
-      comment       TEXT    DEFAULT '',
-      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS samba_users (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      username   TEXT NOT NULL UNIQUE,
-      enabled    INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS share_users (
-      share_id      INTEGER NOT NULL,
-      samba_user_id INTEGER NOT NULL,
-      PRIMARY KEY (share_id, samba_user_id),
-      FOREIGN KEY(share_id)      REFERENCES shares(id)      ON DELETE CASCADE,
-      FOREIGN KEY(samba_user_id) REFERENCES samba_users(id) ON DELETE CASCADE
-    );
-  `);
-}
-
 // ─── smb.conf regeneration ────────────────────────────────────────────────────
 
-export function regenerateSmbConf(db: ReturnType<typeof Database>) {
+export function regenerateSmbConf(db: any) {
   try {
     const shares = db.prepare('SELECT * FROM shares').all() as any[];
 

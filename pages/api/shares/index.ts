@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
-import { getSession } from '../../../lib/auth';
-import { DB_PATH, bootstrapSambaSchema, regenerateSmbConf } from '../../../lib/samba';
+import { getDb } from '../../../lib/db.ts';
+import { getSession } from '../../../lib/auth.ts';
+import { regenerateSmbConf } from '../../../lib/samba.ts';
 
 /**
  * /api/shares
@@ -14,8 +14,7 @@ export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
 
-  const db = new Database(DB_PATH);
-  bootstrapSambaSchema(db);
+  const db = getDb(); // shared connection — schema guaranteed by lib/db.ts
 
   try {
     // ── GET ───────────────────────────────────────────────────────────────────

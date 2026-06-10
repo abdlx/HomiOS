@@ -13,10 +13,11 @@ interface DesktopEnvironmentProps {
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
   onOpenDockerManager: (appId?: string) => void;
+  onOpenServers?: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenDockerManager, username: propUsername }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenDockerManager, onOpenServers, username: propUsername }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -67,13 +68,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     'activity': { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
     'terminal': { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
     'finder': { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
-    'docker_manager': { id: 'docker_manager', label: 'Docker Manager', icon: Server, color: 'from-[#0db7ed] to-[#0684a8]' }
+    'docker_manager': { id: 'docker_manager', label: 'Docker Manager', icon: Server, color: 'from-[#0db7ed] to-[#0684a8]' },
+    'servers': { id: 'servers', label: 'Servers', icon: Cloud, color: 'from-[#5856D6] to-[#3634A3]' },
   };
 
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'docker_manager'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'docker_manager', 'servers'];
 
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
-  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'docker_manager', 'settings', 'finder']);
+  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'docker_manager', 'servers', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const savedDock = localStorage.getItem('openfinder_dock_apps');
     
     let currentGrid = ['files'];
-    let currentDock = ['activity', 'terminal', 'docker_manager', 'settings', 'finder'];
+    let currentDock = ['activity', 'terminal', 'docker_manager', 'servers', 'settings', 'finder'];
 
     if (savedGrid) currentGrid = JSON.parse(savedGrid);
     if (savedDock) currentDock = JSON.parse(savedDock);
@@ -134,6 +136,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
     if (id === 'docker_manager') return () => onOpenDockerManager();
+    if (id === 'servers') return onOpenServers;
     return undefined;
   };
 

@@ -1,15 +1,13 @@
-import Database from 'better-sqlite3';
+import { getDb } from '../../../lib/db.ts';
+import { withAuth } from '../../../lib/api-auth.ts';
 
-export default async function handler(req: any, res: any) {
+export default withAuth(async (req, res, session) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { drives } = req.body;
-    const db = new Database(process.env.DATABASE_URL || './data/filemanager.db');
-    
-    // In a real app we'd map these to the admin user
-    // For now we just mark setup complete in initialized table if needed
-    // Assuming setup is already complete from the auth setup, but we'd register drives here
+    const { drives } = req.body || {};
+    const db = getDb();
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS drives (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,16 +18,15 @@ export default async function handler(req: any, res: any) {
         FOREIGN KEY(user_id) REFERENCES users(id)
       );
     `);
-    
-    const insert = db.prepare('INSERT INTO drives (user_id, mount_path, label) VALUES (1, ?, ?)');
-    
-    for (const drivePath of drives) {
-      const label = drivePath.split('/').pop() || 'Drive';
-      insert.run(drivePath, label);
+
+    const insert = db.prepare('INSERT INTO drives (user_id, mount_path, label) VALUES (?, ?, ?)');
+    for (const drivePath of drives || []) {
+      const label = String(drivePath).split('/').pop() || 'Drive';
+      insert.run(session.userId, drivePath, label);
     }
-    
+
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-}
+});
