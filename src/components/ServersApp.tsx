@@ -221,10 +221,10 @@ export default function ServersApp({ onClose }: ServersAppProps) {
                       {resources.containers.map((c: any, i: number) => (
                         <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-xl text-sm">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${c.status?.includes('Up') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                            <span className={`w-2 h-2 rounded-full ${(c.statusText || c.status || c.Status || '').includes('Up') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
                             <span className="font-medium truncate max-w-[200px]">{c.name || c.Names}</span>
                           </div>
-                          <span className="text-slate-400 dark:text-slate-500 text-xs">{c.status || c.Status}</span>
+                          <span className="text-slate-400 dark:text-slate-500 text-xs">{c.statusText || c.status || c.Status}</span>
                         </div>
                       ))}
                     </div>
@@ -236,9 +236,18 @@ export default function ServersApp({ onClose }: ServersAppProps) {
                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10">
                       <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2"><HardDrive size={14} /> Disk Usage</h4>
                       <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                        {resources.diskUsage.split('\n').filter(Boolean).map((l: string, i: number) => (
-                          <div key={i} className="font-mono">{l}</div>
-                        ))}
+                        {Array.isArray(resources.diskUsage) ? (
+                          resources.diskUsage.map((d: any, i: number) => (
+                            <div key={i} className="flex justify-between font-mono bg-slate-50 dark:bg-white/5 p-2 rounded">
+                              <span className="font-medium">{d.type || 'Unknown'}</span>
+                              <span>{d.count || 0} items • {d.size || '0B'} (Free: {d.reclaimable || '0B'})</span>
+                            </div>
+                          ))
+                        ) : typeof resources.diskUsage === 'string' ? (
+                          resources.diskUsage.split('\n').filter(Boolean).map((l: string, i: number) => (
+                            <div key={i} className="font-mono">{l}</div>
+                          ))
+                        ) : null}
                       </div>
                     </div>
                   )}

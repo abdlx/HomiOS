@@ -183,7 +183,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         
         <div className="flex flex-col items-center mb-8 md:mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center">{(() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })()}, {username || 'User'}.</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center">{now ? (() => { const h = now.getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })() : 'Welcome'}, {username || 'User'}.</h1>
         </div>
 
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
