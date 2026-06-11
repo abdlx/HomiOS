@@ -295,6 +295,11 @@ export function getDb(): any {
   `);
 
   // Additive migrations for installs created before these columns existed.
+  ensureColumn('docker_apps', 'project_id', 'TEXT NOT NULL DEFAULT ""');
+  ensureColumn('docker_apps', 'name', 'TEXT NOT NULL DEFAULT "app"');
+  ensureColumn('docker_apps', 'build_pack', 'TEXT NOT NULL DEFAULT "dockerfile"');
+  ensureColumn('docker_apps', 'created_at', 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP');
+  ensureColumn('docker_apps', 'updated_at', 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP');
   ensureColumn('docker_apps', 'ports', 'TEXT');
   ensureColumn('docker_apps', 'env_vars', 'TEXT');
   ensureColumn('docker_apps', 'domains', 'TEXT');
