@@ -301,6 +301,14 @@ export function getDb(): any {
   ensureColumn('docker_apps', 'git_repo', 'TEXT');
   ensureColumn('docker_apps', 'git_branch', "TEXT DEFAULT 'main'");
   ensureColumn('docker_apps', 'volumes', 'TEXT');
+  ensureColumn('docker_apps', 'docker_image', 'TEXT');
+  ensureColumn('docker_apps', 'docker_image_tag', "TEXT DEFAULT 'latest'");
+  ensureColumn('docker_apps', 'compose_content', 'TEXT');
+  ensureColumn('docker_apps', 'status', "TEXT NOT NULL DEFAULT 'stopped'");
+  ensureColumn('docker_apps', 'health', "TEXT DEFAULT 'unknown'");
+  ensureColumn('docker_apps', 'container_name', 'TEXT');
+  ensureColumn('docker_apps', 'image_ref', 'TEXT');
+  ensureColumn('docker_apps', 'webhook_secret', 'TEXT');
   ensureColumn('docker_apps', 'cpu_limit', 'TEXT');
   ensureColumn('docker_apps', 'mem_limit', 'TEXT');
   ensureColumn('docker_apps', 'server_id', 'TEXT');
