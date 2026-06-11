@@ -64,7 +64,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <App onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -77,7 +77,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <SettingsApp onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-gray-50 shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
           <TerminalApp onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-gray-50 shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
           <ActivityApp onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <DockerManagerApp initialAppId={dockerAppId} onClose={() => setView('desktop')} />
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 overflow-hidden bg-white shadow-2xl relative">
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <ServersApp onClose={() => setView('desktop')} />
         </div>
       </div>

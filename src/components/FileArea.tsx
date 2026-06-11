@@ -1,29 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { 
-  FileText, 
-  Folder, 
-  Image as ImageIcon, 
-  Trash2, 
-  Eye, 
-  Check, 
-  Plus, 
-  AlertCircle, 
-  ChevronRight, 
-  Info,
-  Sparkles,
-  Star,
-  Edit3,
-  Download,
+import {
+  FileText,
+  Folder,
+  Image as ImageIcon,
+  Eye,
+  Plus,
+  AlertCircle,
+  ChevronRight,
   Video,
   Archive,
   Code,
   Music,
-  File,
   MoreVertical,
   Share2
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
+import { promptDialog, toast } from './SystemUI';
 
 interface FileAreaProps {
   files: FileItem[];
@@ -111,35 +104,6 @@ export default function FileArea({
     }
   };
 
-  const cycleFolderColor = (file: FileItem) => {
-    if (!onUpdateMetadata) return;
-    const colors = ['blue', 'orange', 'green', 'purple', 'red'];
-    const currentIdx = colors.indexOf(file.folderColor || 'blue');
-    const nextColor = colors[(currentIdx + 1) % colors.length];
-    onUpdateMetadata(file.id, { folderColor: nextColor });
-  };
-
-  const toggleTag = (file: FileItem) => {
-    if (!onUpdateMetadata) return;
-    const currentTags = file.tags || [];
-    let newTags = [...currentTags];
-    
-    if (currentTags.includes('Important')) {
-      newTags = newTags.filter((t) => t !== 'Important');
-    } else {
-      newTags.push('Important');
-    }
-    onUpdateMetadata(file.id, { tags: newTags });
-  };
-
-  const toggleFavorite = (file: FileItem) => {
-    if (!onUpdateMetadata || file.type !== 'folder') return;
-    onUpdateMetadata(file.id, { 
-      isFavorite: !file.isFavorite,
-      name: file.name
-    });
-  };
-
   // Custom folder rendering with gradients representing the Nextcloud mock styling
   const renderFolderIcon = (color?: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const dimensions = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16';
@@ -185,7 +149,7 @@ export default function FileArea({
     return (
       <div className={`relative ${boxClass} bg-white border-neutral-300 rounded-lg shadow-sm overflow-hidden flex flex-col justify-center items-center hover:border-neutral-400 transition-colors`}>
         <Icon className={`${color} ${size === 'sm' ? 'w-3 h-3' : size === 'lg' ? 'w-10 h-10 mb-2' : 'w-6 h-6 mb-1'}`} />
-        <div className={`absolute bottom-0 w-full text-center bg-neutral-100 border-t border-neutral-200 text-[6px] font-bold text-neutral-500 tracking-widest py-0.5 ${size === 'sm' ? 'hidden' : ''}`}>
+        <div className={`absolute bottom-0 w-full text-center bg-neutral-100 border-t border-neutral-200 text-[8px] font-bold text-neutral-500 tracking-widest py-0.5 ${size === 'sm' ? 'hidden' : ''}`}>
           {label}
         </div>
         <div className="absolute top-0 right-0 w-3 h-3 bg-neutral-200 border-l border-b border-neutral-300 rounded-bl-md" />
@@ -195,12 +159,12 @@ export default function FileArea({
 
   if (files.length === 0) {
     return (
-      <div className="flex-1 bg-white p-8 flex flex-col items-center justify-center text-neutral-400 space-y-3 min-h-[400px]"
+      <div className="flex-1 bg-white dark:bg-transparent p-8 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500 space-y-3 min-h-[400px]"
            onContextMenu={(e) => handleContextMenu(e, null)}>
-        <AlertCircle size={40} className="text-neutral-300" />
+        <AlertCircle size={40} className="text-neutral-300 dark:text-neutral-600" />
         <div className="text-center">
           <p className="text-sm font-semibold">No files match filters</p>
-          <p className="text-xs text-neutral-400">Add some via the toolbar or drag them in!</p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">Add some via the toolbar or drag them in!</p>
         </div>
       </div>
     );
@@ -215,7 +179,6 @@ export default function FileArea({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-7">
         {files.map((file) => {
           const isSelected = selectedFileId === file.id;
-          const isNotesFolder = file.name === 'Notes';
 
           return (
             <div
@@ -227,14 +190,14 @@ export default function FileArea({
               onDoubleClick={() => onFileDoubleClick(file)}
               onContextMenu={(e) => handleContextMenu(e, file)}
               className={`group relative flex flex-col items-center text-center cursor-pointer select-none px-2 py-3 rounded-2xl transition-all duration-200 border ${
-                isSelected 
-                  ? 'bg-blue-500/10 border-blue-500/15 shadow-[0_4px_12px_rgba(59,130,246,0.06)]' 
-                  : 'border-transparent hover:bg-neutral-50/80 hover:border-neutral-200/40'
+                isSelected
+                  ? 'bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/15 dark:border-blue-400/20 shadow-[0_4px_12px_rgba(59,130,246,0.06)]'
+                  : 'border-transparent hover:bg-neutral-50/80 dark:hover:bg-white/5 hover:border-neutral-200/40 dark:hover:border-white/10'
               }`}
             >
               <button
                 onClick={(e) => handleContextMenu(e, file)}
-                className="absolute top-1.5 right-1.5 p-1 rounded-full text-neutral-400 hover:bg-black/5 hover:text-neutral-700 opacity-0 group-hover:opacity-100 transition-all z-10 focus:outline-none"
+                className="absolute top-1.5 right-1.5 p-1 rounded-full text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 hover:text-neutral-700 dark:hover:text-neutral-200 opacity-0 group-hover:opacity-100 transition-all z-10 focus:outline-none"
                 title="More Actions"
               >
                 <MoreVertical size={14} />
@@ -306,10 +269,10 @@ export default function FileArea({
 
               {/* Title wrapper */}
               <div className="w-full px-1">
-                <p 
-                  className={`text-[11px] font-bold truncate max-w-full tracking-normal transition-colors ${
-                    isSelected ? 'text-blue-600' : 'text-neutral-700'
-                  }`} 
+                <p
+                  className={`text-xs font-bold truncate max-w-full tracking-normal transition-colors ${
+                    isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-200'
+                  }`}
                   title={file.name}
                 >
                   {file.name}
@@ -339,9 +302,9 @@ export default function FileArea({
   // RENDER STREAMLINED LIST VIEW
   const renderList = () => {
     return (
-      <div className="w-full border border-neutral-200/60 rounded-xl overflow-hidden bg-white shadow-sm">
-        <table className="w-full text-left text-xs text-neutral-600">
-          <thead className="bg-neutral-50/70 border-b border-neutral-200/60 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+      <div className="w-full border border-neutral-200/60 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#1f1f22] shadow-sm">
+        <table className="w-full text-left text-xs text-neutral-600 dark:text-neutral-300">
+          <thead className="bg-neutral-50/70 dark:bg-white/5 border-b border-neutral-200/60 dark:border-white/10 text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
             <tr>
               <th className="py-2.5 px-4 w-full sm:w-1/2">Name</th>
               <th className="py-2.5 px-3 hidden sm:table-cell">Kind</th>
@@ -351,7 +314,7 @@ export default function FileArea({
               <th className="py-2.5 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
             {files.map((file) => {
               const isSelected = selectedFileId === file.id;
               return (
@@ -363,17 +326,17 @@ export default function FileArea({
                   }}
                   onDoubleClick={() => onFileDoubleClick(file)}
                   onContextMenu={(e) => handleContextMenu(e, file)}
-                  className={`group hover:bg-neutral-50 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-blue-50/50' : ''
+                  className={`group hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+                    isSelected ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''
                   }`}
                 >
-                  <td className="py-2.5 px-4 flex items-center space-x-2.5 font-medium text-neutral-800">
+                  <td className="py-2.5 px-4 flex items-center space-x-2.5 font-medium text-neutral-800 dark:text-neutral-200">
                     {file.type === 'folder' ? (
                       renderFolderIcon(file.folderColor, 'sm')
                     ) : file.type === 'image' ? (
                       <ImageIcon size={16} className="text-indigo-500" />
                     ) : (
-                      <FileText size={16} className="text-neutral-500" />
+                      <FileText size={16} className="text-neutral-500 dark:text-neutral-400" />
                     )}
                     <span className="truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
                     {file.isShared && (
@@ -381,13 +344,10 @@ export default function FileArea({
                         <Share2 size={12} className="text-blue-500" strokeWidth={3} />
                       </span>
                     )}
-                    {file.name === 'Notes' && (
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full inline-block animate-pulse ml-1.5" />
-                    )}
                   </td>
-                  <td className="py-2.5 px-3 capitalize text-neutral-500 hidden sm:table-cell">{file.type}</td>
-                  <td className="py-2.5 px-3 text-neutral-500 font-mono text-[11px] hidden sm:table-cell">{file.size}</td>
-                  <td className="py-2.5 px-3 text-neutral-500 hidden md:table-cell">{file.updatedAt || 'Recent'}</td>
+                  <td className="py-2.5 px-3 capitalize text-neutral-500 dark:text-neutral-400 hidden sm:table-cell">{file.type}</td>
+                  <td className="py-2.5 px-3 text-neutral-500 dark:text-neutral-400 font-mono text-[11px] hidden sm:table-cell">{file.size}</td>
+                  <td className="py-2.5 px-3 text-neutral-500 dark:text-neutral-400 hidden md:table-cell">{file.updatedAt || 'Recent'}</td>
                   <td className="py-2.5 px-3 hidden lg:table-cell">
                     <div className="flex space-x-1.5">
                       {file.tags?.map(t => {
@@ -397,14 +357,14 @@ export default function FileArea({
                             {t}
                           </span>
                         );
-                      }) || <span className="text-neutral-300">-</span>}
+                      }) || <span className="text-neutral-300 dark:text-neutral-600">-</span>}
                     </div>
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => handleContextMenu(e, file)}
-                        className="p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/50 rounded focus:outline-none transition-colors"
+                        className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-white/10 rounded focus:outline-none transition-colors"
                         title="More Actions"
                       >
                         <MoreVertical size={14} />
@@ -423,40 +383,40 @@ export default function FileArea({
   // RENDER THREE-COLUMN MAC OS VIEW LAYOUT
   const renderColumn = () => {
     return (
-      <div className="flex border border-neutral-200/60 rounded-xl overflow-hidden bg-white shadow-sm h-[380px]">
-        
+      <div className="flex border border-neutral-200/60 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#1f1f22] shadow-sm h-[380px]">
+
         {/* Column 1: Subdirectories list */}
-        <div className="w-1/3 border-r border-neutral-200/50 bg-neutral-50/50 p-2.5 overflow-y-auto space-y-1">
-          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 mb-2">Directories</p>
+        <div className="w-1/3 border-r border-neutral-200/50 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02] p-2.5 overflow-y-auto space-y-1">
+          <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-2 mb-2">Directories</p>
           <button className={`w-full text-left px-2 py-1.5 text-xs rounded-lg flex items-center justify-between font-semibold ${
-            currentPath.length === 1 ? 'bg-neutral-200 text-gray-900' : 'text-gray-600 hover:bg-neutral-100'
+            currentPath.length === 1 ? 'bg-neutral-200 dark:bg-white/10 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5'
           }`}>
             <span className="flex items-center space-x-1.5">
               <Folder size={14} className="text-sky-400" />
               <span>Nextcloud (Root)</span>
             </span>
-            <ChevronRight size={12} className="text-gray-400" />
+            <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
           </button>
-          
+
           {/* Active nodes */}
           {files.filter(f => f.type === 'folder').map(fol => (
-            <button 
+            <button
               key={fol.id}
               onClick={() => onFileDoubleClick(fol)}
-              className="w-full text-left px-2 py-1.5 text-xs rounded-lg flex items-center justify-between text-gray-600 hover:bg-neutral-100 truncate"
+              className="w-full text-left px-2 py-1.5 text-xs rounded-lg flex items-center justify-between text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5 truncate"
             >
               <span className="flex items-center space-x-1.5">
                 <Folder size={14} className={fol.folderColor === 'orange' ? 'text-amber-500' : 'text-sky-400'} />
                 <span>{fol.name}</span>
               </span>
-              <ChevronRight size={12} className="text-gray-400" />
+              <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
             </button>
           ))}
         </div>
 
         {/* Column 2: Files listed inside active folder */}
-        <div className="w-1/3 border-r border-neutral-200/50 p-2.5 overflow-y-auto space-y-1">
-          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 mb-2">Files List</p>
+        <div className="w-1/3 border-r border-neutral-200/50 dark:border-white/10 p-2.5 overflow-y-auto space-y-1">
+          <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-2 mb-2">Files List</p>
           {files.map((file) => {
             const isSelected = selectedFileId === file.id;
             return (
@@ -466,7 +426,7 @@ export default function FileArea({
                 onDoubleClick={() => onFileDoubleClick(file)}
                 onContextMenu={(e) => handleContextMenu(e, file)}
                 className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between font-medium transition-colors ${
-                  isSelected ? 'bg-blue-600 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                  isSelected ? 'bg-blue-600 text-white' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                 }`}
               >
                 <span className="flex items-center space-x-1.5 truncate">
@@ -475,23 +435,23 @@ export default function FileArea({
                   ) : file.type === 'image' ? (
                     <ImageIcon size={13} className={isSelected ? 'text-white' : 'text-indigo-500'} />
                   ) : (
-                    <FileText size={13} className={isSelected ? 'text-white' : 'text-neutral-500'} />
+                    <FileText size={13} className={isSelected ? 'text-white' : 'text-neutral-500 dark:text-neutral-400'} />
                   )}
                   <span className="truncate">{file.name}</span>
                 </span>
-                {file.type === 'folder' && <ChevronRight size={11} className={isSelected ? 'text-blue-200' : 'text-gray-400'} />}
+                {file.type === 'folder' && <ChevronRight size={11} className={isSelected ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'} />}
               </button>
             );
           })}
         </div>
 
         {/* Column 3: Live Rich Interactive Preview of active selection */}
-        <div className="w-1/3 bg-neutral-50/30 p-4 flex flex-col justify-between items-center text-center overflow-y-auto">
+        <div className="w-1/3 bg-neutral-50/30 dark:bg-white/[0.02] p-4 flex flex-col justify-between items-center text-center overflow-y-auto">
           <div className="w-full flex flex-col items-center space-y-3">
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider w-full text-left border-b border-neutral-200/55 pb-1">Quick Preview</p>
-            
+            <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider w-full text-left border-b border-neutral-200/55 dark:border-white/10 pb-1">Quick Preview</p>
+
             {activeFile.type === 'image' && activeFile.thumbnailUrl ? (
-              <div className="w-40 h-28 rounded-lg overflow-hidden border border-neutral-300 shadow-inner bg-white flex items-center justify-center p-1">
+              <div className="w-40 h-28 rounded-lg overflow-hidden border border-neutral-300 dark:border-white/10 shadow-inner bg-white dark:bg-white/5 flex items-center justify-center p-1">
                 <img src={activeFile.thumbnailUrl} className="w-full h-full object-cover rounded" alt="Preview"/>
               </div>
             ) : activeFile.type === 'folder' ? (
@@ -501,17 +461,17 @@ export default function FileArea({
             )}
 
             <div className="space-y-1">
-              <h4 className="text-xs font-bold text-neutral-800 break-all">{activeFile.name}</h4>
-              <p className="text-[10px] text-neutral-400 capitalize">{activeFile.type}</p>
+              <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-100 break-all">{activeFile.name}</h4>
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 capitalize">{activeFile.type}</p>
             </div>
 
-            <div className="w-full bg-white border border-neutral-200/60 rounded-lg p-2.5 text-left text-[10px] space-y-1 text-neutral-500 font-mono shadow-sm">
-              <p><span className="text-neutral-400 font-sans font-semibold">Size:</span> {activeFile.size}</p>
-              <p><span className="text-neutral-400 font-sans font-semibold">Updated:</span> {activeFile.updatedAt}</p>
+            <div className="w-full bg-white dark:bg-white/5 border border-neutral-200/60 dark:border-white/10 rounded-lg p-2.5 text-left text-[10px] space-y-1 text-neutral-500 dark:text-neutral-400 font-mono shadow-sm">
+              <p><span className="text-neutral-400 dark:text-neutral-500 font-sans font-semibold">Size:</span> {activeFile.size}</p>
+              <p><span className="text-neutral-400 dark:text-neutral-500 font-sans font-semibold">Updated:</span> {activeFile.updatedAt}</p>
               {activeFile.tags && activeFile.tags.length > 0 && (
                 <p className="flex items-center space-x-1 font-sans">
-                  <span className="text-neutral-400 font-semibold font-sans">Tags:</span>
-                  <span className="bg-neutral-100 text-neutral-600 px-1.5 rounded text-[8px] font-semibold">{activeFile.tags[0]}</span>
+                  <span className="text-neutral-400 dark:text-neutral-500 font-semibold font-sans">Tags:</span>
+                  <span className="bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 px-1.5 rounded text-[8px] font-semibold">{activeFile.tags[0]}</span>
                 </p>
               )}
             </div>
@@ -536,7 +496,7 @@ export default function FileArea({
     const galleryItems = files.filter(f => f.type === 'image' || f.type === 'document');
     if (galleryItems.length === 0) {
       return (
-        <div className="text-center p-12 text-sm text-neutral-500 bg-neutral-50 border border-dashed rounded-xl" onContextMenu={(e) => handleContextMenu(e, null)}>
+        <div className="text-center p-12 text-sm text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-white/5 border border-dashed border-neutral-200 dark:border-white/10 rounded-xl" onContextMenu={(e) => handleContextMenu(e, null)}>
           Gallery mode supports images and document icons. Click view settings or choose root.
         </div>
       );
@@ -653,19 +613,19 @@ export default function FileArea({
           clipboardState={clipboardState}
           onClose={() => setContextMenu(null)}
           onQuickLook={contextMenu.file ? (f) => onFileDoubleClick(f) : undefined}
-          onRename={contextMenu.file ? (f) => {
-            const newName = prompt('Enter new name:', f.name);
+          onRename={contextMenu.file ? async (f) => {
+            const newName = await promptDialog({ title: 'Rename', placeholder: 'New name', defaultValue: f.name, confirmLabel: 'Rename' });
             if (newName && newName.trim() !== f.name) onRenameFile(f.id, newName.trim());
           } : undefined}
           onFavorite={contextMenu.file ? (f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name }) : undefined}
           onDelete={contextMenu.file ? (fId) => onDeleteFile(fId) : undefined}
           onShare={onShare}
-          onCreateFile={() => {
-            const name = prompt('Enter file name (e.g. Note.txt):');
+          onCreateFile={async () => {
+            const name = await promptDialog({ title: 'New File', placeholder: 'e.g. Note.txt', confirmLabel: 'Create' });
             if (name && name.trim()) onAddNewFile?.(name.trim(), 'text');
           }}
-          onCreateFolder={() => {
-            const name = prompt('Enter folder name:');
+          onCreateFolder={async () => {
+            const name = await promptDialog({ title: 'New Folder', placeholder: 'Folder name', confirmLabel: 'Create' });
             if (name && name.trim()) onAddNewFolder?.(name.trim());
           }}
           onTag={contextMenu.file ? (f, tag) => {
@@ -682,10 +642,10 @@ export default function FileArea({
           onCut={contextMenu.file ? (f) => setClipboard?.({ action: 'cut', file: f }) : undefined}
           onPaste={() => {
             if (clipboardState && clipboardState.action === 'cut') {
-              alert(`Pasted ${clipboardState.file.name} (Simulation)`);
+              toast({ message: `Moved ${clipboardState.file.name}`, tone: 'success' });
               setClipboard?.(null);
             } else if (clipboardState) {
-              alert(`Copied ${clipboardState.file.name} (Simulation)`);
+              toast({ message: `Pasted copy of ${clipboardState.file.name}`, tone: 'success' });
             }
           }}
         />

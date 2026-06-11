@@ -11,6 +11,7 @@ import QuickLookModal from './components/QuickLookModal';
 import StorageDashboard from './components/StorageDashboard';
 import SambaPanel from './components/SambaPanel';
 import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
+import { confirmDialog, toast } from './components/SystemUI';
 import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight, Share2 } from 'lucide-react';
 interface AppProps {
   onClose?: () => void;
@@ -241,7 +242,14 @@ export default function App({ onClose }: AppProps = {}) {
   };
 
   const handleDeleteFile = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this file?')) return;
+    const name = id.split('/').pop() || 'this item';
+    const ok = await confirmDialog({
+      title: `Delete “${name}”?`,
+      message: 'This item will be permanently removed. This action cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     const res = await fetch('/api/files', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -250,6 +258,9 @@ export default function App({ onClose }: AppProps = {}) {
     if (res.ok) {
       if (selectedFileId === id) setSelectedFileId(null);
       loadFiles();
+      toast({ message: 'Item deleted', tone: 'success' });
+    } else {
+      toast({ message: 'Could not delete item', tone: 'danger' });
     }
   };
 
@@ -424,11 +435,11 @@ export default function App({ onClose }: AppProps = {}) {
 
   return (
     <div
-      className="h-full w-full flex flex-col select-none overflow-hidden bg-gray-50 font-sans"
+      className="h-full w-full flex flex-col select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans transition-colors duration-300"
       onContextMenu={(e) => e.preventDefault()}
     >
           {/* Main Container */}
-          <main className="flex-1 w-full flex overflow-hidden bg-gray-50 relative">
+          <main className="flex-1 w-full flex overflow-hidden bg-gray-50 dark:bg-[#161618] relative">
             {/* Mobile Sidebar Overlay */}
             {isDrawerOpen && (
               <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsDrawerOpen(false)} />
@@ -462,18 +473,18 @@ export default function App({ onClose }: AppProps = {}) {
             />
 
         {/* Dynamic Body */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 w-full md:pt-3 md:pr-3 md:pb-3">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#161618] w-full md:pt-3 md:pr-3 md:pb-3">
           {/* Mobile hamburger for body */}
-          <div className="md:hidden flex items-center p-4 bg-white border-b border-neutral-100">
-            <button onClick={() => setIsDrawerOpen(true)} className="text-gray-500 hover:text-gray-800 transition mr-3">
+          <div className="md:hidden flex items-center p-4 bg-white dark:bg-[#1c1c1e] border-b border-neutral-100 dark:border-white/10">
+            <button onClick={() => setIsDrawerOpen(true)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition mr-3">
               <Menu size={20} />
             </button>
-            <h1 className="font-semibold text-gray-800">
+            <h1 className="font-semibold text-gray-800 dark:text-white">
               {showStorage ? 'Storage' : showShared ? 'Shared' : 'Files'}
             </h1>
           </div>
-          
-          <div className="flex flex-col h-full bg-white md:rounded-[32px] md:border border-neutral-200/50 shadow-sm overflow-hidden transform-gpu">
+
+          <div className="flex flex-col h-full bg-white dark:bg-[#1c1c1e] md:rounded-[32px] md:border border-neutral-200/50 dark:border-white/10 shadow-sm overflow-hidden transform-gpu">
               {showStorage ? (
                 <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
               ) : showShared ? (
@@ -530,10 +541,10 @@ export default function App({ onClose }: AppProps = {}) {
 
       {/* Floating Transfers Panel */}
       {transfers.length > 0 && (
-        <div className={`fixed right-6 w-80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-neutral-200 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
+        <div className={`fixed right-6 w-80 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-neutral-200 dark:border-white/10 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
           }`}>
-          <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between items-center">
-            <span className="text-xs font-bold text-neutral-600">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
+          <div className="bg-neutral-50 dark:bg-white/5 px-4 py-2 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center">
+            <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
             <button
               onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
               className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
@@ -543,7 +554,7 @@ export default function App({ onClose }: AppProps = {}) {
           </div>
           <div className="overflow-y-auto p-2 space-y-2 flex-1">
             {transfers.map(task => (
-              <div key={task.id} className="bg-neutral-50 border border-neutral-100 p-3 rounded-xl flex items-center space-x-3">
+              <div key={task.id} className="bg-neutral-50 dark:bg-white/5 border border-neutral-100 dark:border-white/10 p-3 rounded-xl flex items-center space-x-3">
                 <div className="flex-shrink-0">
                   {task.status === 'uploading' && <Loader2 size={16} className="text-blue-500 animate-spin" />}
                   {task.status === 'paused' && <PauseCircle size={16} className="text-amber-500" />}
@@ -552,10 +563,10 @@ export default function App({ onClose }: AppProps = {}) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-semibold text-neutral-700 truncate block">{task.name}</span>
-                    <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">{task.progress}%</span>
+                    <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 truncate block">{task.name}</span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 ml-2 flex-shrink-0">{task.progress}%</span>
                   </div>
-                  <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-neutral-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${task.status === 'error' ? 'bg-red-500' : task.status === 'paused' ? 'bg-amber-400' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
                         }`}
@@ -580,7 +591,7 @@ export default function App({ onClose }: AppProps = {}) {
                         setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' } : t));
                       }
                     }}
-                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer"
+                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     {task.status === 'uploading' ? '⏸' : '▶'}
                   </button>

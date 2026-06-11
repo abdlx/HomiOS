@@ -80,13 +80,13 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
   }, [isFullScreen, term]);
 
   return (
-    <div className={`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 font-sans ${
-      isFullScreen 
-        ? 'top-0 left-0 right-0 bottom-0 z-[100] rounded-none' 
+    <div className={`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-[#161618] font-sans ${
+      isFullScreen
+        ? 'top-0 left-0 right-0 bottom-0 z-[100] rounded-none'
         : 'top-0 left-0 right-0 bottom-0 z-50 rounded-[40px]'
     }`}>
       {/* Title Bar */}
-      <div className="bg-white/80 backdrop-blur-md h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-neutral-200/50 relative z-10">
+      <div className="bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-md h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-neutral-200/50 dark:border-white/10 relative z-10">
         <div className="flex items-center space-x-2 w-24">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all flex items-center justify-center group" title="Close" onClick={onClose}>
             <X size={8} className="text-black/50 opacity-0 group-hover:opacity-100" />
@@ -98,7 +98,7 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
             <Maximize2 size={6} className="text-black/50 opacity-0 group-hover:opacity-100" />
           </div>
         </div>
-        <div className="flex items-center space-x-2 text-slate-700">
+        <div className="flex items-center space-x-2 text-slate-700 dark:text-slate-200">
           <TerminalIcon size={16} />
           <span className="text-sm font-semibold tracking-wide">Terminal</span>
         </div>
@@ -106,8 +106,8 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
       </div>
 
       {/* Terminal Content */}
-      <div className="flex-1 bg-gray-50 p-4 pt-4 overflow-hidden relative flex flex-col">
-        <div className="flex-1 bg-[#1c1c1e] rounded-[24px] shadow-inner border border-neutral-200/50 overflow-hidden p-4">
+      <div className="flex-1 bg-gray-50 dark:bg-[#161618] p-4 pt-4 overflow-hidden relative flex flex-col">
+        <div className="flex-1 bg-[#1c1c1e] rounded-[24px] shadow-inner border border-neutral-200/50 dark:border-white/10 overflow-hidden p-4">
           <div ref={terminalRef} className="w-full h-full xterm-container" />
         </div>
       </div>

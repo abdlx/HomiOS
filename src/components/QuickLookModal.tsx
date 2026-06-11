@@ -158,7 +158,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
 
           <div className="flex items-center justify-end space-x-3 w-1/3">
             <button
-              onClick={() => { if (confirm(`Delete "${file.name}"?`)) { onDelete(file.id); onClose(); } }}
+              onClick={() => { onDelete(file.id); onClose(); }}
               className="text-red-400 hover:text-white hover:bg-red-500 p-2.5 rounded-full transition-all bg-slate-800/40 border border-white/5 backdrop-blur-md shadow-sm"
               title="Delete"
             >

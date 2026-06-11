@@ -19,6 +19,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { ViewMode } from '../types';
+import { toast } from './SystemUI';
 
 interface ToolbarProps {
   currentPath: string[];
@@ -82,11 +83,11 @@ export default function Toolbar({
       
       {/* 1. Left Island: Breadcrumb & History Island */}
       <div className="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-start">
-        <div className="flex items-center space-x-1 bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
+        <div className="flex items-center space-x-1 bg-neutral-100/60 dark:bg-white/5 rounded-full px-1.5 py-1 border border-neutral-200/40 dark:border-white/10 shadow-sm">
           <button
             onClick={onNavigateBack}
             disabled={!canNavigateBack}
-            className={`p-1 rounded-full transition-colors cursor-pointer hover:bg-white hover:shadow-sm ${
+            className={`p-1 rounded-full transition-colors cursor-pointer hover:bg-white dark:hover:bg-white/10 hover:shadow-sm ${
               canNavigateBack ? 'text-gray-700' : 'text-gray-300 pointer-events-none'
             }`}
             title="Back"
@@ -96,7 +97,7 @@ export default function Toolbar({
           <button
             onClick={onNavigateForward}
             disabled={!canNavigateForward}
-            className={`p-1 rounded-full transition-colors cursor-pointer hover:bg-white hover:shadow-sm ${
+            className={`p-1 rounded-full transition-colors cursor-pointer hover:bg-white dark:hover:bg-white/10 hover:shadow-sm ${
               canNavigateForward ? 'text-gray-700' : 'text-gray-300 pointer-events-none'
             }`}
             title="Forward"
@@ -105,7 +106,7 @@ export default function Toolbar({
           </button>
         </div>
 
-        <h1 className="text-sm font-bold text-gray-800 tracking-wide">
+        <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-wide">
           {currentDirName}
         </h1>
 
@@ -116,21 +117,21 @@ export default function Toolbar({
               setIsAddMenuOpen(!isAddMenuOpen);
               setIsCreatingFolder(false);
             }}
-            className="flex items-center justify-center bg-white hover:bg-neutral-50 text-neutral-600 hover:text-blue-600 rounded-full w-8 h-8 border border-neutral-200/50 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
+            className="flex items-center justify-center bg-white dark:bg-white/10 hover:bg-neutral-50 dark:hover:bg-white/20 text-neutral-600 dark:text-neutral-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-full w-8 h-8 border border-neutral-200/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
             title="Create New Folder or File"
           >
             <Plus size={15} className="stroke-[2.5]" />
           </button>
 
           {isAddMenuOpen && (
-            <div className="absolute top-9 left-0 z-50 bg-white border border-neutral-200 rounded-2xl shadow-xl p-3 w-60 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
-                <span className="text-xs font-bold text-gray-700">
+            <div className="absolute top-9 left-0 z-50 bg-white dark:bg-[#26262a] border border-neutral-200 dark:border-white/10 rounded-2xl shadow-xl p-3 w-60 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/10 pb-2 mb-2">
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                   Create New {isCreatingFolder ? 'Folder' : 'Text File'}
                 </span>
-                <button 
-                  onClick={() => setIsAddMenuOpen(false)} 
-                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                <button
+                  onClick={() => setIsAddMenuOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -141,7 +142,7 @@ export default function Toolbar({
                   type="button"
                   onClick={() => setIsCreatingFolder(false)}
                   className={`flex-1 text-[10px] py-1 rounded-lg text-center font-bold transition-colors ${
-                    !isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    !isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
                   }`}
                 >
                   New File
@@ -150,7 +151,7 @@ export default function Toolbar({
                   type="button"
                   onClick={() => setIsCreatingFolder(true)}
                   className={`flex-1 text-[10px] py-1 rounded-lg text-center font-bold transition-colors ${
-                    isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
                   }`}
                 >
                   New Folder
@@ -163,7 +164,7 @@ export default function Toolbar({
                   placeholder={isCreatingFolder ? "Folder Name..." : "Notes-Draft.txt"}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 bg-neutral-50"
+                  className="w-full text-xs px-2.5 py-1.5 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 bg-neutral-50 dark:bg-white/5 text-gray-800 dark:text-gray-100"
                   autoFocus
                 />
                 <button
@@ -182,11 +183,11 @@ export default function Toolbar({
       <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
         
         {/* View Mode Pill */}
-        <div className="flex items-center space-x-1 bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
+        <div className="flex items-center space-x-1 bg-neutral-100/60 dark:bg-white/5 rounded-full px-1.5 py-1 border border-neutral-200/40 dark:border-white/10 shadow-sm">
           <button
             onClick={() => setViewMode('grid')}
             className={`p-1.5 rounded-full transition-all cursor-pointer ${
-              viewMode === 'grid' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
+              viewMode === 'grid' ? 'bg-white dark:bg-white/15 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white'
             }`}
             title="Grid View (Default)"
           >
@@ -196,7 +197,7 @@ export default function Toolbar({
           <button
             onClick={() => setViewMode('list')}
             className={`p-1.5 rounded-full transition-all cursor-pointer ${
-              viewMode === 'list' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
+              viewMode === 'list' ? 'bg-white dark:bg-white/15 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white'
             }`}
             title="List View"
           >
@@ -206,7 +207,7 @@ export default function Toolbar({
           <button
             onClick={() => setViewMode('column')}
             className={`hidden md:block p-1.5 rounded-full transition-all cursor-pointer ${
-              viewMode === 'column' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
+              viewMode === 'column' ? 'bg-white dark:bg-white/15 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white'
             }`}
             title="Columns View"
           >
@@ -216,7 +217,7 @@ export default function Toolbar({
           <button
             onClick={() => setViewMode('gallery')}
             className={`hidden md:block p-1.5 rounded-full transition-all cursor-pointer ${
-              viewMode === 'gallery' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-800'
+              viewMode === 'gallery' ? 'bg-white dark:bg-white/15 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white'
             }`}
             title="Gallery View"
           >
@@ -226,10 +227,10 @@ export default function Toolbar({
 
         {/* Sort Pill */}
         <div className="relative">
-          <div className="flex items-center bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
+          <div className="flex items-center bg-neutral-100/60 dark:bg-white/5 rounded-full px-1.5 py-1 border border-neutral-200/40 dark:border-white/10 shadow-sm">
             <button
               onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-              className="p-1.5 px-2 rounded-full text-gray-600 hover:bg-white hover:shadow-sm flex items-center space-x-1 cursor-pointer transition-all"
+              className="p-1.5 px-2 rounded-full text-gray-600 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm flex items-center space-x-1 cursor-pointer transition-all"
               title="Arrange Items"
             >
               <LayoutGrid size={15} className="stroke-[2]" />
@@ -238,22 +239,22 @@ export default function Toolbar({
           </div>
 
           {isSortMenuOpen && (
-            <div className="absolute right-0 top-10 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32 text-xs">
+            <div className="absolute right-0 top-10 z-50 bg-white dark:bg-[#26262a] border border-gray-200 dark:border-white/10 rounded-xl shadow-lg py-1 w-32 text-xs">
               <button
                 onClick={() => { setSortOption('name'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 ${sortOption === 'name' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'name' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 Name
               </button>
               <button
                 onClick={() => { setSortOption('size'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 ${sortOption === 'size' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'size' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 File Size
               </button>
               <button
                 onClick={() => { setSortOption('date'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 ${sortOption === 'date' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'date' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 Date Modified
               </button>
@@ -262,25 +263,25 @@ export default function Toolbar({
         </div>
 
         {/* Actions Pill */}
-        <div className="hidden sm:flex items-center space-x-0.5 bg-neutral-100/60 rounded-full px-1.5 py-1 border border-neutral-200/40 shadow-sm">
+        <div className="hidden sm:flex items-center space-x-0.5 bg-neutral-100/60 dark:bg-white/5 rounded-full px-1.5 py-1 border border-neutral-200/40 dark:border-white/10 shadow-sm">
           <button
-            onClick={() => alert(`Share link created.`)}
-            className="p-1.5 rounded-full text-gray-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all cursor-pointer"
+            onClick={() => toast({ message: 'Share link copied', description: 'Anyone with the link can view this folder.', tone: 'success' })}
+            className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm transition-all cursor-pointer"
             title="Share Selection"
           >
             <Share2 size={15} className="stroke-[2]" />
           </button>
-          
+
           <button
-            className="p-1.5 rounded-full text-gray-500 hover:bg-white hover:text-purple-600 hover:shadow-sm transition-all cursor-pointer"
+            className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10 hover:text-purple-600 dark:hover:text-purple-400 hover:shadow-sm transition-all cursor-pointer"
             title="Tag Shortcuts"
           >
             <Tag size={15} className="stroke-[2]" />
           </button>
 
           <button
-            onClick={() => alert('More Actions')}
-            className="p-1.5 rounded-full text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm transition-all cursor-pointer"
+            onClick={() => toast({ message: 'No additional actions', tone: 'info' })}
+            className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10 hover:text-gray-800 dark:hover:text-white hover:shadow-sm transition-all cursor-pointer"
             title="More Actions"
           >
             <MoreHorizontal size={15} className="stroke-[2]" />
@@ -296,13 +297,13 @@ export default function Toolbar({
                 placeholder="Filter current directory..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="text-xs px-3 py-1 pr-7 border border-neutral-200 rounded-full w-40 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white shadow-inner"
+                className="text-xs px-3 py-1 pr-7 border border-neutral-200 dark:border-white/10 rounded-full w-40 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 shadow-inner"
                 autoFocus
               />
               {searchTerm ? (
-                <button 
-                  onClick={() => setSearchTerm('')} 
-                  className="absolute right-2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
                 >
                   <X size={12} />
                 </button>
@@ -314,8 +315,8 @@ export default function Toolbar({
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`flex items-center justify-center rounded-full border shadow-sm transition-all cursor-pointer w-8 h-8 ${
               isSearchOpen || searchTerm 
-                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                : 'bg-neutral-100/60 text-gray-600 border-neutral-200/40 hover:bg-white'
+                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                : 'bg-neutral-100/60 dark:bg-white/5 text-gray-600 dark:text-gray-300 border-neutral-200/40 dark:border-white/10 hover:bg-white dark:hover:bg-white/10'
             }`}
             title="Toggle Search Input"
             id="search-toggle-btn"

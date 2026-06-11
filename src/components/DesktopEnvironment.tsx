@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Cloud, Search, Umbrella, Activity, Cpu, HardDrive, Thermometer, Database, MemoryStick, ChevronLeft, ChevronRight,
   Monitor, FolderOpen, Folder, Terminal, Globe, Calendar, Clock, Calculator, Mail, MessageSquare, Music, Video, Image as ImageIcon, Box,
-  Download, Zap, Hash, Radio, Server, Triangle, Settings
+  Download, Zap, Hash, Radio, Server, Triangle, Settings, Wifi, BatteryFull, Command
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
@@ -23,6 +23,12 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const { username } = useUsername();
 
   const [dockerApps, setDockerApps] = useState<any[]>([]);
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000 * 30);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -146,7 +152,30 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       style={{ backgroundImage: `url('${wallpaper}')` }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="absolute inset-0 bg-black/20" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/25" />
+
+      {/* macOS-style menu bar */}
+      <div className="relative z-30 hidden md:flex items-center justify-between h-7 px-4 bg-black/25 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none flex-shrink-0">
+        <div className="flex items-center space-x-5">
+          <Command size={14} strokeWidth={2.5} className="drop-shadow-sm" />
+          <span className="font-semibold tracking-tight">Finder</span>
+          <span className="font-medium text-white/70 hover:text-white transition-colors cursor-default">File</span>
+          <span className="font-medium text-white/70 hover:text-white transition-colors cursor-default">Edit</span>
+          <span className="font-medium text-white/70 hover:text-white transition-colors cursor-default">View</span>
+          <span className="font-medium text-white/70 hover:text-white transition-colors cursor-default">Go</span>
+          <span className="font-medium text-white/70 hover:text-white transition-colors cursor-default">Window</span>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Wifi size={15} strokeWidth={2} className="text-white/80" />
+          <BatteryFull size={17} strokeWidth={2} className="text-white/80" />
+          <Search size={14} strokeWidth={2.5} className="text-white/80" />
+          <span className="font-medium tabular-nums tracking-tight">
+            {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+            {'  '}
+            {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </span>
+        </div>
+      </div>
 
       <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         
@@ -319,12 +348,17 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             const app = ALL_APPS[id];
             if (!app) return null;
             return (
-              <div 
+              <div
                 key={`dock-${app.id}`}
                 className="relative group cursor-pointer"
                 onClick={getOnClick(app.id)}
                 onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
               >
+                {/* Hover tooltip */}
+                <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
+                  {app.label}
+                  <span className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-black/70 border-r border-b border-white/10" />
+                </span>
                 <div className={`w-[56px] h-[56px] rounded-[18px] bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] hover:-translate-y-2 hover:scale-[1.1] hover:shadow-[0_12px_24px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(0,0,0,0.2)] transition-all duration-300 ease-out border border-white/20 relative overflow-hidden group/dockicon`}>
                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none rounded-[18px]" />
                   <app.icon size={28} strokeWidth={1.5} className="drop-shadow-md z-10" />

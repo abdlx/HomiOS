@@ -3,6 +3,7 @@ import {
   Server, Plus, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2,
   Cpu, HardDrive, Activity, ChevronRight, Terminal, Cloud, Key, Menu
 } from 'lucide-react';
+import { confirmDialog } from './SystemUI';
 
 interface ServersAppProps {
   onClose?: () => void;
@@ -50,7 +51,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
   };
 
   const deleteServer = async (id: string) => {
-    if (!confirm('Delete this server?')) return;
+    if (!(await confirmDialog({ title: 'Delete this server?', message: 'It will be removed from OpenFinder. The host itself is not affected.', tone: 'danger', confirmLabel: 'Delete' }))) return;
     await fetch(`/api/servers/${id}`, { method: 'DELETE' });
     if (selected?.id === id) { setSelected(null); setResources(null); }
     await load();
@@ -81,7 +82,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
   };
 
   return (
-    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 font-sans text-slate-800">
+    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
       {/* Mobile overlay */}
       {isSidebarOpen && (
@@ -89,7 +90,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
       )}
 
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full transition-transform duration-300 ease-in-out flex flex-col bg-white border-r border-neutral-200/50 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full transition-transform duration-300 ease-in-out flex flex-col bg-white dark:bg-[#1f1f22] border-r border-neutral-200/50 dark:border-white/10 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
         <div className="flex items-center space-x-2 mb-4">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90" onClick={() => { if (onClose) onClose(); }} />
           <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90" />
@@ -97,22 +98,22 @@ export default function ServersApp({ onClose }: ServersAppProps) {
         </div>
 
         <div className="flex items-center justify-between mb-3 px-1">
-          <span className="text-xs font-bold text-slate-400 tracking-wider">SERVERS</span>
-          <button onClick={() => setShowAdd(true)} className="text-blue-500 hover:text-blue-700 transition">
+          <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider">SERVERS</span>
+          <button onClick={() => setShowAdd(true)} className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition">
             <Plus size={16} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1">
           {servers.length === 0 && (
-            <p className="text-xs text-slate-400 px-3 py-2">No servers yet</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 px-3 py-2">No servers yet</p>
           )}
           {servers.map(s => (
             <button
               key={s.id}
               onClick={() => selectServer(s)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all text-sm ${
-                selected?.id === s.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'
+                selected?.id === s.id ? 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
             >
               {statusIcon(s)}
@@ -126,10 +127,10 @@ export default function ServersApp({ onClose }: ServersAppProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto pt-6 md:pt-10 px-5 md:px-10 pb-16">
           <div className="flex items-center gap-3 mb-6">
-            <button className="md:hidden text-slate-500 hover:text-slate-800 transition" onClick={() => setIsSidebarOpen(true)}>
+            <button className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition" onClick={() => setIsSidebarOpen(true)}>
               <Menu size={24} />
             </button>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-800 dark:text-white">
               {selected ? selected.name : 'Servers'}
             </h1>
             {selected && (
@@ -140,7 +141,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
           </div>
 
           {!selected && !showAdd && (
-            <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
+            <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400 dark:text-slate-500">
               <Cloud size={48} strokeWidth={1.2} />
               <p className="text-sm">Select a server or add a new one</p>
               <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-600 transition">
@@ -150,33 +151,33 @@ export default function ServersApp({ onClose }: ServersAppProps) {
           )}
 
           {showAdd && (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50 max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <h2 className="text-lg font-semibold mb-5">Add Server</h2>
+            <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10 max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <h2 className="text-lg font-semibold mb-5 text-slate-800 dark:text-white">Add Server</h2>
               <div className="space-y-4">
-                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition">
                   <input type="checkbox" checked={form.localhost} onChange={e => setForm(f => ({ ...f, localhost: e.target.checked }))} className="accent-blue-500" />
-                  <span className="text-sm font-medium text-slate-700">This machine (localhost)</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">This machine (localhost)</span>
                 </label>
                 <input placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  className="w-full border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 {!form.localhost && <>
                   <input placeholder="IP Address" value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    className="w-full border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   <div className="grid grid-cols-2 gap-3">
                     <input placeholder="Port (22)" value={form.port} onChange={e => setForm(f => ({ ...f, port: e.target.value }))}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      className="border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                     <input placeholder="SSH user (root)" value={form.sshUser} onChange={e => setForm(f => ({ ...f, sshUser: e.target.value }))}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      className="border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   </div>
                   <select value={form.privateKeyId} onChange={e => setForm(f => ({ ...f, privateKeyId: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                    className="w-full border border-slate-200 dark:border-white/10 dark:bg-[#26262a] dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
                     <option value="">Select SSH key</option>
                     {keys.map((k: any) => <option key={k.id} value={k.id}>{k.name}</option>)}
                   </select>
                 </>}
               </div>
               <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowAdd(false)} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                <button onClick={() => setShowAdd(false)} className="flex-1 border border-slate-200 dark:border-white/10 rounded-xl py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition">Cancel</button>
                 <button onClick={addServer} disabled={loading} className="flex-1 bg-blue-500 text-white rounded-xl py-2 text-sm font-medium hover:bg-blue-600 transition disabled:opacity-50">
                   {loading ? 'Adding…' : 'Add Server'}
                 </button>
@@ -189,7 +190,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
               {/* Actions */}
               <div className="flex gap-3 flex-wrap">
                 <button onClick={() => validate(selected.id)} disabled={validating === selected.id}
-                  className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-slate-50 transition disabled:opacity-60">
+                  className="flex items-center gap-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-white/10 transition disabled:opacity-60">
                   <RefreshCw size={15} className={validating === selected.id ? 'animate-spin' : ''} />
                   {validating === selected.id ? 'Validating…' : 'Validate Connection'}
                 </button>
@@ -200,41 +201,41 @@ export default function ServersApp({ onClose }: ServersAppProps) {
               </div>
 
               {/* Info */}
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
-                <h3 className="text-base font-semibold mb-4 text-slate-700">Connection</h3>
+              <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
+                <h3 className="text-base font-semibold mb-4 text-slate-700 dark:text-slate-200">Connection</h3>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <span className="text-slate-500">IP</span><span className="font-medium">{selected.ip || 'localhost'}</span>
-                  <span className="text-slate-500">Port</span><span className="font-medium">{selected.port || 22}</span>
-                  <span className="text-slate-500">SSH User</span><span className="font-medium">{selected.ssh_user || 'root'}</span>
-                  {selected.docker_version && <><span className="text-slate-500">Docker</span><span className="font-medium">{selected.docker_version}</span></>}
-                  {selected.last_check_at && <><span className="text-slate-500">Last Check</span><span className="font-medium text-xs">{new Date(selected.last_check_at).toLocaleString()}</span></>}
+                  <span className="text-slate-500 dark:text-slate-400">IP</span><span className="font-medium">{selected.ip || 'localhost'}</span>
+                  <span className="text-slate-500 dark:text-slate-400">Port</span><span className="font-medium">{selected.port || 22}</span>
+                  <span className="text-slate-500 dark:text-slate-400">SSH User</span><span className="font-medium">{selected.ssh_user || 'root'}</span>
+                  {selected.docker_version && <><span className="text-slate-500 dark:text-slate-400">Docker</span><span className="font-medium">{selected.docker_version}</span></>}
+                  {selected.last_check_at && <><span className="text-slate-500 dark:text-slate-400">Last Check</span><span className="font-medium text-xs">{new Date(selected.last_check_at).toLocaleString()}</span></>}
                 </div>
               </div>
 
               {/* Resources */}
               {resources && (
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-200/50">
-                  <h3 className="text-base font-semibold mb-4 text-slate-700">Running Containers</h3>
+                <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
+                  <h3 className="text-base font-semibold mb-4 text-slate-700 dark:text-slate-200">Running Containers</h3>
                   {Array.isArray(resources.containers) && resources.containers.length > 0 ? (
                     <div className="space-y-2">
                       {resources.containers.map((c: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-sm">
+                        <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-xl text-sm">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${c.status?.includes('Up') ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            <span className={`w-2 h-2 rounded-full ${c.status?.includes('Up') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
                             <span className="font-medium truncate max-w-[200px]">{c.name || c.Names}</span>
                           </div>
-                          <span className="text-slate-400 text-xs">{c.status || c.Status}</span>
+                          <span className="text-slate-400 dark:text-slate-500 text-xs">{c.status || c.Status}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-400">No running containers</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500">No running containers</p>
                   )}
 
                   {resources.diskUsage && (
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-600 mb-3 flex items-center gap-2"><HardDrive size={14} /> Disk Usage</h4>
-                      <div className="space-y-1 text-xs text-slate-500">
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10">
+                      <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2"><HardDrive size={14} /> Disk Usage</h4>
+                      <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                         {resources.diskUsage.split('\n').filter(Boolean).map((l: string, i: number) => (
                           <div key={i} className="font-mono">{l}</div>
                         ))}

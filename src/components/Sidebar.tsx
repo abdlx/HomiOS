@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { SidebarItem } from '../types';
-import { SIDEBAR_ITEMS as STATIC_ITEMS } from '../data';
+import { confirmDialog, toast } from './SystemUI';
 
 interface SidebarProps {
   activeSection: string;
@@ -77,7 +77,7 @@ export default function Sidebar({
     return <IconComponent size={size} style={color ? { color } : undefined} className="flex-shrink-0" />;
   };
 
-  const handleItemClick = (item: SidebarItem) => {
+  const handleItemClick = async (item: SidebarItem) => {
     if (item.isTag) {
       if (selectedTag === item.label) {
         setSelectedTag(null); // Toggle off tag filter
@@ -88,23 +88,28 @@ export default function Sidebar({
     } else {
       if ((item as any).isMounted === false) {
         const deviceName = (item as any).name || item.label.split(' ')[0];
-        const confirmMount = window.confirm(`"${item.label}" is not mounted.\n\nMount /dev/${deviceName} → /mnt/${deviceName}?\n\n(Requires sudo or root privileges)`);
+        const confirmMount = await confirmDialog({
+          title: `Mount “${item.label}”?`,
+          message: `This will mount /dev/${deviceName} → /mnt/${deviceName}. Requires sudo or root privileges.`,
+          confirmLabel: 'Mount',
+        });
         if (confirmMount) {
-          fetch('/api/drives/mount', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device: deviceName })
-          })
-          .then(async (res) => {
+          try {
+            const res = await fetch('/api/drives/mount', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ device: deviceName })
+            });
             const result = await res.json();
             if (result.ok) {
-              alert(`✅ Mounted successfully at ${result.mountPoint}`);
+              toast({ message: 'Drive mounted', description: `Mounted at ${result.mountPoint}`, tone: 'success' });
               window.location.reload();
             } else {
-              alert(`❌ Mount failed:\n\n${result.error}`);
+              toast({ message: 'Mount failed', description: result.error, tone: 'danger' });
             }
-          })
-          .catch(() => alert('Error connecting to mount API'));
+          } catch {
+            toast({ message: 'Error connecting to mount API', tone: 'danger' });
+          }
         }
         return;
       }
@@ -124,9 +129,9 @@ export default function Sidebar({
   const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
 
   return (
-    <div className={`relative flex flex-col select-none justify-between bg-white md:border border-neutral-200/50 ${
-      isMobileDrawer 
-        ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300' 
+    <div className={`relative flex flex-col select-none justify-between bg-white dark:bg-[#1f1f22] md:border border-neutral-200/50 dark:border-white/10 transition-colors duration-300 ${
+      isMobileDrawer
+        ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300'
         : 'hidden md:flex w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5'
     }`}>
       
@@ -146,7 +151,7 @@ export default function Sidebar({
           {isMobileDrawer && onCloseDrawer && (
             <button 
               onClick={onCloseDrawer}
-              className="p-1 rounded-full hover:bg-neutral-100 text-neutral-500 active:scale-95 transition-all"
+              className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-500 dark:text-neutral-400 active:scale-95 transition-all"
             >
               <Icons.X size={16} />
             </button>
@@ -162,8 +167,8 @@ export default function Sidebar({
               onClick={() => handleItemClick(rootFolder)}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'root' 
-                  ? 'bg-blue-600/10 text-blue-600 font-bold' 
-                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold' 
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 16)}
@@ -182,8 +187,8 @@ export default function Sidebar({
                     onClick={() => handleItemClick(item)}
                     className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium pl-6
                       ${isActive 
-                        ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                        : 'text-gray-500 hover:bg-neutral-200/50 hover:text-gray-900'
+                        ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
@@ -204,8 +209,8 @@ export default function Sidebar({
               }}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'storage'
-                  ? 'bg-blue-600/10 text-blue-600 font-bold'
-                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               {renderIcon('Database', activeSection === 'storage' ? '#2563eb' : undefined, 16)}
@@ -216,7 +221,7 @@ export default function Sidebar({
           {/* Favorites Header */}
           {starredFolders.length > 0 && (
             <div>
-              <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+              <span className="px-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-1">
                 Favorites
               </span>
               <div className="space-y-0.5">
@@ -228,8 +233,8 @@ export default function Sidebar({
                       onClick={() => handleItemClick(item)}
                       className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                         ${isActive 
-                          ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                          : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                          ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
                       {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
@@ -243,7 +248,7 @@ export default function Sidebar({
 
           {/* Drives Header */}
           <div>
-            <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+            <span className="px-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-1">
               Connected Drives
             </span>
             <div className="space-y-0.5">
@@ -256,8 +261,8 @@ export default function Sidebar({
                     onClick={() => handleItemClick(item)}
                     className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                       ${isActive 
-                        ? 'bg-blue-600/10 text-blue-600 font-semibold' 
-                        : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                        ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
@@ -267,14 +272,14 @@ export default function Sidebar({
               })}
               
               {realFolders.length === 0 && (
-                <div className="px-2 py-2 text-xs text-gray-400 italic">No connected drives</div>
+                <div className="px-2 py-2 text-xs text-gray-400 dark:text-gray-500 italic">No connected drives</div>
               )}
             </div>
           </div>
 
           {/* Tags Header */}
           <div className="mt-4">
-            <span className="px-2 text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
+            <span className="px-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-1">
               Tags
             </span>
             <div className="space-y-0.5">
@@ -294,8 +299,8 @@ export default function Sidebar({
                     onClick={() => handleItemClick({ id: tag.id, label: tag.id, icon: 'Circle', isTag: true } as any)}
                     className={`w-full flex items-center space-x-2.5 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                       ${isActive 
-                        ? 'bg-neutral-200/60 text-gray-900 font-bold' 
-                        : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                        ? 'bg-neutral-200/60 dark:bg-white/10 text-gray-900 dark:text-white font-bold'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     <span className={`w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0 ${tag.color}`} />
@@ -316,8 +321,8 @@ export default function Sidebar({
               }}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'shared'
-                  ? 'bg-blue-600/10 text-blue-600 font-bold'
-                  : 'text-gray-600 hover:bg-neutral-200/50 hover:text-gray-900'
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               {renderIcon('Share2', activeSection === 'shared' ? '#2563eb' : undefined, 16)}
@@ -328,8 +333,8 @@ export default function Sidebar({
       </div>
 
       {/* Footer Branding or Info */}
-      <div className="pt-2.5 border-t border-neutral-200/30 flex items-center justify-between px-1.5 text-neutral-400 text-[10px]">
-        <span className="font-semibold text-neutral-500">{serverIp}</span>
+      <div className="pt-2.5 border-t border-neutral-200/30 dark:border-white/10 flex items-center justify-between px-1.5 text-neutral-400 dark:text-neutral-500 text-[10px]">
+        <span className="font-semibold text-neutral-500 dark:text-neutral-400">{serverIp}</span>
         <span className="opacity-75">Cloud Sync Active</span>
       </div>
 

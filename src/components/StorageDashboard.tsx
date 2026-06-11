@@ -66,13 +66,13 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
             <HardDrive size={20} className="text-blue-500" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800 tracking-tight">Storage Overview</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Block devices &amp; mounted filesystems</p>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Storage Overview</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Block devices &amp; mounted filesystems</p>
           </div>
         </div>
         <button
           onClick={loadDrives}
-          className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-all text-xs font-medium"
+          className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all text-xs font-medium"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           <span>Refresh</span>
@@ -80,17 +80,17 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
       </div>
 
       {loading && drives.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-slate-500 text-sm bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500 dark:text-slate-400 text-sm bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           <RefreshCw size={24} className="animate-spin text-blue-500 mb-3" />
           <p>Scanning block devices…</p>
         </div>
       ) : drives.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-slate-500 space-y-3 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-            <HardDrive size={24} className="text-slate-400" />
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500 dark:text-slate-400 space-y-3 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+            <HardDrive size={24} className="text-slate-400 dark:text-slate-500" />
           </div>
           <p className="text-sm font-medium">No drives detected</p>
-          <p className="text-xs text-slate-400">Connect a device to your server to see it here.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">Connect a device to your server to see it here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -102,7 +102,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
             return (
               <div
                 key={drive.name || drive.label}
-                className="relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-all group"
+                className="relative bg-white dark:bg-[#1f1f22] border border-slate-200 dark:border-white/10 rounded-2xl p-5 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-all group"
               >
                 {/* Drive Header */}
                 <div className="flex items-start justify-between">
@@ -111,8 +111,8 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                       <HardDrive size={18} className={drive.isMounted ? 'text-blue-500' : 'text-slate-400'} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800 leading-tight">{drive.label}</p>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `• ${drive.fstype}` : ''}</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `• ${drive.fstype}` : ''}</p>
                     </div>
                   </div>
 
@@ -129,11 +129,11 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                 {/* Capacity bar */}
                 {drive.isMounted && (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-slate-500 font-medium">
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
                       <span>{drive.usedBytes ? `${drive.usedBytes} used` : 'Usage unknown'}</span>
                       <span className="font-mono">{pct !== undefined ? `${pct}%` : drive.size || '?'}</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full bg-gradient-to-r ${usageColor(pct)} transition-all duration-700`}
                         style={{ width: `${pct ?? 50}%` }}
@@ -144,8 +144,8 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
 
                 {/* Mount path */}
                 {drive.isMounted && drive.path && (
-                  <div className="flex items-center space-x-2 text-[11px] bg-slate-50 rounded-lg px-3 py-2 border border-slate-100 font-mono text-slate-600">
-                    <Cpu size={12} className="text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center space-x-2 text-[11px] bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-100 dark:border-white/10 font-mono text-slate-600 dark:text-slate-300">
+                    <Cpu size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
                     <span className="truncate">{drive.path}</span>
                   </div>
                 )}
@@ -171,7 +171,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                     <button
                       onClick={() => handleMount(drive)}
                       disabled={isMounting}
-                      className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isMounting ? (
                         <><RefreshCw size={14} className="animate-spin" /><span>Mounting…</span></>
@@ -188,10 +188,10 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
       )}
 
       {/* Info banner */}
-      <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 border border-blue-100/50 rounded-xl px-4 py-3.5 shadow-sm">
+      <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-xl px-4 py-3.5 shadow-sm">
         <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-600 leading-relaxed">
-          OpenFinder runs as a native <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100 text-slate-700">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely without container limitations.
+        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          OpenFinder runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely without container limitations.
         </p>
       </div>
     </div>

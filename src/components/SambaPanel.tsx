@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Share2, Users, HardDrive, Shield, Plus, Trash2, Edit2, Lock, Save, X, Check, RefreshCw, Folder } from 'lucide-react';
+import { confirmDialog, toast } from './SystemUI';
 
 interface SambaShare {
   id: number;
@@ -74,7 +75,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   }, [defaultPath]);
 
   const createShare = async () => {
-    if (!newShareName || !newSharePath) return alert('Name and path required');
+    if (!newShareName || !newSharePath) return toast({ message: 'Name and path are required', tone: 'warning' });
     const res = await fetch('/api/shares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -89,12 +90,12 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
       loadData();
     } else {
       const data = await res.json();
-      alert(`Error: ${data.error}`);
+      toast({ message: 'Something went wrong', description: data.error, tone: 'danger' });
     }
   };
 
   const deleteShare = async (id: number) => {
-    if (!confirm('Delete this share?')) return;
+    if (!(await confirmDialog({ title: 'Delete this share?', message: 'Network access to this folder will be removed.', tone: 'danger', confirmLabel: 'Delete' }))) return;
     const res = await fetch('/api/shares', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -115,7 +116,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
       loadData();
     } else {
       const data = await res.json();
-      alert(`Error: ${data.error}`);
+      toast({ message: 'Something went wrong', description: data.error, tone: 'danger' });
     }
   };
 
@@ -134,7 +135,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   };
 
   const createUser = async () => {
-    if (!newUsername || !newUserPassword) return alert('Username and password required');
+    if (!newUsername || !newUserPassword) return toast({ message: 'Username and password are required', tone: 'warning' });
     const res = await fetch('/api/shares/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,12 +148,12 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
       loadData();
     } else {
       const data = await res.json();
-      alert(`Error: ${data.error}`);
+      toast({ message: 'Something went wrong', description: data.error, tone: 'danger' });
     }
   };
 
   const deleteUser = async (id: number) => {
-    if (!confirm('Delete this user?')) return;
+    if (!(await confirmDialog({ title: 'Delete this user?', message: 'This SMB user will lose access to all shares.', tone: 'danger', confirmLabel: 'Delete' }))) return;
     const res = await fetch('/api/shares/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -171,7 +172,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   };
 
   const performResetPassword = async (username: string) => {
-    if (!resetPasswordStr) return alert('Password required');
+    if (!resetPasswordStr) return toast({ message: 'Password is required', tone: 'warning' });
     const res = await fetch('/api/shares/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -180,48 +181,48 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
     if (res.ok) {
       setResettingUserId(null);
       setResetPasswordStr('');
-      alert('Password reset successfully');
+      toast({ message: 'Password reset successfully', tone: 'success' });
     } else {
       const data = await res.json();
-      alert(`Error: ${data.error}`);
+      toast({ message: 'Something went wrong', description: data.error, tone: 'danger' });
     }
   };
 
   return (
-    <div className="flex-1 bg-white h-full flex flex-col overflow-hidden">
-      <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+    <div className="flex-1 bg-white dark:bg-[#1c1c1e] h-full flex flex-col overflow-hidden">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#1c1c1e]">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Share2 className="text-blue-500" />
             Samba Management
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Manage local network file sharing and users.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage local network file sharing and users.</p>
         </div>
-        <button onClick={loadData} className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors" title="Refresh Data">
+        <button onClick={loadData} className="p-2 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-600 dark:text-slate-300 transition-colors" title="Refresh Data">
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      <div className="flex border-b border-slate-200 px-6">
-        <button 
+      <div className="flex border-b border-slate-200 dark:border-white/10 px-6">
+        <button
           onClick={() => setActiveTab('shares')}
-          className={`px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 ${activeTab === 'shares' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          className={`px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 ${activeTab === 'shares' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
           <HardDrive size={16} /> Shares
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 ${activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          className={`px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 ${activeTab === 'users' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
           <Users size={16} /> Access Users
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-[#161618]">
         {activeTab === 'shares' && (
           <div className="space-y-4 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-slate-800">Active Shares</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Active Shares</h2>
               <button 
                 onClick={() => setIsAddingShare(!isAddingShare)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
@@ -232,15 +233,15 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
             </div>
 
             {isAddingShare && (
-              <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm space-y-4 animate-in slide-in-from-top-4">
+              <div className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-blue-100 dark:border-blue-500/20 shadow-sm space-y-4 animate-in slide-in-from-top-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Share Name</label>
-                    <input type="text" value={newShareName} onChange={e => setNewShareName(e.target.value)} placeholder="e.g. Media" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Share Name</label>
+                    <input type="text" value={newShareName} onChange={e => setNewShareName(e.target.value)} placeholder="e.g. Media" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Folder Path</label>
-                    <input type="text" value={newSharePath} onChange={e => setNewSharePath(e.target.value)} placeholder="e.g. /mnt/sda1/Media" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Folder Path</label>
+                    <input type="text" value={newSharePath} onChange={e => setNewSharePath(e.target.value)} placeholder="e.g. /mnt/sda1/Media" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -250,7 +251,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   </label>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Allowed Users</label>
+                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Allowed Users</label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {users.map(u => (
                       <button 
@@ -274,14 +275,14 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
             )}
 
             {shares.length === 0 && !loading && !isAddingShare && (
-              <div className="text-center py-12 text-slate-500 bg-white rounded-2xl border border-dashed border-slate-300">
+              <div className="text-center py-12 text-slate-500 dark:text-slate-400 bg-white dark:bg-[#1f1f22] rounded-2xl border border-dashed border-slate-300 dark:border-white/15">
                 <HardDrive size={48} className="mx-auto mb-3 opacity-20" />
                 <p>No network shares configured yet.</p>
               </div>
             )}
 
             {shares.map(share => (
-              <div key={share.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+              <div key={share.id} className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col gap-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -290,28 +291,28 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                     <div>
                       <div className="flex flex-col gap-1.5 mb-1.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 select-all">
+                          <span className="text-xs font-mono bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 select-all">
                             \\\\{host}\\{share.name}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Windows</span>
+                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Windows</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 select-all">
+                          <span className="text-xs font-mono bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 select-all">
                             smb://{host}/{share.name}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mac / Linux</span>
+                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Mac / Linux</span>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-500 font-mono mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2">
-                        <Folder size={12} className="text-slate-400" /> {share.path}
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-2 flex items-center gap-1.5 border-t border-slate-100 dark:border-white/10 pt-2">
+                        <Folder size={12} className="text-slate-400 dark:text-slate-500" /> {share.path}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {share.read_only ? (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded">Read Only</span>
+                      <span className="px-2 py-1 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded">Read Only</span>
                     ) : (
-                      <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-semibold rounded border border-green-100">Read / Write</span>
+                      <span className="px-2 py-1 bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 text-xs font-semibold rounded border border-green-100 dark:border-green-500/20">Read / Write</span>
                     )}
                     <button onClick={() => {
                       setEditingShareId(share.id);
@@ -328,32 +329,32 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                 </div>
 
                 {editingShareId === share.id && (
-                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 mt-2">
+                  <div className="bg-blue-50/50 dark:bg-blue-500/10 p-4 rounded-xl border border-blue-100 dark:border-blue-500/20 space-y-3 mt-2">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Share Name</label>
-                        <input type="text" value={editShareName} onChange={e => setEditShareName(e.target.value)} className="w-full mt-1 border border-slate-200 rounded text-sm px-2 py-1.5" />
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Share Name</label>
+                        <input type="text" value={editShareName} onChange={e => setEditShareName(e.target.value)} className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded text-sm px-2 py-1.5" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Path</label>
-                        <input type="text" value={editSharePath} onChange={e => setEditSharePath(e.target.value)} className="w-full mt-1 border border-slate-200 rounded text-sm px-2 py-1.5" />
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Path</label>
+                        <input type="text" value={editSharePath} onChange={e => setEditSharePath(e.target.value)} className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded text-sm px-2 py-1.5" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
                         <input type="checkbox" checked={editShareReadOnly} onChange={e => setEditShareReadOnly(e.target.checked)} className="rounded text-blue-600" />
                         Read Only
                       </label>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditingShareId(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                        <button onClick={() => setEditingShareId(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded">Cancel</button>
                         <button onClick={saveEditedShare} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded flex items-center gap-1"><Save size={14}/> Save</button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="border-t border-slate-100 pt-3">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Access Control</p>
+                <div className="border-t border-slate-100 dark:border-white/10 pt-3">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-2">Access Control</p>
                   <div className="flex flex-wrap gap-2">
                     {users.map(u => {
                       const hasAccess = share.sambaUsers?.some((su: any) => su.id === u.id);
@@ -378,7 +379,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
         {activeTab === 'users' && (
           <div className="space-y-4 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-slate-800">Samba Users</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Samba Users</h2>
               <button 
                 onClick={() => setIsAddingUser(!isAddingUser)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
@@ -389,15 +390,15 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
             </div>
 
             {isAddingUser && (
-              <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm space-y-4 animate-in slide-in-from-top-4">
+              <div className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-blue-100 dark:border-blue-500/20 shadow-sm space-y-4 animate-in slide-in-from-top-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Username</label>
-                    <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="e.g. john" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Username</label>
+                    <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="e.g. john" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 uppercase">SMB Password</label>
-                    <input type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Secret" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">SMB Password</label>
+                    <input type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Secret" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                 </div>
                 <div className="flex justify-end mt-4">
@@ -409,7 +410,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
             )}
 
             {users.length === 0 && !loading && !isAddingUser && (
-              <div className="text-center py-12 text-slate-500 bg-white rounded-2xl border border-dashed border-slate-300">
+              <div className="text-center py-12 text-slate-500 dark:text-slate-400 bg-white dark:bg-[#1f1f22] rounded-2xl border border-dashed border-slate-300 dark:border-white/15">
                 <Users size={48} className="mx-auto mb-3 opacity-20" />
                 <p>No SMB users found. Create one to enable sharing.</p>
               </div>
@@ -417,15 +418,15 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {users.map(user => (
-                <div key={user.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div key={user.id} className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                         {user.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-800 leading-tight">{user.username}</h3>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide">SMB User</p>
+                        <h3 className="font-bold text-slate-800 dark:text-white leading-tight">{user.username}</h3>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">SMB User</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -446,20 +447,20 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   </div>
                   
                   {resettingUserId === user.id && (
-                    <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-2">
-                      <input type="password" value={resetPasswordStr} onChange={e => setResetPasswordStr(e.target.value)} placeholder="New Password" className="flex-1 border border-slate-200 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                    <div className="mb-4 bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/10 flex items-center gap-2">
+                      <input type="password" value={resetPasswordStr} onChange={e => setResetPasswordStr(e.target.value)} placeholder="New Password" className="flex-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                       <button onClick={() => performResetPassword(user.username)} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700">Save</button>
                     </div>
                   )}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Accessible Shares</p>
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-white/10">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5">Accessible Shares</p>
                     <div className="flex flex-wrap gap-1">
                       {user.shares && user.shares.length > 0 ? (
                         user.shares.map((s: any) => (
-                          <span key={s.id} className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600">{s.name}</span>
+                          <span key={s.id} className="text-xs bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{s.name}</span>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-400 italic">No shares assigned</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 italic">No shares assigned</span>
                       )}
                     </div>
                   </div>
