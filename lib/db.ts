@@ -325,6 +325,14 @@ export function getDb(): any {
   ensureColumn('docker_apps', 'hc_status', "TEXT DEFAULT 'unknown'");
   ensureColumn('docker_apps', 'hc_checked_at', 'TEXT');
   ensureColumn('docker_projects', 'team_id', 'TEXT');
+  
+  ensureColumn('docker_deployments', 'status', 'TEXT NOT NULL DEFAULT "queued"');
+  ensureColumn('docker_deployments', 'logs', 'TEXT DEFAULT ""');
+  ensureColumn('docker_deployments', 'image_ref', 'TEXT');
+  ensureColumn('docker_deployments', 'started_at', 'TEXT');
+  ensureColumn('docker_deployments', 'finished_at', 'TEXT');
+  
+  ensureColumn('env_vars', 'is_build', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'totp_secret', 'TEXT');
   ensureColumn('users', 'totp_enabled', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'recovery_codes', 'TEXT');
