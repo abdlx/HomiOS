@@ -295,6 +295,12 @@ export function getDb(): any {
   `);
 
   // Additive migrations for installs created before these columns existed.
+  ensureColumn('docker_apps', 'ports', 'TEXT');
+  ensureColumn('docker_apps', 'env_vars', 'TEXT');
+  ensureColumn('docker_apps', 'domains', 'TEXT');
+  ensureColumn('docker_apps', 'git_repo', 'TEXT');
+  ensureColumn('docker_apps', 'git_branch', "TEXT DEFAULT 'main'");
+  ensureColumn('docker_apps', 'volumes', 'TEXT');
   ensureColumn('docker_apps', 'cpu_limit', 'TEXT');
   ensureColumn('docker_apps', 'mem_limit', 'TEXT');
   ensureColumn('docker_apps', 'server_id', 'TEXT');
