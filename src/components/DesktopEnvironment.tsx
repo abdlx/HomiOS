@@ -23,9 +23,10 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const { username } = useUsername();
 
   const [dockerApps, setDockerApps] = useState<any[]>([]);
-  const [now, setNow] = useState<Date>(new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000 * 30);
     return () => clearInterval(t);
   }, []);
@@ -169,11 +170,13 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           <Wifi size={15} strokeWidth={2} className="text-white/80" />
           <BatteryFull size={17} strokeWidth={2} className="text-white/80" />
           <Search size={14} strokeWidth={2.5} className="text-white/80" />
-          <span className="font-medium tabular-nums tracking-tight">
-            {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-            {'  '}
-            {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </span>
+          {now && (
+            <span className="font-medium tabular-nums tracking-tight">
+              {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+              {'  '}
+              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          )}
         </div>
       </div>
 

@@ -250,7 +250,7 @@ export default function DockerManagerApp({ onClose, initialAppId }: AppProps) {
     if (activeTab !== 'metrics' || !selectedApp || selectedApp.status !== 'running') return;
     const socket = io();
     socket.emit('subscribe_stats', selectedApp.id);
-    socket.on(`stats:${selectedApp.id}`, (data: any) => setMetrics(data));
+    socket.on(`stats:${selectedApp.id}`, (data: any) => { if (Array.isArray(data)) setMetrics(data); });
     return () => { socket.emit('unsubscribe_stats'); socket.disconnect(); };
   }, [activeTab, selectedApp?.id, selectedApp?.status]);
 
