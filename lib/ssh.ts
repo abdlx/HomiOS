@@ -1,9 +1,8 @@
-/**
- * SSH primitives for remote server management (Coolify model: SSH + docker CLI).
+﻿/**
+ * SSH primitives for remote server management.
  *
  * Commands are built from argument arrays and shell-quoted with a strict
- * single-quote escaper — no raw user input ever lands in a remote shell
- * unquoted. File pushes use SFTP, not heredocs.
+ * single-quote escaper. File pushes use SFTP, not heredocs.
  */
 import { Client, type ConnectConfig } from 'ssh2';
 import { getDb } from './db.ts';
@@ -18,7 +17,6 @@ export type SshTarget = {
 
 export type ExecResult = { code: number; stdout: string; stderr: string };
 
-/** POSIX single-quote escaping: ' -> '\'' */
 export function shellQuote(arg: string): string {
   return `'${String(arg).replace(/'/g, `'\\''`)}'`;
 }
@@ -58,7 +56,6 @@ function connect(target: SshTarget, timeoutMs = 15000): Promise<Client> {
   });
 }
 
-/** Run a single command remotely. The command must already be safely quoted. */
 export async function sshExec(
   target: SshTarget,
   command: string,
@@ -90,7 +87,6 @@ export async function sshExec(
   }
 }
 
-/** Run a binary with args remotely, safely quoted. */
 export async function sshRun(
   target: SshTarget,
   bin: string,
@@ -100,7 +96,6 @@ export async function sshRun(
   return sshExec(target, quoteCommand(bin, args), onData);
 }
 
-/** Write a file on the remote host via SFTP (mkdir -p the parent first). */
 export async function sshWriteFile(target: SshTarget, remotePath: string, content: string): Promise<void> {
   const dir = remotePath.slice(0, remotePath.lastIndexOf('/')) || '/';
   await sshExec(target, `mkdir -p ${shellQuote(dir)}`);
@@ -120,10 +115,8 @@ export async function sshWriteFile(target: SshTarget, remotePath: string, conten
   }
 }
 
-// ── Server actions (Coolify's ValidateServer / InstallDocker) ────────────────
-
 export async function validateServer(serverId: string): Promise<{
-  reachable: boolean; usable: boolean; dockerVersion?: string; error?: string;
+  reachable: boolean; usable: boolean; error?: string;
 }> {
   const db = getDb();
   try {
@@ -131,30 +124,14 @@ export async function validateServer(serverId: string): Promise<{
     const uname = await sshExec(target, 'uname -a', undefined, 20_000);
     if (uname.code !== 0) throw new Error(uname.stderr || 'uname failed');
 
-    const dockerV = await sshExec(target, 'docker version --format {{.Server.Version}}', undefined, 20_000);
-    const usable = dockerV.code === 0;
-    const dockerVersion = usable ? dockerV.stdout.trim() : undefined;
-
     db.prepare(`
-      UPDATE servers SET is_reachable = 1, is_usable = ?, docker_version = ?, last_check_at = ? WHERE id = ?
-    `).run(usable ? 1 : 0, dockerVersion ?? null, new Date().toISOString(), serverId);
+      UPDATE servers SET is_reachable = 1, is_usable = 1, last_check_at = ? WHERE id = ?
+    `).run(new Date().toISOString(), serverId);
 
-    return { reachable: true, usable, dockerVersion };
+    return { reachable: true, usable: true };
   } catch (e: any) {
     db.prepare('UPDATE servers SET is_reachable = 0, is_usable = 0, last_check_at = ? WHERE id = ?')
       .run(new Date().toISOString(), serverId);
     return { reachable: false, usable: false, error: e.message };
   }
-}
-
-/** Install Docker on the remote host via the official convenience script. */
-export async function installDocker(serverId: string, onData?: (s: string) => void): Promise<ExecResult> {
-  const target = sshTargetForServer(serverId);
-  const result = await sshExec(
-    target,
-    'command -v docker >/dev/null 2>&1 && echo "docker already installed" || (curl -fsSL https://get.docker.com | sh)',
-    onData,
-  );
-  if (result.code === 0) await validateServer(serverId);
-  return result;
 }

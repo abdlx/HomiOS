@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { HardDrive, Cpu, ToggleLeft, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { DriveItem } from '../types';
 
@@ -82,7 +82,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
       {loading && drives.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-slate-500 dark:text-slate-400 text-sm bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           <RefreshCw size={24} className="animate-spin text-blue-500 mb-3" />
-          <p>Scanning block devices…</p>
+          <p>Scanning block devicesâ€¦</p>
         </div>
       ) : drives.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-slate-500 dark:text-slate-400 space-y-3 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
@@ -112,7 +112,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `• ${drive.fstype}` : ''}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `â€¢ ${drive.fstype}` : ''}</p>
                     </div>
                   </div>
 
@@ -174,7 +174,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                       className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isMounting ? (
-                        <><RefreshCw size={14} className="animate-spin" /><span>Mounting…</span></>
+                        <><RefreshCw size={14} className="animate-spin" /><span>Mountingâ€¦</span></>
                       ) : (
                         <><ToggleRight size={14} /><span>Mount Device</span></>
                       )}
@@ -191,9 +191,10 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
       <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-xl px-4 py-3.5 shadow-sm">
         <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          OpenFinder runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely without container limitations.
+          OpenFinder runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely.
         </p>
       </div>
     </div>
   );
 }
+

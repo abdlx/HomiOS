@@ -60,19 +60,12 @@ else
   log "Node.js $(node -v) already installed."
 fi
 
-# ── 3. Docker & Docker Compose ────────────────────────────────
-if ! command -v docker &>/dev/null; then
-  log "Installing Docker engine..."
-  curl -fsSL https://get.docker.com | sh > /dev/null 2>&1
-  systemctl enable docker --quiet
-  systemctl start docker --quiet || true
-else
-  log "Docker already installed."
-fi
-
 # ── 3. App directory & clone/update ──────────────────────────
 INSTALL_DIR="/opt/openfinder"
 REPO_URL="https://github.com/abdlx/OpenFinder-shell.git"
+COOLIFY_ENABLED="${COOLIFY_ENABLED:-true}"
+COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
+COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."
@@ -90,6 +83,15 @@ npm install --legacy-peer-deps --silent
 
 log "Building production Next.js bundle..."
 npm run build
+
+chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down.sh" 2>/dev/null || true
+
+if [ "$COOLIFY_ENABLED" = "true" ]; then
+  log "Starting bundled Coolify sidecar..."
+  COOLIFY_APP_PORT="$COOLIFY_APP_PORT" COOLIFY_DATA_DIR="$COOLIFY_DATA_DIR" bash "$INSTALL_DIR/scripts/coolify-up.sh"
+else
+  warn "Coolify sidecar disabled (COOLIFY_ENABLED=false)."
+fi
 
 # ── 5. Create data directories ───────────────────────────────
 log "Provisioning runtime directories..."
@@ -226,18 +228,15 @@ cat > /usr/local/bin/openfinder-update <<UPDATEEOF
 #!/bin/bash
 set -e
 
-# Ensure Docker is installed during updates
-if ! command -v docker &>/dev/null; then
-  echo "Installing missing Docker engine..."
-  curl -fsSL https://get.docker.com | sh > /dev/null 2>&1
-  systemctl enable docker --quiet
-  systemctl start docker --quiet || true
-fi
-
 cd $INSTALL_DIR
 git pull
 npm install --legacy-peer-deps --silent
 npm run build
+
+chmod +x $INSTALL_DIR/scripts/coolify-up.sh $INSTALL_DIR/scripts/coolify-down.sh 2>/dev/null || true
+if [ "\${COOLIFY_ENABLED:-true}" = "true" ]; then
+  COOLIFY_APP_PORT="\${COOLIFY_APP_PORT:-8000}" COOLIFY_DATA_DIR="\${COOLIFY_DATA_DIR:-/data/coolify}" bash $INSTALL_DIR/scripts/coolify-up.sh
+fi
 
 # Re-inject APP_KEY from the persisted key file into the systemd unit
 # so it's never lost after a git pull overwrites nothing (service file is
@@ -261,6 +260,9 @@ echo -e "${GREEN}${BOLD}╔═════════════════�
 echo -e "${GREEN}${BOLD}║   OpenFinder installed successfully! 🎉      ║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
+if [ "$COOLIFY_ENABLED" = "true" ]; then
+  echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
+fi
 echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u openfinder -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC}"

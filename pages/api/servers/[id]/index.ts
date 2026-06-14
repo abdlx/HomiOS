@@ -1,8 +1,8 @@
-/**
+﻿/**
  * /api/servers/[id]
- * GET    — server detail
- * PATCH  — update { name?, description?, ip?, port?, sshUser?, privateKeyId? }
- * DELETE — remove (refuses while apps are assigned)
+ * GET    - server detail
+ * PATCH  - update { name?, description?, ip?, port?, sshUser?, privateKeyId? }
+ * DELETE - remove
  */
 import { getDb } from '../../../../lib/db.ts';
 import { withAuth } from '../../../../lib/api-auth.ts';
@@ -30,8 +30,6 @@ export default withAuth(async (req, res, session) => {
   }
 
   if (req.method === 'DELETE') {
-    const apps = db.prepare('SELECT COUNT(*) AS c FROM docker_apps WHERE server_id = ?').get(id) as any;
-    if (apps.c > 0) return res.status(400).json({ error: `${apps.c} app(s) still deployed on this server` });
     db.prepare('DELETE FROM servers WHERE id = ?').run(id);
     logAudit({ teamId: session.teamId, userId: session.userId, action: 'server.deleted', resourceId: id });
     return res.json({ ok: true });

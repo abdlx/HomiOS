@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Server, Plus, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2,
   Cpu, HardDrive, Activity, ChevronRight, Terminal, Cloud, Key, Menu
@@ -179,7 +179,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowAdd(false)} className="flex-1 border border-slate-200 dark:border-white/10 rounded-xl py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition">Cancel</button>
                 <button onClick={addServer} disabled={loading} className="flex-1 bg-blue-500 text-white rounded-xl py-2 text-sm font-medium hover:bg-blue-600 transition disabled:opacity-50">
-                  {loading ? 'Adding…' : 'Add Server'}
+                  {loading ? 'Addingâ€¦' : 'Add Server'}
                 </button>
               </div>
             </div>
@@ -192,7 +192,7 @@ export default function ServersApp({ onClose }: ServersAppProps) {
                 <button onClick={() => validate(selected.id)} disabled={validating === selected.id}
                   className="flex items-center gap-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-white/10 transition disabled:opacity-60">
                   <RefreshCw size={15} className={validating === selected.id ? 'animate-spin' : ''} />
-                  {validating === selected.id ? 'Validating…' : 'Validate Connection'}
+                  {validating === selected.id ? 'Validatingâ€¦' : 'Validate Connection'}
                 </button>
                 <button onClick={() => deleteServer(selected.id)}
                   className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-100 transition">
@@ -207,7 +207,6 @@ export default function ServersApp({ onClose }: ServersAppProps) {
                   <span className="text-slate-500 dark:text-slate-400">IP</span><span className="font-medium">{selected.ip || 'localhost'}</span>
                   <span className="text-slate-500 dark:text-slate-400">Port</span><span className="font-medium">{selected.port || 22}</span>
                   <span className="text-slate-500 dark:text-slate-400">SSH User</span><span className="font-medium">{selected.ssh_user || 'root'}</span>
-                  {selected.docker_version && <><span className="text-slate-500 dark:text-slate-400">Docker</span><span className="font-medium">{selected.docker_version}</span></>}
                   {selected.last_check_at && <><span className="text-slate-500 dark:text-slate-400">Last Check</span><span className="font-medium text-xs">{new Date(selected.last_check_at).toLocaleString()}</span></>}
                 </div>
               </div>
@@ -215,32 +214,15 @@ export default function ServersApp({ onClose }: ServersAppProps) {
               {/* Resources */}
               {resources && (
                 <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
-                  <h3 className="text-base font-semibold mb-4 text-slate-700 dark:text-slate-200">Running Containers</h3>
-                  {Array.isArray(resources.containers) && resources.containers.length > 0 ? (
-                    <div className="space-y-2">
-                      {resources.containers.map((c: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-xl text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${(c.statusText || c.status || c.Status || '').includes('Up') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                            <span className="font-medium truncate max-w-[200px]">{c.name || c.Names}</span>
-                          </div>
-                          <span className="text-slate-400 dark:text-slate-500 text-xs">{c.statusText || c.status || c.Status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-400 dark:text-slate-500">No running containers</p>
-                  )}
-
                   {resources.diskUsage && (
-                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10">
+                    <div>
                       <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2"><HardDrive size={14} /> Disk Usage</h4>
                       <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                         {Array.isArray(resources.diskUsage) ? (
                           resources.diskUsage.map((d: any, i: number) => (
                             <div key={i} className="flex justify-between font-mono bg-slate-50 dark:bg-white/5 p-2 rounded">
                               <span className="font-medium">{d.type || 'Unknown'}</span>
-                              <span>{d.count || 0} items • {d.size || '0B'} (Free: {d.reclaimable || '0B'})</span>
+                              <span>{d.used || '0B'} used / {d.size || '0B'} ({d.avail || '0B'} free)</span>
                             </div>
                           ))
                         ) : typeof resources.diskUsage === 'string' ? (
@@ -260,3 +242,4 @@ export default function ServersApp({ onClose }: ServersAppProps) {
     </div>
   );
 }
+

@@ -1,10 +1,9 @@
-/**
- * GET /api/servers/[id]/resources — running containers + disk usage on the server.
+﻿/**
+ * GET /api/servers/[id]/resources - disk usage on the server.
  */
-import path from 'path';
 import { getDb } from '../../../../lib/db.ts';
 import { withAuth } from '../../../../lib/api-auth.ts';
-import { getExecutor } from '../../../../lib/docker.ts';
+import { sshExec, sshTargetForServer } from '../../../../lib/ssh.ts';
 
 export default withAuth(async (req, res, session) => {
   if (req.method !== 'GET') return res.status(405).end();
@@ -15,22 +14,19 @@ export default withAuth(async (req, res, session) => {
   if (!server) return res.status(404).json({ error: 'Server not found' });
 
   try {
-    const exec = await getExecutor(server.is_localhost ? null : id, path.join(process.cwd(), 'data', 'stacks'));
-    const ps = await exec.docker(['ps', '-a', '--format', '{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}']);
-    const containers = ps.code === 0
-      ? ps.stdout.trim().split('\n').filter(Boolean).map((line) => {
-          const [name, image, statusText, state] = line.split('|');
-          return { name, image, statusText, state };
-        })
-      : [];
-    const df = await exec.docker(['system', 'df', '--format', '{{.Type}}|{{.TotalCount}}|{{.Size}}|{{.Reclaimable}}']);
+    if (server.is_localhost) {
+      return res.json({ diskUsage: [] });
+    }
+    const target = sshTargetForServer(id);
+    const df = await sshExec(target, 'df -h --output=source,size,used,avail,pcent,target | tail -n +2', undefined, 20_000);
     const diskUsage = df.code === 0
       ? df.stdout.trim().split('\n').filter(Boolean).map((line) => {
-          const [type, count, size, reclaimable] = line.split('|');
-          return { type, count, size, reclaimable };
+          const parts = line.trim().split(/\s+/);
+          const [source, size, used, avail, pcent, ...mountParts] = parts;
+          return { source, size, used, avail, pcent, mount: mountParts.join(' ') };
         })
       : [];
-    return res.json({ containers, diskUsage });
+    return res.json({ diskUsage });
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
   }

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * /api/servers
- * GET  — list team servers with status
- * POST — register a server { name, ip, port?, sshUser?, privateKeyId } or { localhost: true }
+ * GET  â€” list team servers with status
+ * POST â€” register a server { name, ip, port?, sshUser?, privateKeyId } or { localhost: true }
  */
 import crypto from 'crypto';
 import { getDb } from '../../../lib/db.ts';
@@ -15,9 +15,8 @@ export default withAuth(async (req, res, session) => {
     const servers = db.prepare(`
       SELECT s.id, s.name, s.description, s.ip, s.port, s.ssh_user, s.private_key_id,
              s.is_localhost, s.is_reachable, s.is_usable, s.proxy_status,
-             s.docker_version, s.last_check_at, s.created_at,
-             k.name AS key_name,
-             (SELECT COUNT(*) FROM docker_apps a WHERE a.server_id = s.id) AS app_count
+             s.last_check_at, s.created_at,
+             k.name AS key_name
       FROM servers s LEFT JOIN private_keys k ON k.id = s.private_key_id
       WHERE s.team_id = ? ORDER BY s.is_localhost DESC, s.created_at ASC
     `).all(session.teamId);
@@ -56,3 +55,4 @@ export default withAuth(async (req, res, session) => {
   res.setHeader('Allow', ['GET', 'POST']);
   return res.status(405).end();
 }, { ability: 'write' });
+

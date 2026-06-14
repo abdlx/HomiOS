@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy, useRef } from 'react';
+﻿import React, { useState, useEffect, Suspense, lazy, useRef } from 'react';
 import {
   X,
   Download,
@@ -44,7 +44,6 @@ function resolveLanguage(filename: string): string {
     py: 'python',
     go: 'go',
     rs: 'rust',
-    dockerfile: 'dockerfile',
     xml: 'xml',
     sql: 'sql',
     txt: 'plaintext',
@@ -121,7 +120,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
       {/* Main container */}
       <div className="w-full h-full flex flex-col text-slate-100 bg-transparent">
 
-        {/* ── Title Bar ── */}
+        {/* â”€â”€ Title Bar â”€â”€ */}
         <div className="flex items-center justify-between px-6 py-4 z-10">
           <div className="flex items-center space-x-3 w-1/3">
              <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 rounded-full transition-all backdrop-blur-md border border-white/5 shadow-sm">
@@ -175,7 +174,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
           </div>
         </div>
 
-        {/* ── Content ── */}
+        {/* â”€â”€ Content â”€â”€ */}
         <div className="flex-1 overflow-hidden relative flex flex-col p-6">
 
           {/* Image Preview */}
@@ -244,17 +243,17 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
           {(file.type === 'text' || file.type === 'document') && (
             <div className="flex flex-col space-y-4 w-full max-w-5xl mx-auto h-full pb-8">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                {monacoAvailable ? `Monaco Editor · ${language}` : 'File Content'}
+                {monacoAvailable ? `Monaco Editor Â· ${language}` : 'File Content'}
               </label>
 
               {isLoadingContent ? (
                 <div className="w-full flex-1 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center text-xs text-slate-500 animate-pulse backdrop-blur-md">
-                  Loading…
+                  Loadingâ€¦
                 </div>
               ) : monacoAvailable ? (
                 <Suspense fallback={
                   <div className="w-full flex-1 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center text-xs text-slate-500 backdrop-blur-md">
-                    Loading Monaco…
+                    Loading Monacoâ€¦
                   </div>
                 }>
                   <div className="w-full flex-1 rounded-2xl overflow-hidden border border-white/10 shadow-2xl backdrop-blur-md bg-black/40">
@@ -285,7 +284,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
                   value={textContent}
                   onChange={(e) => setTextContent(e.target.value)}
                   className="w-full flex-1 bg-black/40 border border-white/10 rounded-2xl p-5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-200 resize-none placeholder-slate-600 shadow-2xl backdrop-blur-md"
-                  placeholder="Empty file…"
+                  placeholder="Empty fileâ€¦"
                   disabled={file.type !== 'text'}
                 />
               )}
@@ -297,7 +296,7 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
                     <Calendar size={14} className="text-blue-400" />
                     <div>
                       <p className="text-[9px] text-slate-500 uppercase font-semibold">Modified</p>
-                      <p className="text-[11px] font-medium text-slate-300">{file.updatedAt || '—'}</p>
+                      <p className="text-[11px] font-medium text-slate-300">{file.updatedAt || 'â€”'}</p>
                     </div>
                   </div>
                   <div className="bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-xl px-4 py-2 flex items-center space-x-2">
@@ -325,3 +324,4 @@ export default function QuickLookModal({ file, onClose, onUpdateFile, onDelete }
     </div>
   );
 }
+

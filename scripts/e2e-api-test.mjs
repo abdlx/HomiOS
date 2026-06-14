@@ -1,4 +1,4 @@
-// Smoke test: every new Coolify-parity API surface.
+﻿// Smoke test: core OpenFinder API surface.
 const BASE = 'http://localhost:3000';
 let cookie = '';
 let pass = 0, fail = 0;
@@ -18,7 +18,6 @@ async function api(method, path, body, expect = 200) {
 }
 
 async function main() {
-  // login (user created by terminal e2e)
   const login = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@test.local', password: 'test12345' }),
@@ -28,22 +27,20 @@ async function main() {
   if (!cookie) process.exit(1);
 
   console.log('\n-- users/teams --');
-  const me = await api('GET', '/api/users');
+  await api('GET', '/api/users');
   const teams = await api('GET', '/api/teams');
   const teamId = teams.activeTeamId;
   console.log('  activeTeam:', teamId);
   await api('POST', '/api/teams', { name: 'Production Team' }, 201);
-  const members = await api('GET', `/api/teams/${teamId}/members`);
+  await api('GET', `/api/teams/${teamId}/members`);
   await api('POST', `/api/teams/${teamId}/members`, { email: 'dev@test.local', role: 'member' }, 201);
 
   console.log('\n-- api tokens --');
-  const tok = await api('POST', '/api/tokens', { name: 'ci', abilities: ['read', 'deploy'] }, 201);
+  const tok = await api('POST', '/api/tokens', { name: 'ci', abilities: ['read'] }, 201);
   await api('GET', '/api/tokens');
-  // Bearer auth check
   const bearerRes = await fetch(`${BASE}/api/users`, { headers: { Authorization: `Bearer ${tok.token}` } });
   console.log(bearerRes.status === 200 ? '  PASS bearer token auth' : `  FAIL bearer token auth -> ${bearerRes.status}`);
   bearerRes.status === 200 ? pass++ : fail++;
-  // Bearer ability gate: write should be denied for read+deploy token
   const denied = await fetch(`${BASE}/api/tokens`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok.token}` },
     body: JSON.stringify({ name: 'x', abilities: ['read'] }),
@@ -61,30 +58,12 @@ async function main() {
   console.log('  publicKey:', (key.publicKey || '').slice(0, 40));
   await api('GET', '/api/security/keys');
   await api('POST', '/api/servers', { localhost: true, name: 'Local Server' }, 201);
-  const servers = await api('GET', '/api/servers');
+  await api('GET', '/api/servers');
   await api('POST', '/api/servers', { name: 'remote-1', ip: '203.0.113.10', privateKeyId: key.id }, 201);
   const servers2 = await api('GET', '/api/servers');
   const remote = servers2.find((s) => s.name === 'remote-1');
   await api('PATCH', `/api/servers/${remote.id}`, { description: 'staging box' });
   await api('DELETE', `/api/servers/${remote.id}`, {});
-
-  console.log('\n-- projects/apps + env scoping --');
-  const proj = await api('POST', '/api/docker/projects', { name: 'smoke-proj' }, 201);
-  await api('POST', '/api/env-vars', { scopeType: 'team', scopeId: teamId, key: 'GLOBAL_VAR', value: 'team-level' }, 201);
-  await api('POST', '/api/env-vars', { scopeType: 'project', scopeId: proj.id, key: 'PROJ_VAR', value: 'proj-level' }, 201);
-  await api('GET', `/api/env-vars?scopeType=project&scopeId=${proj.id}`);
-  const app = await api('POST', `/api/docker/projects/${proj.id}/apps`, {
-    name: 'smoke-app', build_pack: 'dockerimage', docker_image: 'nginx', docker_image_tag: 'alpine',
-    ports: '8085:80',
-  }, 201);
-  await api('POST', '/api/env-vars', { scopeType: 'app', scopeId: app.id, key: 'APP_VAR', value: 'app-level' }, 201);
-
-  console.log('\n-- scheduled tasks + backup schedule --');
-  await api('POST', `/api/docker/apps/${app.id}/scheduled-tasks`, { name: 'cleanup', command: 'echo hi', frequency: '0 3 * * *' }, 201);
-  await api('GET', `/api/docker/apps/${app.id}/scheduled-tasks`);
-  await api('POST', `/api/docker/apps/${app.id}/scheduled-tasks`, { name: 'bad', command: 'x', frequency: 'not-cron' }, 400);
-  await api('POST', `/api/docker/apps/${app.id}/backup-schedule`, { frequency: '0 4 * * *', retention: 5 }, 201);
-  await api('GET', `/api/docker/apps/${app.id}/backup-schedule`);
 
   console.log('\n-- notifications --');
   await api('GET', `/api/teams/${teamId}/notifications`);
@@ -105,9 +84,6 @@ async function main() {
   console.log('\n-- audit --');
   const audit = await api('GET', '/api/audit');
   console.log('  audit entries:', Array.isArray(audit) ? audit.length : audit);
-
-  console.log('\n-- cleanup app --');
-  await api('DELETE', `/api/docker/apps/${app.id}`, {}, [200, 204]);
 
   console.log(`\n==== ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);

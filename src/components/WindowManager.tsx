@@ -4,18 +4,17 @@ import DesktopEnvironment from './DesktopEnvironment';
 import App from '../App';
 import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
-import DockerManagerApp from './DockerManagerApp';
 import ServersApp from './ServersApp';
+import CoolifyApp from './CoolifyApp';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'docker_manager' | 'servers';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'servers';
   username?: string;
 }
 
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
   const [view, setView] = useState<string>(initialView);
-  const [dockerAppId, setDockerAppId] = useState<string | null>(null);
 
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
@@ -29,8 +28,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/terminal');
     } else if (view === 'activity') {
       window.history.pushState(null, '', '/activity');
-    } else if (view === 'docker_manager') {
-      window.history.pushState(null, '', '/docker');
+    } else if (view === 'coolify') {
+      window.history.pushState(null, '', '/coolify');
     } else if (view === 'servers') {
       window.history.pushState(null, '', '/servers');
     }
@@ -46,11 +45,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           onOpenSettings={() => setView('settings')}
           onOpenTerminal={() => setView('terminal')}
           onOpenActivity={() => setView('activity')}
-          onOpenDockerManager={(appId) => {
-             if (appId) setDockerAppId(appId);
-             else setDockerAppId(null);
-             setView('docker_manager');
-          }}
+          onOpenCoolify={() => setView('coolify')}
           onOpenServers={() => setView('servers')}
           username={username}
         />
@@ -107,20 +102,18 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           <ActivityApp onClose={() => setView('desktop')} />
         </div>
       </div>
-
-      {/* Docker Manager overlay */}
+      {/* Coolify overlay */}
       <div
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'docker_manager'
+          view === 'coolify'
             ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]'
             : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
         }`}
       >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <DockerManagerApp initialAppId={dockerAppId} onClose={() => setView('desktop')} />
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
+          <CoolifyApp onClose={() => setView('desktop')} />
         </div>
       </div>
-
       {/* Servers overlay */}
       <div
         className={`absolute z-60 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
@@ -137,3 +130,5 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
     </div>
   );
 }
+
+
