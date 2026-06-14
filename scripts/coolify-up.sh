@@ -34,6 +34,11 @@ else
   fail "Docker Compose is not available after Docker installation"
 fi
 
+if ! docker network inspect coolify >/dev/null 2>&1; then
+  log "Creating Coolify Docker network..."
+  docker network create coolify >/dev/null
+fi
+
 mkdir -p \
   "$ENV_DIR" \
   "$COOLIFY_DATA_DIR/ssh" \
