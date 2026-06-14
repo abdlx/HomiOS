@@ -4,6 +4,12 @@ set -euo pipefail
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
+COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-true}"
+if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
+  COOLIFY_IMAGE="${COOLIFY_IMAGE:-openfinder/coolify:local}"
+else
+  COOLIFY_IMAGE="${COOLIFY_IMAGE:-ghcr.io/coollabsio/coolify:latest}"
+fi
 ENV_DIR="$COOLIFY_DATA_DIR/source"
 ENV_FILE="$ENV_DIR/.env"
 ENV_TEMPLATE="$COOLIFY_SOURCE_DIR/.env.production"
@@ -82,11 +88,21 @@ set_env_default "PUSHER_APP_ID" "$(openssl rand -hex 32)"
 set_env_default "PUSHER_APP_KEY" "$(openssl rand -hex 32)"
 set_env_default "PUSHER_APP_SECRET" "$(openssl rand -hex 32)"
 set_env_default "REGISTRY_URL" "${REGISTRY_URL:-ghcr.io}"
+set_env_default "COOLIFY_BUILD_LOCAL" "$COOLIFY_BUILD_LOCAL"
+set_env_default "COOLIFY_IMAGE" "$COOLIFY_IMAGE"
 
 if [ -n "${ROOT_USERNAME:-}" ] && [ -n "${ROOT_USER_EMAIL:-}" ] && [ -n "${ROOT_USER_PASSWORD:-}" ]; then
   set_env_default "ROOT_USERNAME" "$ROOT_USERNAME"
   set_env_default "ROOT_USER_EMAIL" "$ROOT_USER_EMAIL"
   set_env_default "ROOT_USER_PASSWORD" "$ROOT_USER_PASSWORD"
+fi
+
+if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
+  log "Building OpenFinder-themed Coolify image ($COOLIFY_IMAGE)..."
+  docker build \
+    -f "$COOLIFY_SOURCE_DIR/docker/production/Dockerfile" \
+    -t "$COOLIFY_IMAGE" \
+    "$COOLIFY_SOURCE_DIR"
 fi
 
 log "Starting Coolify on port $COOLIFY_APP_PORT..."

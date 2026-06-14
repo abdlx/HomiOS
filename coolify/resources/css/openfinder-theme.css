@@ -1,0 +1,219 @@
+/*
+ * OpenFinder integration skin.
+ * This file is intentionally additive: it overrides Coolify's visual tokens
+ * and common surfaces without changing Coolify's Livewire behavior.
+ */
+
+:root {
+    --of-bg: #0b1120;
+    --of-bg-soft: #111827;
+    --of-panel: rgba(15, 23, 42, 0.92);
+    --of-panel-strong: rgba(17, 24, 39, 0.96);
+    --of-border: rgba(148, 163, 184, 0.22);
+    --of-border-strong: rgba(34, 211, 238, 0.38);
+    --of-text: #f8fafc;
+    --of-text-muted: #94a3b8;
+    --of-accent: #22d3ee;
+    --of-accent-strong: #0ea5e9;
+    --of-success: #34d399;
+    --of-warning: #fbbf24;
+    --of-error: #fb7185;
+}
+
+html,
+body {
+    background:
+        radial-gradient(circle at 20% -10%, rgba(34, 211, 238, 0.12), transparent 30rem),
+        radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.11), transparent 28rem),
+        var(--of-bg) !important;
+    color: var(--of-text-muted) !important;
+    letter-spacing: 0 !important;
+}
+
+body,
+input,
+select,
+textarea,
+button {
+    font-family: "Geist Sans", Inter, ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.dark body,
+.dark main,
+.dark .bg-base,
+.dark .dark\:bg-base {
+    background-color: transparent !important;
+}
+
+main {
+    min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+.box-title,
+.dark .dark\:text-white {
+    color: var(--of-text) !important;
+}
+
+.subtitle,
+.box-description,
+label,
+.dark .dark\:text-neutral-400,
+.dark .dark\:text-neutral-500 {
+    color: var(--of-text-muted) !important;
+}
+
+a,
+.dark a {
+    color: var(--of-text) !important;
+    text-decoration-color: rgba(34, 211, 238, 0.5) !important;
+}
+
+a:hover,
+.dark a:hover {
+    color: var(--of-accent) !important;
+}
+
+nav {
+    background: rgba(2, 6, 23, 0.72) !important;
+    border-color: var(--of-border) !important;
+    backdrop-filter: blur(20px);
+}
+
+.menu-item,
+.sub-menu-item,
+.dropdown-item {
+    border-radius: 8px !important;
+    color: var(--of-text-muted) !important;
+}
+
+.menu-item:hover,
+.sub-menu-item:hover,
+.dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: var(--of-text) !important;
+}
+
+.menu-item-active,
+.heading-item-active {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(37, 99, 235, 0.22)) !important;
+    color: var(--of-text) !important;
+    border: 1px solid var(--of-border-strong) !important;
+}
+
+.coolbox,
+.box,
+.box-boarding,
+.box-without-bg,
+.custom-modal,
+.dark .dark\:bg-coolgray-100,
+.dark .dark\:bg-coolgray-200,
+.dark .dark\:bg-coolgray-300,
+.dark .dark\:bg-coolgray-400 {
+    background: var(--of-panel) !important;
+    border-color: var(--of-border) !important;
+    color: var(--of-text) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24) !important;
+}
+
+.coolbox:hover,
+.box:hover,
+.box-boarding:hover {
+    background: rgba(17, 24, 39, 0.98) !important;
+    border-color: var(--of-border-strong) !important;
+    color: var(--of-text) !important;
+    box-shadow: 0 22px 52px rgba(0, 0, 0, 0.32) !important;
+}
+
+.button,
+button.button,
+button[class*="button"],
+.btn,
+.box-boarding {
+    min-height: 2.25rem !important;
+    border-radius: 8px !important;
+    border-color: var(--of-border) !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    color: var(--of-text) !important;
+    box-shadow: none !important;
+}
+
+.button:hover,
+button.button:hover,
+.btn:hover {
+    border-color: var(--of-border-strong) !important;
+    background: rgba(34, 211, 238, 0.14) !important;
+    color: var(--of-text) !important;
+}
+
+button[isHighlighted]:not(:disabled),
+.bg-coollabs,
+.dark .dark\:bg-coollabs\/20 {
+    background: linear-gradient(135deg, var(--of-accent), var(--of-accent-strong)) !important;
+    border-color: transparent !important;
+    color: #06121f !important;
+}
+
+button[isError]:not(:disabled) {
+    background: rgba(251, 113, 133, 0.12) !important;
+    border-color: rgba(251, 113, 133, 0.38) !important;
+    color: #fecdd3 !important;
+}
+
+.input,
+.select,
+input,
+select,
+textarea {
+    border-radius: 8px !important;
+    background: rgba(2, 6, 23, 0.5) !important;
+    border: 1px solid var(--of-border) !important;
+    color: var(--of-text) !important;
+    box-shadow: none !important;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    border-color: var(--of-border-strong) !important;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14) !important;
+}
+
+table,
+thead,
+tbody,
+tr {
+    border-color: var(--of-border) !important;
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.045) !important;
+}
+
+.badge-success,
+.bg-success {
+    background-color: var(--of-success) !important;
+}
+
+.badge-warning,
+.bg-warning,
+.text-warning,
+.dark .dark\:text-warning {
+    color: var(--of-warning) !important;
+}
+
+.badge-error,
+.bg-error,
+.text-error {
+    color: var(--of-error) !important;
+}
+
+.scrollbar {
+    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(15, 23, 42, 0.6) !important;
+}

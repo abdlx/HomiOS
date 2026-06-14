@@ -9,6 +9,8 @@ coverage/
 !.env.example
 # SQLite database — never commit, generated at runtime
 data/
+!coolify/app/Data/
+!coolify/app/Data/**
 filebrowser/
 filebrowser_temp/
 coolify-4.x/
@@ -17,7 +19,14 @@ coolify-4.x/
 # Coolify is bundled as a runtime sidecar; do not vendor credential-shaped
 # development fixtures that trigger GitHub push protection.
 coolify/tests/
-coolify/database/seeders/
+coolify/database/seeders/*
+!coolify/database/seeders/
+!coolify/database/seeders/ProductionSeeder.php
+!coolify/database/seeders/OauthSettingSeeder.php
+!coolify/database/seeders/PopulateSshKeysDirectorySeeder.php
+!coolify/database/seeders/SentinelSeeder.php
+!coolify/database/seeders/RootUserSeeder.php
+!coolify/database/seeders/CaSslCertSeeder.php
 coolify/templates/test-database-detection.yaml
 
 # Next-PWA generated service worker files
