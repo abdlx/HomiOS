@@ -13,17 +13,16 @@ interface DesktopEnvironmentProps {
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
   onOpenCoolify: () => void;
-  onOpenServers?: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenServers }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
   const [now, setNow] = useState<Date | null>(null);
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
-  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'coolify', 'servers', 'settings', 'finder']);
+  const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'coolify', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
 
   const ALL_APPS: Record<string, any> = {
@@ -33,9 +32,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
     coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
     finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
-    servers: { id: 'servers', label: 'Servers', icon: Cloud, color: 'from-[#5856D6] to-[#3634A3]' },
   };
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'servers'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify'];
 
   useEffect(() => {
     setNow(new Date());
@@ -62,7 +60,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
     let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id)) : ['files'];
-    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : ['activity', 'terminal', 'coolify', 'servers', 'settings', 'finder'];
+    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : ['activity', 'terminal', 'coolify', 'settings', 'finder'];
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     currentGrid = [...currentGrid, ...missingApps];
     setGridAppIds(currentGrid);
@@ -91,7 +89,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
     if (id === 'coolify') return onOpenCoolify;
-    if (id === 'servers') return onOpenServers;
     return undefined;
   };
 
