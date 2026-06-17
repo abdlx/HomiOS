@@ -2,6 +2,8 @@
 import React, { useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "motion/react";
 
+import GlassSurface from "@/components/GlassSurface";
+
 export const FloatingDock = ({
   items,
   desktopClassName,
@@ -30,11 +32,19 @@ const FloatingDockDesktop = ({
     <motion.div
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
-      className={`mx-auto flex h-20 gap-4 items-end rounded-[32px] bg-black/40 backdrop-blur-3xl px-4 pb-3 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 ${className || ""}`}
+      className={`mx-auto flex ${className || ""}`}
     >
-      {items.map((item) => (
-        <IconContainer mouseX={mouseX} key={item.title} {...item} />
-      ))}
+      <GlassSurface
+        width="auto"
+        height={80}
+        borderRadius={32}
+      >
+        <div className="flex items-end gap-4 px-2 pb-1 h-full">
+          {items.map((item) => (
+            <IconContainer mouseX={mouseX} key={item.title} {...item} />
+          ))}
+        </div>
+      </GlassSurface>
     </motion.div>
   );
 };
