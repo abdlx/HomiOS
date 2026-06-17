@@ -55,6 +55,50 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
       newSocket.emit('input', data);
     });
 
+    // Handle Copy & Paste & Shortcuts
+    terminal.attachCustomKeyEventHandler((e) => {
+      if (e.type === 'keydown') {
+        // Ctrl+C or Cmd+C (or with Shift): Copy if selected, else pass to terminal (cancel)
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') {
+          const selection = terminal.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection);
+            return false;
+          }
+        }
+        // Ctrl+V or Cmd+V (or with Shift): Paste
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') {
+          navigator.clipboard.readText().then((text) => {
+            newSocket.emit('input', text);
+          }).catch(console.error);
+          return false;
+        }
+        // Ctrl+A or Cmd+A: Select All
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
+          terminal.selectAll();
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const selection = terminal.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection);
+        terminal.clearSelection();
+      } else {
+        navigator.clipboard.readText().then((text) => {
+          newSocket.emit('input', text);
+        }).catch(console.error);
+      }
+    };
+    const currentRef = terminalRef.current;
+    if (currentRef) {
+      currentRef.addEventListener('contextmenu', handleContextMenu);
+    }
+
     const handleResize = () => {
       fitAddon.fit();
       newSocket.emit('resize', { cols: terminal.cols, rows: terminal.rows });
@@ -64,6 +108,9 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (currentRef) {
+        currentRef.removeEventListener('contextmenu', handleContextMenu);
+      }
       terminal.dispose();
       newSocket.disconnect();
     };
