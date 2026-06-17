@@ -78,6 +78,10 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
           terminal.selectAll();
           return false;
         }
+        // Forbid Ctrl+D or Cmd+D to prevent accidental disconnects
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyD') {
+          return false;
+        }
       }
       return true;
     });

@@ -6,6 +6,7 @@ import {
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { FloatingDock } from './ui/floating-dock';
+import GlassSurface from '../../components/GlassSurface';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
@@ -151,18 +152,27 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         </h1>
 
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
-          <div className="min-w-[85vw] md:min-w-0 snap-center bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 min-h-[160px]">
+          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
+            <div className="absolute inset-0 -z-10">
+              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.2} displace={1.6} backgroundOpacity={0} />
+            </div>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-start space-x-3 max-w-[70%]"><div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400"><Activity size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">CPU Usage</h3><p className="text-white/50 text-[11px] mt-1 line-clamp-2">{stats?.cpu?.model || 'Processor'}</p></div></div>
               <span className="text-2xl font-bold text-white">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
             </div>
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${stats?.cpu?.usagePercent || 0}%` }} /></div>
           </div>
-          <div className="min-w-[85vw] md:min-w-0 snap-center bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 min-h-[160px]">
+          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
+            <div className="absolute inset-0 -z-10">
+              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.2} displace={1.6} backgroundOpacity={0} />
+            </div>
             <div className="flex items-center justify-between mb-6"><div className="flex items-center space-x-3"><div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400"><Cpu size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Memory</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${(stats.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
             <div className="flex items-center justify-between"><div className="flex items-center space-x-3"><div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400"><HardDrive size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Storage</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.disk.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
           </div>
-          <div className="min-w-[85vw] md:min-w-0 snap-center bg-black/40 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 min-h-[160px]">
+          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
+            <div className="absolute inset-0 -z-10">
+              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.2} displace={1.6} backgroundOpacity={0} />
+            </div>
             <div className="flex justify-between items-start mb-4"><div className="flex items-center space-x-3"><div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400"><Zap size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">System Load</h3><p className="text-white/50 text-[11px]">Avg over 1 min</p></div></div><span className="text-2xl font-bold text-white">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span></div>
             <div className="grid grid-cols-2 gap-3"><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Cores</span><span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400" />{stats?.cpu?.cores || 0}</span></div><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Platform</span><span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400" />{stats?.os?.platform || 'N/A'}</span></div></div>
           </div>
