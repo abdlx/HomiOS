@@ -108,7 +108,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
     const iconSize = source === 'dock' ? 28 : 34;
     return (
-      <div className="relative group cursor-pointer" onClick={getOnClick(app.id)} onContextMenu={(e) => handleContextMenu(e, app.id, source)}>
+      <div className="relative group cursor-pointer flex flex-col items-center text-center" onClick={getOnClick(app.id)} onContextMenu={(e) => handleContextMenu(e, app.id, source)}>
         {source === 'dock' && (
           <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
             {app.label}
