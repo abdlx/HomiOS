@@ -131,7 +131,7 @@ const TerminalInstance = ({ isActive, isFullScreen }: { isActive: boolean; isFul
   }, [isActive, isFullScreen, term]);
 
   return (
-    <div className={`absolute inset-0 p-4 pt-0 transition-opacity duration-200 ${isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'}`}>
+    <div className={`absolute inset-0 p-4 pt-0 transition-opacity duration-200 ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
       <div className="w-full h-full bg-[#1c1c1e] rounded-[24px] shadow-inner border border-neutral-200/50 dark:border-white/10 overflow-hidden p-4">
         <div ref={terminalRef} className="w-full h-full xterm-container" />
       </div>
