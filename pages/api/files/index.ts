@@ -1,6 +1,8 @@
 import { readdir, stat, writeFile, unlink, rename as fsRename } from 'fs/promises';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
+// @ts-expect-error
+import archiver from 'archiver';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
@@ -19,6 +21,7 @@ export const config = {
     bodyParser: {
       sizeLimit: '1000mb', // allow large uploads
     },
+    responseLimit: false, // Prevent Next.js from throwing error on large zip streams
   },
 };
 
@@ -32,13 +35,11 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === 'GET') {
       if (req.query.downloadZip === 'true') {
-        const { createReadStream } = await import('fs');
         const s = await stat(fullPath);
         if (!s.isDirectory()) {
           return res.status(400).json({ error: 'Not a directory' });
         }
 
-        const archiver = (await import('archiver')).default;
         const archive = archiver('zip', {
           zlib: { level: 9 }
         });
