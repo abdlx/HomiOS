@@ -32,19 +32,18 @@ const FloatingDockDesktop = ({
     <motion.div
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
-      className={`mx-auto flex ${className || ""}`}
+      className={`mx-auto flex h-20 gap-4 items-end rounded-[32px] px-4 pb-3 relative ${className || ""}`}
     >
-      <GlassSurface
-        width="auto"
-        height={80}
-        borderRadius={32}
-      >
-        <div className="flex items-end gap-4 px-2 pb-1 h-full">
-          {items.map((item) => (
-            <IconContainer mouseX={mouseX} key={item.title} {...item} />
-          ))}
-        </div>
-      </GlassSurface>
+      <div className="absolute inset-0 -z-10">
+        <GlassSurface
+          width="100%"
+          height="100%"
+          borderRadius={32}
+        />
+      </div>
+      {items.map((item) => (
+        <IconContainer mouseX={mouseX} key={item.title} {...item} />
+      ))}
     </motion.div>
   );
 };

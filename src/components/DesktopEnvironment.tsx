@@ -181,7 +181,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
         <FloatingDock
-          desktopClassName="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 hover:bg-black/50 transition-colors duration-500"
+          desktopClassName="transition-colors duration-500"
           items={dockAppIds.map((id) => {
             const app = ALL_APPS[id];
             if (!app) return null;
