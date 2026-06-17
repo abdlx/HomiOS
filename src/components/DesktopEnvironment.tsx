@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Cloud, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap
+  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
@@ -14,10 +14,11 @@ interface DesktopEnvironmentProps {
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
   onOpenCoolify: () => void;
+  onOpenNotes: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -33,8 +34,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
     coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
     finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
+    notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
   };
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes'];
 
   useEffect(() => {
     setNow(new Date());
@@ -90,6 +92,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
     if (id === 'coolify') return onOpenCoolify;
+    if (id === 'notes') return onOpenNotes;
     return undefined;
   };
 
