@@ -145,7 +145,7 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
 
   const addTab = () => {
-    const newId = \`tab-\${Date.now()}\`;
+    const newId = `tab-${Date.now()}`;
     setTabs([...tabs, { id: newId, title: 'bash' }]);
     setActiveTabId(newId);
   };
@@ -164,11 +164,11 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
   };
 
   return (
-    <div className={\`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-[#161618] font-sans \${
+    <div className={`absolute shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-[#161618] font-sans ${
       isFullScreen
         ? 'top-0 left-0 right-0 bottom-0 z-[100] rounded-none'
         : 'top-0 left-0 right-0 bottom-0 z-50 rounded-[40px]'
-    }\`}>
+    }`}>
       {/* Title Bar */}
       <div className="bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-md h-14 flex items-center justify-between px-6 shrink-0 cursor-default select-none border-b border-neutral-200/50 dark:border-white/10 relative z-20">
         <div className="flex items-center space-x-2 w-24">
@@ -199,16 +199,16 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
           <div 
             key={tab.id} 
             onClick={() => setActiveTabId(tab.id)}
-            className={\`flex items-center space-x-2 px-4 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border \${
+            className={`flex items-center space-x-2 px-4 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border ${
               activeTabId === tab.id 
                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' 
                 : 'bg-transparent border-transparent text-slate-500 hover:bg-black/5 dark:hover:bg-white/5'
-            }\`}
+            }`}
           >
             <span>{tab.title}</span>
             <button 
               onClick={(e) => removeTab(tab.id, e)} 
-              className={\`ml-2 rounded-full p-0.5 transition-colors \${activeTabId === tab.id ? 'hover:bg-blue-500/20 text-blue-500/70 hover:text-blue-600 dark:hover:bg-white/20 dark:text-blue-300' : 'hover:bg-black/10 dark:hover:bg-white/10'}\`}
+              className={`ml-2 rounded-full p-0.5 transition-colors ${activeTabId === tab.id ? 'hover:bg-blue-500/20 text-blue-500/70 hover:text-blue-600 dark:hover:bg-white/20 dark:text-blue-300' : 'hover:bg-black/10 dark:hover:bg-white/10'}`}
               title="Close Tab"
             >
               <X size={10} />
@@ -224,7 +224,7 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
         ))}
       </div>
 
-      <style>{\`
+      <style>{`
         .xterm-container .xterm-viewport {
           background-color: transparent !important;
         }
@@ -238,7 +238,7 @@ export default function TerminalApp({ onClose }: TerminalAppProps) {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-      \`}</style>
+      `}</style>
     </div>
   );
 }
