@@ -140,6 +140,7 @@ const TerminalInstance = ({ isActive, isFullScreen }: { isActive: boolean; isFul
 };
 
 export default function TerminalApp({ onClose }: TerminalAppProps) {
+  
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [tabs, setTabs] = useState<{ id: string; title: string }[]>([{ id: 'tab-1', title: 'bash' }]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');

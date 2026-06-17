@@ -31,6 +31,31 @@ export default async function handler(req: any, res: any) {
     const fullPath = securePath((filePath as string) || '/');
 
     if (req.method === 'GET') {
+      if (req.query.downloadZip === 'true') {
+        const { createReadStream } = await import('fs');
+        const s = await stat(fullPath);
+        if (!s.isDirectory()) {
+          return res.status(400).json({ error: 'Not a directory' });
+        }
+
+        const archiver = (await import('archiver')).default;
+        const archive = archiver('zip', {
+          zlib: { level: 9 }
+        });
+
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath) || 'folder'}.zip"`);
+
+        archive.on('error', function(err: any) {
+          res.status(500).send({error: err.message});
+        });
+
+        archive.pipe(res);
+        archive.directory(fullPath, false);
+        await archive.finalize();
+        return;
+      }
+
       if (req.query.raw === 'true') {
         const { createReadStream } = await import('fs');
         const s = await stat(fullPath);

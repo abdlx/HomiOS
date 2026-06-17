@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2 } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -28,6 +29,7 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&raw=true` : '';
+  const downloadUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&${file.type === 'folder' ? 'downloadZip=true' : 'raw=true'}` : '';
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -69,7 +71,7 @@ export default function ContextMenu({
     </button>
   );
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       style={style}
@@ -103,17 +105,15 @@ export default function ContextMenu({
           <Item icon={<Edit3 size={13} />} label="Rename" onClick={() => onRename?.(file)} />
           <Item icon={<Copy size={13} />} label="Copy" onClick={() => onCopy?.(file)} />
           <Item icon={<Scissors size={13} />} label="Cut" onClick={() => onCut?.(file)} />
-          {file?.type !== 'folder' && (
-            <a
-              href={fileUrl}
-              download={file.name}
-              onClick={onClose}
-              className="w-full flex items-center space-x-2.5 px-3 py-1.5 text-xs rounded-lg text-slate-300 hover:bg-white/8 hover:text-slate-100 transition-colors"
-            >
-              <Download size={13} className="w-3.5 flex-shrink-0" />
-              <span>Download</span>
-            </a>
-          )}
+          <a
+            href={downloadUrl}
+            download={file.type === 'folder' ? `${file.name}.zip` : file.name}
+            onClick={onClose}
+            className="w-full flex items-center space-x-2.5 px-3 py-1.5 text-xs rounded-lg text-slate-300 hover:bg-white/8 hover:text-slate-100 transition-colors"
+          >
+            <Download size={13} className="w-3.5 flex-shrink-0" />
+            <span>Download{file.type === 'folder' ? ' as ZIP' : ''}</span>
+          </a>
           <div className="border-t border-white/5 my-1" />
           <Item icon={<Trash2 size={13} />} label="Delete" onClick={() => onDelete?.(file.id)} danger />
         </>
@@ -132,6 +132,7 @@ export default function ContextMenu({
           )}
         </>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
