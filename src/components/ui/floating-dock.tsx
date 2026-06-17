@@ -39,6 +39,11 @@ const FloatingDockDesktop = ({
           width="100%"
           height="100%"
           borderRadius={32}
+          distortionScale={300}
+          opacity={1}
+          borderWidth={0.2}
+          displace={1.6}
+          backgroundOpacity={0}
         />
       </div>
       {items.map((item) => (
