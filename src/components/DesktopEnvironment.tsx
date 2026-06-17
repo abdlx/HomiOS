@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
+import { FloatingDock } from './ui/floating-dock';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
@@ -179,12 +180,27 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       </div>
 
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
-        <div className="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 hover:bg-black/50 transition-colors duration-500 flex items-center space-x-4">
-          {dockAppIds.map((id) => {
+        <FloatingDock
+          desktopClassName="bg-black/40 backdrop-blur-3xl rounded-[32px] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/10 hover:bg-black/50 transition-colors duration-500"
+          items={dockAppIds.map((id) => {
             const app = ALL_APPS[id];
-            return app ? <AppIcon key={`dock-${app.id}`} app={app} source="dock" /> : null;
-          })}
-        </div>
+            if (!app) return null;
+            return {
+              title: app.label,
+              onClick: getOnClick(app.id),
+              icon: (
+                <div 
+                  className={`w-full h-full rounded-2xl bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden`}
+                  onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
+                  <app.icon size={28} strokeWidth={1.5} className="drop-shadow-md z-10" />
+                </div>
+              ),
+              href: "#",
+            };
+          }).filter(Boolean) as any[]}
+        />
       </div>
 
       {contextMenu && (
