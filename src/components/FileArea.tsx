@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FileText,
   Folder,
@@ -17,6 +17,7 @@ import {
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
 import { promptDialog, toast } from './SystemUI';
+import LazyMediaThumbnail from './LazyMediaThumbnail';
 
 interface FileAreaProps {
   files: FileItem[];
@@ -34,6 +35,7 @@ interface FileAreaProps {
   onAddNewFile?: (name: string, type: 'document' | 'text' | 'image') => void;
   onAddNewFolder?: (name: string, color?: 'blue' | 'orange' | 'green') => void;
   onShare?: (file: FileItem) => void;
+  onPasteClipboard?: () => void;
 }
 
 export default function FileArea({
@@ -51,16 +53,45 @@ export default function FileArea({
   setClipboard,
   onAddNewFile,
   onAddNewFolder,
-  onShare
+  onShare,
+  onPasteClipboard
 }: FileAreaProps) {
+  const PAGE_SIZE = 120;
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Gallery active slide index
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   // Right-click context menu
   const [contextMenu, setContextMenu] = useState<{ file: FileItem | null; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [files.length, viewMode, currentPath.join('/')]);
+
+  useEffect(() => {
+    if (visibleCount >= files.length) return;
+    const target = loadMoreRef.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((count) => Math.min(count + PAGE_SIZE, files.length));
+        }
+      },
+      { root: containerRef.current, rootMargin: '900px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [files.length, visibleCount]);
+
+  const visibleFiles = files.slice(0, visibleCount);
 
   const handleContextMenu = (e: React.MouseEvent, file: FileItem | null) => {
     e.preventDefault();
@@ -177,7 +208,7 @@ export default function FileArea({
   const renderGrid = () => {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-7">
-        {files.map((file) => {
+        {visibleFiles.map((file) => {
           const isSelected = selectedFileId === file.id;
 
           return (
@@ -207,45 +238,38 @@ export default function FileArea({
               }`}>
                 
                 {file.type === 'folder' && file.thumbnailUrl ? (
-                  <div className={`relative w-[110px] h-[82px] rounded-xl overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
+                  <LazyMediaThumbnail
+                    src={file.thumbnailUrl}
+                    alt={file.name}
+                    type="image"
+                    className={`w-[110px] h-[82px] rounded-xl border shadow-sm ${
                     isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
-                  }`}>
-                    <img 
-                      src={file.thumbnailUrl} 
-                      alt={file.name}
-                      className="w-full h-full object-cover pointer-events-none"
-                      referrerPolicy="no-referrer"
-                    />
+                  }`}
+                    mediaClassName="w-full h-full object-cover pointer-events-none"
+                  >
                     <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-black/55 text-white text-[10px] font-bold text-left truncate">
                       {file.size}
                     </div>
-                  </div>
+                  </LazyMediaThumbnail>
                 ) : (file.type === 'image' || file.type === 'video') && file.thumbnailUrl ? (
                   <div className={`w-[110px] h-[75px] rounded-lg overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
                     isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
                   }`}>
-                    {file.type === 'video' ? (
-                      <div className="relative w-full h-full bg-neutral-900">
-                        <video
-                          src={file.thumbnailUrl}
-                          className="w-full h-full object-cover pointer-events-none"
-                          muted
-                          preload="metadata"
-                        />
+                    <LazyMediaThumbnail
+                      src={file.thumbnailUrl}
+                      alt={file.name}
+                      type={file.type}
+                      className="w-full h-full"
+                      mediaClassName="w-full h-full object-cover pointer-events-none"
+                    >
+                      {file.type === 'video' && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/15">
                           <div className="w-8 h-8 rounded-full bg-black/55 text-white flex items-center justify-center">
                             <Video size={16} fill="currentColor" />
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <img 
-                        src={file.thumbnailUrl} 
-                        alt={file.name}
-                        className="w-full h-full object-cover pointer-events-none"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
+                      )}
+                    </LazyMediaThumbnail>
                   </div>
                 ) : file.type === 'folder' ? (
                   renderFolderIcon(file.folderColor)
@@ -345,7 +369,7 @@ export default function FileArea({
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
-            {files.map((file) => {
+            {visibleFiles.map((file) => {
               const isSelected = selectedFileId === file.id;
               return (
                 <tr
@@ -447,7 +471,7 @@ export default function FileArea({
         {/* Column 2: Files listed inside active folder */}
         <div className="w-1/3 border-r border-neutral-200/50 dark:border-white/10 p-2.5 overflow-y-auto space-y-1">
           <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-2 mb-2">Files List</p>
-          {files.map((file) => {
+          {visibleFiles.map((file) => {
             const isSelected = selectedFileId === file.id;
             return (
               <button
@@ -543,6 +567,8 @@ export default function FileArea({
     // Bounds checking
     const safeIndex = galleryIndex >= galleryItems.length ? 0 : galleryIndex;
     const currentItem = galleryItems[safeIndex];
+    const thumbnailStart = Math.max(0, safeIndex - 80);
+    const thumbnailItems = galleryItems.slice(thumbnailStart, Math.min(galleryItems.length, safeIndex + 81));
 
     const prevSlide = () => {
       setGalleryIndex(prev => (prev === 0 ? galleryItems.length - 1 : prev - 1));
@@ -618,7 +644,9 @@ export default function FileArea({
 
         {/* Slider thumbnails strip */}
         <div className="flex items-center space-x-2 mt-4 overflow-x-auto max-w-full py-1">
-          {galleryItems.map((item, idx) => (
+          {thumbnailItems.map((item, offset) => {
+            const idx = thumbnailStart + offset;
+            return (
             <button
               key={item.id}
               onClick={() => setGalleryIndex(idx)}
@@ -627,18 +655,22 @@ export default function FileArea({
               }`}
             >
               {(item.type === 'image' || item.type === 'video') && item.thumbnailUrl ? (
-                item.type === 'video' ? (
-                  <video src={item.thumbnailUrl} className="w-full h-full object-cover" muted preload="metadata" />
-                ) : (
-                  <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="thumb" />
-                )
+                <LazyMediaThumbnail
+                  src={item.thumbnailUrl}
+                  alt={item.name}
+                  type={item.type}
+                  className="w-full h-full"
+                  mediaClassName="w-full h-full object-cover"
+                  rootMargin="300px"
+                />
               ) : (
                 <div className="bg-zinc-800 w-full h-full flex items-center justify-center text-zinc-400">
                   <FileText size={12} />
                 </div>
               )}
             </button>
-          ))}
+          );
+          })}
         </div>
 
       </div>
@@ -647,6 +679,7 @@ export default function FileArea({
 
   return (
     <div 
+      ref={containerRef}
       className="flex-1 bg-transparent p-4 md:p-5 overflow-y-auto relative outline-none select-none"
       onContextMenu={(e) => handleContextMenu(e, null)}
       onDragEnter={handleDragEnter}
@@ -692,9 +725,8 @@ export default function FileArea({
           onCopy={contextMenu.file ? (f) => setClipboard?.({ action: 'copy', file: f }) : undefined}
           onCut={contextMenu.file ? (f) => setClipboard?.({ action: 'cut', file: f }) : undefined}
           onPaste={() => {
-            if (clipboardState && clipboardState.action === 'cut') {
-              toast({ message: `Moved ${clipboardState.file.name}`, tone: 'success' });
-              setClipboard?.(null);
+            if (onPasteClipboard) {
+              onPasteClipboard();
             } else if (clipboardState) {
               toast({ message: `Pasted copy of ${clipboardState.file.name}`, tone: 'success' });
             }
@@ -719,7 +751,11 @@ export default function FileArea({
       {viewMode === 'column' && renderColumn()}
       {viewMode === 'gallery' && renderGallery()}
 
-
+      {visibleCount < files.length && (
+        <div ref={loadMoreRef} className="h-16 flex items-center justify-center text-xs text-neutral-400 dark:text-neutral-500">
+          Loading more items...
+        </div>
+      )}
 
     </div>
   );

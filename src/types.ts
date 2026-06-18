@@ -54,7 +54,8 @@ export interface TransferTask {
   name: string;
   progress: number; // 0 to 100
   status: 'pending' | 'uploading' | 'paused' | 'completed' | 'error';
-  type: 'upload' | 'download';
+  type: 'upload' | 'download' | 'move' | 'copy';
+  description?: string;
   /** TUS upload instance for pause/resume support */
   tusUpload?: any;
   /** Bytes transferred so far */

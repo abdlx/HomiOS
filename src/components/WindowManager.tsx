@@ -7,6 +7,8 @@ import ActivityApp from './ActivityApp';
 import CoolifyApp from './CoolifyApp';
 import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
+import { TransferTask } from '../types';
+import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
@@ -16,6 +18,15 @@ interface WindowManagerProps {
 
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
   const [view, setView] = useState<string>(initialView);
+  const [transfers, setTransfers] = useState<TransferTask[]>([]);
+
+  useEffect(() => {
+    const handleTransfers = (event: Event) => {
+      setTransfers((event as CustomEvent<TransferTask[]>).detail || []);
+    };
+    window.addEventListener('openfinder:transfers', handleTransfers);
+    return () => window.removeEventListener('openfinder:transfers', handleTransfers);
+  }, []);
 
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
@@ -40,6 +51,32 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
 
   return (
     <div className="relative h-screen w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+      {transfers.length > 0 && (() => {
+        const active = transfers.filter(task => task.status === 'uploading' || task.status === 'pending');
+        const failed = transfers.filter(task => task.status === 'error');
+        const completed = transfers.filter(task => task.status === 'completed');
+        const visibleTasks = active.length > 0 ? active : failed.length > 0 ? failed : completed;
+        const current = visibleTasks[visibleTasks.length - 1];
+        const progress = active.length > 0
+          ? Math.round(active.reduce((sum, task) => sum + task.progress, 0) / active.length)
+          : current?.progress ?? 100;
+        const Icon = active.length > 0 ? Loader2 : failed.length > 0 ? XCircle : CheckCircle;
+
+        return (
+          <button
+            onClick={() => setView('files')}
+            className="fixed top-1 right-3 z-[200] hidden md:flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-3 py-1 text-[12px] text-white/90 shadow-lg backdrop-blur-xl hover:bg-black/70 transition-colors"
+            title="Open Files transfers"
+          >
+            <Icon size={13} className={active.length > 0 ? 'animate-spin text-blue-300' : failed.length > 0 ? 'text-red-300' : 'text-emerald-300'} />
+            <span className="font-semibold">
+              {active.length > 0 ? `${active.length} transfer${active.length === 1 ? '' : 's'}` : failed.length > 0 ? 'Transfer failed' : 'Transfers done'}
+            </span>
+            <span className="text-white/60 truncate max-w-[140px]">{current?.name}</span>
+            <span className="font-mono text-white/75">{progress}%</span>
+          </button>
+        );
+      })()}
       
       {/* Desktop Environment - ALWAYS MOUNTED to prevent load delays */}
       <div className="absolute inset-0 z-0">

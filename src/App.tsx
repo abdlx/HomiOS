@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
@@ -36,6 +36,8 @@ export default function App({ onClose }: AppProps = {}) {
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [fileMetadata, setFileMetadata] = useState<Record<string, { tags?: string[], folderColor?: string, isFavorite?: boolean, name?: string }>>({});
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
+  const transferFlushRef = useRef<number | null>(null);
+  const pendingTransferUpdatesRef = useRef<Record<string, Partial<TransferTask>>>({});
   const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
   const [sharedPaths, setSharedPaths] = useState<string[]>([]);
 
@@ -91,6 +93,10 @@ export default function App({ onClose }: AppProps = {}) {
   useEffect(() => {
     loadFiles();
   }, [currentPath]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('openfinder:transfers', { detail: transfers }));
+  }, [transfers]);
 
   const getApiPath = () => {
     if (currentPath.length === 0) return '';
@@ -350,6 +356,120 @@ export default function App({ onClose }: AppProps = {}) {
     handleAddNewFile(payload.name, payload.type);
   };
 
+  const updateTransferThrottled = (id: string, update: Partial<TransferTask>, immediate = false) => {
+    pendingTransferUpdatesRef.current[id] = {
+      ...pendingTransferUpdatesRef.current[id],
+      ...update,
+    };
+
+    const flush = () => {
+      const updates = pendingTransferUpdatesRef.current;
+      pendingTransferUpdatesRef.current = {};
+      transferFlushRef.current = null;
+      setTransfers(prev => prev.map(task => updates[task.id] ? { ...task, ...updates[task.id] } : task));
+    };
+
+    if (immediate) {
+      if (transferFlushRef.current !== null) {
+        window.clearTimeout(transferFlushRef.current);
+      }
+      flush();
+      return;
+    }
+
+    if (transferFlushRef.current === null) {
+      transferFlushRef.current = window.setTimeout(flush, 250);
+    }
+  };
+
+  const readMoveProgress = async (res: Response, taskId: string) => {
+    if (!res.body) {
+      throw new Error('Move progress stream is not available');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'progress') {
+          updateTransferThrottled(taskId, {
+            progress: event.progress ?? 0,
+            bytesUploaded: event.bytesMoved,
+            bytesTotal: event.totalBytes,
+          });
+        }
+        if (event.type === 'error') {
+          updateTransferThrottled(taskId, { status: 'error', description: event.error || 'Move failed' }, true);
+          throw new Error(event.error || 'Move failed');
+        }
+        if (event.type === 'done') {
+          updateTransferThrottled(taskId, { progress: 100, status: 'completed' }, true);
+        }
+      }
+    }
+  };
+
+  const handlePasteClipboard = async () => {
+    if (!clipboard) return;
+
+    if (clipboard.action !== 'cut') {
+      toast({ message: `Pasted copy of ${clipboard.file.name}`, tone: 'info' });
+      return;
+    }
+
+    const apiPath = getApiPath();
+    const destinationPath = `/${apiPath}/${clipboard.file.name}`.replace(/\/+/g, '/');
+    const sourcePath = `/${clipboard.file.id}`.replace(/\/+/g, '/');
+
+    if (sourcePath === destinationPath) {
+      toast({ message: 'Item is already in this folder', tone: 'info' });
+      return;
+    }
+
+    const taskId = `move-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const task: TransferTask = {
+      id: taskId,
+      name: clipboard.file.name,
+      progress: 0,
+      status: 'uploading',
+      type: 'move',
+      description: 'Moving item',
+    };
+    setTransfers(prev => [...prev, task]);
+
+    try {
+      const res = await fetch('/api/files/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourcePath, destinationPath }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Move failed with status ${res.status}`);
+      }
+
+      await readMoveProgress(res, taskId);
+      setClipboard(null);
+      if (selectedFileId === clipboard.file.id) setSelectedFileId(null);
+      loadFiles();
+      toast({ message: `Moved ${clipboard.file.name}`, tone: 'success' });
+    } catch (err: any) {
+      updateTransferThrottled(taskId, { status: 'error', description: err.message || 'Move failed' }, true);
+      toast({ message: 'Move failed', description: err.message || 'Could not move item', tone: 'danger' });
+    }
+  };
+
   const handleRenameFile = async (id: string, newName: string) => {
     const dir = id.substring(0, id.lastIndexOf('/'));
     const newPath = dir ? `/${dir}/${newName}` : `/${newName}`;
@@ -522,6 +642,7 @@ export default function App({ onClose }: AppProps = {}) {
                     onAddNewFile={handleAddNewFile}
                     onAddNewFolder={handleAddNewFolder}
                     onShare={handleShare}
+                    onPasteClipboard={handlePasteClipboard}
                   />
                 </>
               )}
@@ -544,7 +665,7 @@ export default function App({ onClose }: AppProps = {}) {
         <div className={`fixed right-6 w-80 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-neutral-200 dark:border-white/10 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
           }`}>
           <div className="bg-neutral-50 dark:bg-white/5 px-4 py-2 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center">
-            <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Transfers ({transfers.filter(t => t.status === 'uploading').length} active)</span>
+            <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Transfers ({transfers.filter(t => t.status === 'uploading' || t.status === 'pending').length} active)</span>
             <button
               onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
               className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
@@ -577,6 +698,9 @@ export default function App({ onClose }: AppProps = {}) {
                     <p className="text-[9px] text-neutral-400 mt-0.5 font-mono">
                       {((task.bytesUploaded ?? 0) / 1024 / 1024).toFixed(1)} / {(task.bytesTotal / 1024 / 1024).toFixed(1)} MB
                     </p>
+                  )}
+                  {task.description && (
+                    <p className="text-[9px] text-neutral-400 mt-0.5 truncate">{task.description}</p>
                   )}
                 </div>
                 {/* Pause / Resume for TUS uploads */}

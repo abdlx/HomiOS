@@ -25,6 +25,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { FileItem } from '../types';
+import LazyMediaThumbnail from './LazyMediaThumbnail';
 
 const MonacoEditor: any = lazy(() => import('@monaco-editor/react').catch(() => ({ default: () => <div>Editor not available</div> } as any)));
 
@@ -96,9 +97,11 @@ export default function QuickLookModal({
 
   const fileUrl = mediaUrl(file);
   const language = resolveLanguage(file.name);
-  const mediaFiles = files.filter((item) => item.type === 'image' || item.type === 'video');
+  const mediaFiles = files.filter((item): item is FileItem & { type: 'image' | 'video' } => item.type === 'image' || item.type === 'video');
   const safeIndex = currentIndex >= 0 ? currentIndex : mediaFiles.findIndex((item) => item.id === file.id);
   const canNavigate = mediaFiles.length > 1 && safeIndex >= 0;
+  const filmstripStart = Math.max(0, safeIndex - 60);
+  const filmstripItems = mediaFiles.slice(filmstripStart, Math.min(mediaFiles.length, safeIndex + 61));
 
   useEffect(() => {
     import('@monaco-editor/react').then(() => setMonacoAvailable(true)).catch(() => setMonacoAvailable(false));
@@ -448,26 +451,33 @@ export default function QuickLookModal({
       {isMedia && mediaFiles.length > 1 && (
         <div className="h-24 border-t border-white/10 bg-neutral-950 px-4 py-3 overflow-x-auto">
           <div className="flex gap-2 min-w-max">
-            {mediaFiles.map((item, index) => (
+            {filmstripItems.map((item, offset) => {
+              const index = filmstripStart + offset;
+              return (
               <button
                 key={item.id}
                 onClick={() => onSelectFile?.(item)}
                 className={`relative w-24 h-16 rounded-md overflow-hidden border transition-all ${item.id === file.id ? 'border-blue-400 ring-2 ring-blue-500/30' : 'border-white/10 opacity-65 hover:opacity-100'}`}
                 title={item.name}
               >
-                {item.type === 'video' ? (
-                  <>
-                    <video src={mediaUrl(item)} className="w-full h-full object-cover" muted preload="metadata" />
+                <LazyMediaThumbnail
+                  src={mediaUrl(item)}
+                  alt={item.name}
+                  type={item.type}
+                  className="w-full h-full"
+                  mediaClassName="w-full h-full object-cover"
+                  rootMargin="300px"
+                >
+                  {item.type === 'video' && (
                     <span className="absolute inset-0 flex items-center justify-center text-white bg-black/20">
                       <Video size={16} />
                     </span>
-                  </>
-                ) : (
-                  <img src={mediaUrl(item)} alt={item.name} className="w-full h-full object-cover" />
-                )}
+                  )}
+                </LazyMediaThumbnail>
                 <span className="absolute left-1 bottom-1 text-[9px] font-bold px-1 rounded bg-black/60 text-white">{index + 1}</span>
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}
