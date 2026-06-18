@@ -106,7 +106,13 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
         setCurrentFiles(formatted);
         setMediaFolders(formattedFolders);
         if (!Array.isArray(data) && data.truncated) {
-          toast({ message: 'Photos scan stopped early', description: 'Showing the newest media found so far.', tone: 'info' });
+          toast({
+            message: formatted.length > 0 ? 'Large library scan limited' : 'Photos scan reached the time limit',
+            description: formatted.length > 0
+              ? 'Showing the media found so far. Narrow the selected Photos sources in Settings for faster scans.'
+              : 'Choose a smaller drive or folder in Settings > Storage > Photos Library Sources.',
+            tone: formatted.length > 0 ? 'info' : 'warning',
+          });
         }
       } else {
         setCurrentFiles([]);

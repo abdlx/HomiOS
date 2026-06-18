@@ -24,8 +24,9 @@ const IGNORED_DIRS = new Set([
   'temp', 'tmp', 'proc', 'sys', 'dev', 'run', 'snap', 'var'
 ]);
 
-const MAX_MEDIA_RESULTS = 5000;
-const SCAN_TIMEOUT_MS = 20000;
+const MAX_MEDIA_RESULTS = 20000;
+const DEFAULT_SCAN_TIMEOUT_MS = 45000;
+const SELECTED_SOURCE_SCAN_TIMEOUT_MS = 120000;
 
 interface FolderSummary {
   id: string;
@@ -46,6 +47,7 @@ interface ScanContext {
   seenMedia: Set<string>;
   folders: Map<string, FolderSummary>;
   truncated: boolean;
+  skipped: number;
 }
 
 function isMediaFile(filename: string): 'image' | 'video' | null {
@@ -126,32 +128,70 @@ async function findMediaInDir(dir: string, ctx: ScanContext): Promise<void> {
       }
     }
   } catch (err) {
-    // Ignore permissions errors etc.
+    ctx.skipped += 1;
   }
+}
+
+async function filterExistingRoots(roots: string[]) {
+  const existing: string[] = [];
+  for (const root of roots) {
+    try {
+      const s = await stat(root);
+      if (s.isDirectory()) existing.push(root);
+    } catch {
+      // Ignore stale Settings paths, unmounted drives, and deleted folders.
+    }
+  }
+  return existing;
 }
 
 async function getScanRoots() {
   if (os.platform() === 'win32') {
-    const { stdout } = await execAsync('wmic logicaldisk get name');
-    return stdout
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length === 2 && line.endsWith(':'))
-      .map(line => line + '\\');
+    const roots = new Set<string>();
+    const home = os.homedir();
+    ['Pictures', 'Videos', 'Downloads', 'OneDrive\\Pictures', 'OneDrive\\Videos'].forEach((folder) => {
+      roots.add(path.join(home, folder));
+    });
+
+    try {
+      const { stdout } = await execAsync('wmic logicaldisk get deviceid,drivetype');
+      stdout
+        .split('\n')
+        .map(line => line.trim().replace(/\s+/g, ' '))
+        .forEach((line) => {
+          const match = line.match(/^([A-Z]:)\s+(\d+)$/i);
+          if (!match) return;
+          const drive = `${match[1]}\\`;
+          const driveType = Number(match[2]);
+          const isRemovable = driveType === 2;
+          const isNonSystemFixed = driveType === 3 && drive.toLowerCase() !== 'c:\\';
+          if (isRemovable || isNonSystemFixed) roots.add(drive);
+        });
+    } catch {
+      // Keep user media folders if drive discovery fails.
+    }
+
+    return Array.from(roots);
   }
 
   if (os.platform() === 'linux') {
     try {
       const { stdout } = await execAsync('lsblk -J -o MOUNTPOINTS,MOUNTPOINT,TYPE,FSTYPE');
       const parsed = JSON.parse(stdout);
-      const roots = new Set<string>(['/']);
+      const roots = new Set<string>();
+      const home = os.homedir();
+      ['Pictures', 'Videos', 'Downloads', 'Media'].forEach((folder) => {
+        roots.add(path.join(home, folder));
+      });
 
       const visit = (devices: any[]) => {
         for (const dev of devices || []) {
           if (dev.type !== 'loop' && dev.fstype !== 'swap') {
             const mountpoints: (string | null)[] = dev.mountpoints || (dev.mountpoint ? [dev.mountpoint] : []);
             mountpoints.filter(Boolean).forEach((mount) => {
-              if (mount && mount !== '[SWAP]') roots.add(mount);
+              if (mount && mount !== '[SWAP]' && mount !== '/' && mount !== '/boot' && mount !== '/boot/efi') {
+                roots.add(mount);
+              }
             });
           }
           if (dev.children) visit(dev.children);
@@ -161,11 +201,13 @@ async function getScanRoots() {
       visit(parsed.blockdevices || []);
       return Array.from(roots);
     } catch {
-      return ['/'];
+      const home = os.homedir();
+      return ['Pictures', 'Videos', 'Downloads', 'Media'].map((folder) => path.join(home, folder));
     }
   }
 
-  return ['/'];
+  const home = os.homedir();
+  return ['Pictures', 'Movies', 'Downloads'].map((folder) => path.join(home, folder));
 }
 
 function getRequestedSources(req: any): string[] | null {
@@ -190,15 +232,16 @@ export default async function handler(req: any, res: any) {
   if (!session) return res.status(401).end();
 
   try {
+    const requestedSources = getRequestedSources(req);
     const ctx: ScanContext = {
-      deadline: Date.now() + SCAN_TIMEOUT_MS,
+      deadline: Date.now() + (requestedSources ? SELECTED_SOURCE_SCAN_TIMEOUT_MS : DEFAULT_SCAN_TIMEOUT_MS),
       media: [],
       seenMedia: new Set(),
       folders: new Map(),
       truncated: false,
+      skipped: 0,
     };
-    const requestedSources = getRequestedSources(req);
-    const roots = requestedSources || await getScanRoots();
+    const roots = await filterExistingRoots(requestedSources || await getScanRoots());
     await Promise.all(roots.map(root => findMediaInDir(root, ctx).catch(() => {})));
 
     // Sort by modified date descending
@@ -211,6 +254,8 @@ export default async function handler(req: any, res: any) {
       folders,
       roots,
       truncated: ctx.truncated,
+      skipped: ctx.skipped,
+      limit: MAX_MEDIA_RESULTS,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
