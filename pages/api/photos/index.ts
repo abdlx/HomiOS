@@ -1,9 +1,20 @@
-import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
 import { getSession } from '../../../lib/auth';
 import { getDb } from '../../../lib/db.ts';
+
+const runtimeImport = new Function('specifier', 'return import(specifier)') as <T = any>(specifier: string) => Promise<T>;
+
+async function runtimeReaddir(dir: string) {
+  const { readdir } = await runtimeImport<typeof import('fs/promises')>('fs/promises');
+  return readdir(dir, { withFileTypes: true });
+}
+
+async function runtimeStat(filePath: string) {
+  const { stat } = await runtimeImport<typeof import('fs/promises')>('fs/promises');
+  return stat(filePath);
+}
 
 const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -94,7 +105,7 @@ async function findMediaInDir(dir: string, ctx: ScanContext): Promise<void> {
   }
 
   try {
-    const entries = await readdir(dir, { withFileTypes: true });
+    const entries = await runtimeReaddir(dir);
     for (const entry of entries) {
       if (Date.now() > ctx.deadline || ctx.media.length >= ctx.maxResults) {
         ctx.truncated = true;
@@ -112,7 +123,7 @@ async function findMediaInDir(dir: string, ctx: ScanContext): Promise<void> {
           if (ctx.seenMedia.has(fullPath)) continue;
           ctx.seenMedia.add(fullPath);
           try {
-            const s = await stat(fullPath);
+            const s = await runtimeStat(fullPath);
             const modified = s.mtime.toISOString();
             ctx.media.push({
               id: fullPath,
@@ -140,7 +151,7 @@ async function filterExistingRoots(roots: string[]) {
   const existing: string[] = [];
   for (const root of roots) {
     try {
-      const s = await stat(root);
+      const s = await runtimeStat(root);
       if (s.isDirectory()) existing.push(root);
     } catch {
       // Ignore stale Settings paths, unmounted drives, and deleted folders.

@@ -1,8 +1,7 @@
 import { readdir, stat, writeFile, unlink, rename as fsRename } from 'fs/promises';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
-// @ts-expect-error
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
@@ -61,7 +60,7 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ error: 'Not a directory' });
         }
 
-        const archive = archiver('zip', {
+        const archive = new ZipArchive({
           zlib: { level: Number(process.env.ZIP_COMPRESSION_LEVEL || 3) }
         });
 

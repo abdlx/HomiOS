@@ -3,12 +3,10 @@ import fsp from 'fs/promises';
 import path from 'path';
 import { createWriteStream } from 'fs';
 import { randomUUID } from 'crypto';
-import { createRequire } from 'module';
+import { ZipArchive } from 'archiver';
 import { getDb } from './db.ts';
 import { uploadBackupToS3 } from './s3.ts';
 
-const require = createRequire(import.meta.url);
-const archiver = require('archiver');
 const BACKUP_ROOT = process.env.BACKUP_WORK_DIR || path.join(process.cwd(), 'data', '.cache', 'backups');
 
 async function copyRecursive(source: string, destination: string, onProgress?: (bytes: number) => void) {
@@ -57,7 +55,7 @@ function zipDirectory(source: string, zipPath: string) {
   return new Promise<void>(async (resolve, reject) => {
     await fsp.mkdir(path.dirname(zipPath), { recursive: true });
     const output = createWriteStream(zipPath);
-    const archive = archiver('zip', { zlib: { level: Number(process.env.ZIP_COMPRESSION_LEVEL || 3) } });
+    const archive = new ZipArchive({ zlib: { level: Number(process.env.ZIP_COMPRESSION_LEVEL || 3) } });
     output.on('close', () => resolve());
     archive.on('error', reject);
     archive.pipe(output);
