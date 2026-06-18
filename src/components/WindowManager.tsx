@@ -6,10 +6,11 @@ import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
 import CoolifyApp from './CoolifyApp';
 import NotesApp from './NotesApp';
+import PhotosApp from './PhotosApp';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'notes';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'notes' | 'photos';
   username?: string;
 }
 
@@ -32,6 +33,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/coolify');
     } else if (view === 'notes') {
       window.history.pushState(null, '', '/notes');
+    } else if (view === 'photos') {
+      window.history.pushState(null, '', '/photos');
     }
   }, [view]);
 
@@ -47,6 +50,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           onOpenActivity={() => setView('activity')}
           onOpenCoolify={() => setView('coolify')}
           onOpenNotes={() => setView('notes')}
+          onOpenPhotos={() => setView('photos')}
           username={username}
         />
       </div>
@@ -125,6 +129,19 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <NotesApp onClose={() => setView('desktop')} />
+        </div>
+      </div>
+
+      {/* Photos App overlay */}
+      <div
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
+          view === 'photos'
+            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]'
+            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
+        }`}
+      >
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
+          <PhotosApp onClose={() => setView('desktop')} />
         </div>
       </div>
 
