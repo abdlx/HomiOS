@@ -168,6 +168,23 @@ async function getScanRoots() {
   return ['/'];
 }
 
+function getRequestedSources(req: any): string[] | null {
+  const raw = req.query.sources;
+  if (!raw || Array.isArray(raw)) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const sources = parsed
+      .filter((source): source is string => typeof source === 'string')
+      .map((source) => source.trim())
+      .filter(Boolean);
+    return sources.length > 0 ? Array.from(new Set(sources)) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).end();
@@ -180,7 +197,8 @@ export default async function handler(req: any, res: any) {
       folders: new Map(),
       truncated: false,
     };
-    const roots = await getScanRoots();
+    const requestedSources = getRequestedSources(req);
+    const roots = requestedSources || await getScanRoots();
     await Promise.all(roots.map(root => findMediaInDir(root, ctx).catch(() => {})));
 
     // Sort by modified date descending

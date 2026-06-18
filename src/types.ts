@@ -15,6 +15,11 @@ export interface FileItem {
   isCustomUrl?: boolean;
   isFavorite?: boolean;
   isShared?: boolean;
+  folderPath?: string;
+  folderName?: string;
+  mediaCount?: number;
+  imageCount?: number;
+  videoCount?: number;
 }
 
 export interface FolderNode {

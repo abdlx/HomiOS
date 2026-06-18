@@ -7,7 +7,7 @@ import {
   Settings, Monitor, Users, Wifi, Info, CheckCircle2,
   HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server, Menu,
   Key, Bell, Smartphone, Copy, Trash2, Plus, RefreshCw, Eye, EyeOff, Send,
-  Sun, Moon
+  Sun, Moon, Image as ImageIcon, Folder
 } from 'lucide-react';
 
 interface SettingsAppProps {
@@ -25,6 +25,8 @@ const WALLPAPERS = [
   "https://images.unsplash.com/photo-1485470733090-0aae1788d5af?q=80&w=1517&auto=format&fit=crop"
 ];
 
+const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
+
 export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [activeTab, setActiveTab] = useState('general');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -33,6 +35,9 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   const { theme, resolvedTheme, changeTheme } = useTheme();
   const [sysStats, setSysStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
+  const [drives, setDrives] = useState<any[]>([]);
+  const [shortcuts, setShortcuts] = useState<any[]>([]);
+  const [photoSources, setPhotoSources] = useState<string[]>([]);
 
   // Teams & Members
   const [teamInfo, setTeamInfo] = useState<any>(null);
@@ -82,10 +87,56 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   useEffect(() => {
     fetch('/api/system/stats').then(res => res.json()).then(setSysStats).catch(console.error);
     fetch('/api/users').then(res => res.json()).then(setUsers).catch(console.error);
+    fetch('/api/drives/available').then(res => res.json()).then(data => setDrives(Array.isArray(data) ? data : [])).catch(console.error);
+    fetch('/api/system/shortcuts').then(res => res.json()).then(data => setShortcuts(Array.isArray(data) ? data : [])).catch(console.error);
     loadTeam();
     loadTokens();
     loadTwoFA();
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PHOTOS_SOURCES_KEY);
+      setPhotoSources(saved ? JSON.parse(saved) : []);
+    } catch {
+      setPhotoSources([]);
+    }
+  }, []);
+
+  const savePhotoSources = (sources: string[]) => {
+    const unique = Array.from(new Set(sources.filter(Boolean)));
+    setPhotoSources(unique);
+    if (unique.length === 0) {
+      localStorage.removeItem(PHOTOS_SOURCES_KEY);
+    } else {
+      localStorage.setItem(PHOTOS_SOURCES_KEY, JSON.stringify(unique));
+    }
+    window.dispatchEvent(new Event('openfinder:photos-sources-changed'));
+    toast({
+      message: unique.length === 0 ? 'Photos will scan all detected sources' : 'Photos library sources updated',
+      tone: 'success',
+    });
+  };
+
+  const togglePhotoSource = (sourcePath: string) => {
+    if (!sourcePath) return;
+    if (photoSources.includes(sourcePath)) {
+      savePhotoSources(photoSources.filter((source) => source !== sourcePath));
+    } else {
+      savePhotoSources([...photoSources, sourcePath]);
+    }
+  };
+
+  const addPhotoSourcePath = async () => {
+    const sourcePath = await promptDialog({
+      title: 'Add Photos Folder',
+      placeholder: 'D:\\Pictures or /mnt/media',
+      confirmLabel: 'Add',
+    });
+    if (sourcePath?.trim()) {
+      savePhotoSources([...photoSources, sourcePath.trim()]);
+    }
+  };
 
   const tabs = [
     { id: 'general', label: 'General', icon: Settings },
@@ -465,6 +516,120 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                       <div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{ width: sysStats ? `${(sysStats.disk.used / sysStats.disk.total) * 100}%` : '0%' }} />
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500">Mount: /</p>
+                  </div>
+
+                  <div className="border-t border-slate-100 dark:border-white/10 pt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-500/10 text-pink-500 flex items-center justify-center">
+                          <ImageIcon size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-slate-800 dark:text-white">Photos Library Sources</h4>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Choose drives and folders scanned by the Photos app.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => savePhotoSources([])}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+                      >
+                        Scan All
+                      </button>
+                      <button
+                        onClick={addPhotoSourcePath}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        Add Folder Path
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-slate-100 dark:border-white/10 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 flex items-center gap-2">
+                          <HardDrive size={16} className="text-slate-400" />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Drives</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-white/10">
+                          {drives.map((drive) => {
+                            const sourcePath = drive.path || '';
+                            const checked = photoSources.length === 0 || photoSources.includes(sourcePath);
+                            return (
+                              <label key={drive.path || drive.label} className={`flex items-center gap-3 px-4 py-3 text-sm ${sourcePath ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5' : 'opacity-50'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={!sourcePath}
+                                  onChange={() => togglePhotoSource(sourcePath)}
+                                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-700 dark:text-slate-200 truncate">{drive.label || sourcePath}</p>
+                                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{sourcePath || 'Unmounted'}</p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                          {drives.length === 0 && (
+                            <p className="px-4 py-4 text-sm text-slate-400">No drives detected.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 dark:border-white/10 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 flex items-center gap-2">
+                          <Folder size={16} className="text-slate-400" />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Folders</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-white/10 max-h-72 overflow-y-auto">
+                          {shortcuts.map((shortcut) => {
+                            const sourcePath = shortcut.path || '';
+                            const checked = photoSources.length === 0 || photoSources.includes(sourcePath);
+                            return (
+                              <label key={shortcut.path || shortcut.label} className="flex items-center gap-3 px-4 py-3 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => togglePhotoSource(sourcePath)}
+                                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-700 dark:text-slate-200 truncate">{shortcut.label || sourcePath}</p>
+                                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{sourcePath}</p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                          {shortcuts.length === 0 && (
+                            <p className="px-4 py-4 text-sm text-slate-400">No common media folders detected.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                      {photoSources.length === 0 ? 'Photos is currently scanning every detected source.' : `Photos is scanning ${photoSources.length} selected source${photoSources.length === 1 ? '' : 's'}.`}
+                    </p>
+                    {photoSources.length > 0 && (
+                      <div className="mt-4 rounded-2xl border border-slate-100 dark:border-white/10 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          Active Sources
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-white/10">
+                          {photoSources.map((source) => (
+                            <div key={source} className="flex items-center gap-3 px-4 py-3">
+                              <span className="flex-1 min-w-0 text-sm text-slate-600 dark:text-slate-300 truncate">{source}</span>
+                              <button
+                                onClick={() => savePhotoSources(photoSources.filter((item) => item !== source))}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                title="Remove source"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

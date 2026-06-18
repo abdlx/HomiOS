@@ -2,17 +2,51 @@ import React, { useState, useEffect } from 'react';
 import Toolbar from './Toolbar';
 import FileArea from './FileArea';
 import QuickLookModal from './QuickLookModal';
+import Sidebar from './Sidebar';
 import { FileItem, ViewMode } from '../types';
 import { toast } from './SystemUI';
-import { Folder, Menu, Image as ImageIcon } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 interface PhotosAppProps {
   onClose?: () => void;
 }
 
+const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
+
+function readPhotoSources(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const saved = localStorage.getItem(PHOTOS_SOURCES_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed.filter((source): source is string => typeof source === 'string' && source.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizePath(source: string) {
+  return source.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+function isInsidePath(candidate: string | undefined, parent: string | null) {
+  if (!parent) return true;
+  if (!candidate) return false;
+  const normalizedCandidate = normalizePath(candidate);
+  const normalizedParent = normalizePath(parent);
+  return normalizedCandidate === normalizedParent || normalizedCandidate.startsWith(`${normalizedParent}/`);
+}
+
+function pathLabel(source: string | null) {
+  if (!source) return 'All Photos';
+  const cleaned = source.replace(/\\/g, '/').replace(/\/+$/, '');
+  return cleaned.split('/').filter(Boolean).pop() || source;
+}
+
 export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [mediaFolders, setMediaFolders] = useState<FileItem[]>([]);
+  const [configuredSources, setConfiguredSources] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -21,7 +55,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>('all-photos');
+  const [activeSection, setActiveSection] = useState<string>('root');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -37,13 +71,32 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   }, [viewMode]);
 
   useEffect(() => {
-    loadPhotos();
+    const sources = readPhotoSources();
+    setConfiguredSources(sources);
+    loadPhotos(sources);
+
+    const handleSourcesChanged = () => {
+      const nextSources = readPhotoSources();
+      setConfiguredSources(nextSources);
+      setSourceFilter(null);
+      setActiveSection('root');
+      setSelectedFileId(null);
+      loadPhotos(nextSources);
+    };
+
+    window.addEventListener('storage', handleSourcesChanged);
+    window.addEventListener('openfinder:photos-sources-changed', handleSourcesChanged);
+    return () => {
+      window.removeEventListener('storage', handleSourcesChanged);
+      window.removeEventListener('openfinder:photos-sources-changed', handleSourcesChanged);
+    };
   }, []);
 
-  const loadPhotos = async () => {
+  const loadPhotos = async (sources = configuredSources) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/photos');
+      const query = sources.length > 0 ? `?sources=${encodeURIComponent(JSON.stringify(sources))}` : '';
+      const res = await fetch(`/api/photos${query}`);
       if (res.ok) {
         const data = await res.json();
         const media = Array.isArray(data) ? data : data.media || [];
@@ -98,6 +151,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
 
   const handleFileDoubleClick = (file: FileItem) => {
     if (file.type === 'folder') {
+      setSourceFilter(null);
       selectSection(`folder:${file.id}`);
       return;
     }
@@ -116,15 +170,47 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
     ? mediaFolders.find((folder) => folder.id === activeSection.slice('folder:'.length))
     : null;
 
-  const visibleBaseFiles = activeSection === 'folders'
-    ? mediaFolders
-    : activeFolder
-      ? currentFiles.filter((file) => (file as FileItem & { folderPath?: string }).folderPath === activeFolder.id)
+  const visibleFolders = !activeFolder && sourceFilter
+    ? mediaFolders.filter((folder) => isInsidePath(folder.id, sourceFilter))
+    : [];
+
+  const visibleMedia = activeFolder
+    ? currentFiles.filter((file) => file.folderPath === activeFolder.id)
+    : sourceFilter
+      ? currentFiles.filter((file) => isInsidePath(file.folderPath || file.id, sourceFilter))
       : currentFiles;
 
-  const sectionTitle = activeSection === 'folders'
-    ? 'Folders'
-    : activeFolder?.name || 'All Photos';
+  const visibleBaseFiles = activeFolder
+    ? visibleMedia
+    : sourceFilter
+      ? [...visibleFolders, ...visibleMedia]
+      : visibleMedia;
+
+  const sectionTitle = activeFolder
+    ? activeFolder.name
+    : sourceFilter
+      ? pathLabel(sourceFilter)
+      : 'All Photos';
+
+  const handleNavigateHome = () => {
+    setSourceFilter(null);
+    setActiveSection('root');
+    setSelectedFileId(null);
+  };
+
+  const handleNavigateSource = (source: string) => {
+    setSourceFilter(source);
+    setSelectedFileId(null);
+    setQuickLookFile(null);
+  };
+
+  const handleCloseSidebar = () => {
+    if (isMobile && isDrawerOpen) {
+      setIsDrawerOpen(false);
+    } else {
+      onClose?.();
+    }
+  };
 
   const processedFiles = visibleBaseFiles
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)
@@ -133,6 +219,9 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
       if (sortOption === 'name') return a.name.localeCompare(b.name);
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
+
+  const quickLookFiles = processedFiles.filter((file) => file.type !== 'folder');
+  const quickLookIndex = quickLookFile ? quickLookFiles.findIndex((file) => file.id === quickLookFile.id) : -1;
 
   return (
     <div
@@ -145,83 +234,18 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
           <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsDrawerOpen(false)} />
         )}
 
-        {/* Responsive Sidebar (Simplified for Photos) */}
-        <div className={`
-          absolute inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0
-          flex flex-col bg-white dark:bg-[#1f1f22] md:border-r border-neutral-200/50 dark:border-white/10 p-4 pt-5
-          ${isDrawerOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-        `}>
-          {/* macOS Window Title bar actions */}
-          <div className="flex items-center justify-between mb-4 px-1">
-            <div className="flex items-center space-x-2">
-              <div 
-                className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" 
-                title="Close" 
-                onClick={onClose}
-              />
-              <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
-              <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
-            </div>
-          </div>
-
-          <div className="mb-2 flex items-center space-x-2.5 px-2">
-            <div className="w-4 h-4 rounded-full bg-pink-500 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white/90" />
-            </div>
-            <h2 className="text-[11px] font-bold text-gray-800 dark:text-gray-100 uppercase tracking-widest">Photos Library</h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto px-1 py-2 space-y-6 hide-scrollbar">
-            <div className="space-y-0.5">
-              <button
-                onClick={() => selectSection('all-photos')}
-                className={`w-full text-left px-3 py-1.5 text-sm rounded-lg font-medium transition-all flex items-center space-x-2.5 ${
-                  activeSection === 'all-photos' ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold' : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <ImageIcon size={16} strokeWidth={2} className={activeSection === 'all-photos' ? 'text-blue-600 dark:text-blue-400' : ''} />
-                <span className="flex-1">All Photos</span>
-                <span className="text-[10px] font-semibold text-neutral-400">{currentFiles.length}</span>
-              </button>
-              <button
-                onClick={() => selectSection('folders')}
-                className={`w-full text-left px-3 py-1.5 text-sm rounded-lg font-medium transition-all flex items-center space-x-2.5 ${
-                  activeSection === 'folders' ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold' : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <Folder size={16} strokeWidth={2} className={activeSection === 'folders' ? 'text-blue-600 dark:text-blue-400' : ''} />
-                <span className="flex-1">Folders</span>
-                <span className="text-[10px] font-semibold text-neutral-400">{mediaFolders.length}</span>
-              </button>
-            </div>
-
-            {mediaFolders.length > 0 && (
-              <div>
-                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-                  Media Folders
-                </p>
-                <div className="space-y-0.5">
-                  {mediaFolders.slice(0, 100).map((folder) => {
-                    const isActive = activeSection === `folder:${folder.id}`;
-                    return (
-                      <button
-                        key={folder.id}
-                        onClick={() => selectSection(`folder:${folder.id}`)}
-                        className={`w-full text-left px-3 py-1.5 text-sm rounded-lg font-medium transition-all flex items-center space-x-2.5 ${
-                          isActive ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold' : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <Folder size={15} strokeWidth={2} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-sky-500'} />
-                        <span className="flex-1 truncate" title={folder.id}>{folder.name}</span>
-                        <span className="text-[10px] font-semibold text-neutral-400">{parseInt(folder.size, 10) || 0}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <Sidebar
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          selectedTag={null}
+          setSelectedTag={() => {}}
+          onNavigateHome={handleNavigateHome}
+          onNavigateFolder={handleNavigateSource}
+          onNavigateStorage={() => toast({ message: 'Storage opens in Files', tone: 'info' })}
+          onNavigateShared={() => toast({ message: 'Sharing opens in Files', tone: 'info' })}
+          isMobileDrawer={isDrawerOpen}
+          onCloseDrawer={handleCloseSidebar}
+        />
 
         {/* Dynamic Body */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#161618] w-full md:pt-3 md:pr-3 md:pb-3">
@@ -279,6 +303,9 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
           onClose={() => setQuickLookFile(null)}
           onUpdateFile={handleReadOnlyUpdate}
           onDelete={handleReadOnlyDelete}
+          files={quickLookFiles}
+          currentIndex={quickLookIndex}
+          onSelectFile={setQuickLookFile}
         />
       )}
     </div>
