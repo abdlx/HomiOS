@@ -23,6 +23,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
   const [view, setView] = useState<string>(initialView);
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const { settings: performanceSettings } = usePerformanceSettings();
+  const hasActiveTransfers = transfers.some(task => task.status === 'uploading' || task.status === 'pending' || task.status === 'paused');
   const windowVariants = {
     visible: {
       opacity: 1,
@@ -123,7 +124,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-10 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'files' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <App onClose={() => setView('desktop')} />
+          {(view === 'files' || hasActiveTransfers) && <App onClose={() => setView('desktop')} />}
         </div>
       </motion.div>
 
@@ -135,7 +136,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-20 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'settings' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <SettingsApp onClose={() => setView('desktop')} />
+          {view === 'settings' && <SettingsApp onClose={() => setView('desktop')} />}
         </div>
       </motion.div>
 
@@ -147,7 +148,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-30 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'terminal' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
-          <TerminalApp onClose={() => setView('desktop')} />
+          {view === 'terminal' && <TerminalApp onClose={() => setView('desktop')} />}
         </div>
       </motion.div>
 
@@ -159,7 +160,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-40 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'activity' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
-          <ActivityApp onClose={() => setView('desktop')} isActive={view === 'activity'} />
+          {view === 'activity' && <ActivityApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
       {/* Coolify overlay */}
@@ -170,7 +171,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'coolify' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
-          <CoolifyApp onClose={() => setView('desktop')} isActive={view === 'coolify'} />
+          {view === 'coolify' && <CoolifyApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
 
@@ -182,7 +183,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'notes' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <NotesApp onClose={() => setView('desktop')} />
+          {view === 'notes' && <NotesApp onClose={() => setView('desktop')} />}
         </div>
       </motion.div>
 
@@ -194,7 +195,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'photos' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <PhotosApp onClose={() => setView('desktop')} isActive={view === 'photos'} />
+          {view === 'photos' && <PhotosApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
 
@@ -206,7 +207,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'vscode' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
-          <VSCodeApp onClose={() => setView('desktop')} isActive={view === 'vscode'} />
+          {view === 'vscode' && <VSCodeApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
 

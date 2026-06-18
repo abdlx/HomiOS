@@ -7,6 +7,7 @@ import archiver from 'archiver';
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 const FILE_STAT_CONCURRENCY = Number(process.env.FILE_STAT_CONCURRENCY || 32);
+const DETAILED_STAT_LIMIT = Number(process.env.DETAILED_STAT_LIMIT || 500);
 
 function securePath(p: string) {
   // We strip leading slashes so that path resolves relative to BASE_PATH.
@@ -119,6 +120,7 @@ export default async function handler(req: any, res: any) {
 
       try {
         const files = await readdir(fullPath, { withFileTypes: true });
+        const shouldStatEntries = files.length <= DETAILED_STAT_LIMIT || req.query.details === 'true';
         const detailed = await mapWithConcurrency(
           files,
           FILE_STAT_CONCURRENCY,
@@ -129,6 +131,16 @@ export default async function handler(req: any, res: any) {
             let isDir = f.isDirectory();
             
             try {
+              if (!shouldStatEntries) {
+                return {
+                  name: f.name,
+                  isDir,
+                  size,
+                  modified,
+                  path: path.relative(BASE_PATH, fullPath_)
+                };
+              }
+
               const s = await stat(fullPath_);
               size = s.size;
               modified = s.mtime.toISOString();

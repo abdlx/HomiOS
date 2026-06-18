@@ -12,6 +12,7 @@ interface PhotosAppProps {
 }
 
 const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
+const PHOTOS_RESULT_LIMIT = 1500;
 
 function readPhotoSources(): string[] {
   if (typeof window === 'undefined') return [];
@@ -38,6 +39,7 @@ export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps =
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('all-photos');
   const hasLoadedRef = useRef(false);
+  const loadControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -89,13 +91,28 @@ export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps =
     loadPhotos(sources);
   }, [isActive]);
 
+  useEffect(() => {
+    if (isActive) return;
+    loadControllerRef.current?.abort();
+    setLoading(false);
+  }, [isActive]);
+
+  useEffect(() => {
+    return () => loadControllerRef.current?.abort();
+  }, []);
+
   const loadPhotos = async (sources = configuredSources) => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     try {
-      const query = sources.length > 0 ? `?sources=${encodeURIComponent(JSON.stringify(sources))}` : '';
-      const res = await fetch(`/api/photos${query}`);
+      const params = new URLSearchParams({ limit: String(PHOTOS_RESULT_LIMIT) });
+      if (sources.length > 0) params.set('sources', JSON.stringify(sources));
+      const res = await fetch(`/api/photos?${params.toString()}`, { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
+        if (controller.signal.aborted) return;
         const media = Array.isArray(data) ? data : data.media || [];
         const folders = Array.isArray(data) ? [] : data.folders || [];
         const formatted: FileItem[] = media.map((file: any) => ({
@@ -133,17 +150,21 @@ export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps =
           });
         }
       } else {
+        if (controller.signal.aborted) return;
         setCurrentFiles([]);
         setMediaFolders([]);
         toast({ message: 'Failed to load photos', tone: 'danger' });
       }
     } catch (e) {
+      if ((e as any)?.name === 'AbortError') return;
       console.error(e);
       setCurrentFiles([]);
       setMediaFolders([]);
       toast({ message: 'Error loading photos', tone: 'danger' });
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+      if (loadControllerRef.current === controller) loadControllerRef.current = null;
     }
-    setLoading(false);
   };
 
   const selectSection = (section: string) => {

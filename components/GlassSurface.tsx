@@ -93,6 +93,8 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
   const greenChannelRef = useRef<SVGFEDisplacementMapElement>(null);
   const blueChannelRef = useRef<SVGFEDisplacementMapElement>(null);
   const gaussianBlurRef = useRef<SVGFEGaussianBlurElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   const isDarkMode = useDarkMode();
 
@@ -124,12 +126,31 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
     return `data:image/svg+xml,${encodeURIComponent(svgContent)}`;
   };
 
-  const updateDisplacementMap = () => {
+  const updateDisplacementMap = (force = false) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const widthKey = Math.round(rect.width);
+      const heightKey = Math.round(rect.height);
+      const lastSize = lastSizeRef.current;
+      if (!force && lastSize?.width === widthKey && lastSize?.height === heightKey) {
+        return;
+      }
+      lastSizeRef.current = { width: widthKey, height: heightKey };
+    }
+
     feImageRef.current?.setAttribute('href', generateDisplacementMap());
   };
 
+  const scheduleDisplacementMapUpdate = (force = false) => {
+    if (rafRef.current !== null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateDisplacementMap(force);
+    });
+  };
+
   useEffect(() => {
-    updateDisplacementMap();
+    updateDisplacementMap(true);
     [
       { ref: redChannelRef, offset: redOffset },
       { ref: greenChannelRef, offset: greenOffset },
@@ -169,32 +190,22 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
     if (!containerRef.current) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateDisplacementMap, 0);
+      scheduleDisplacementMapUpdate();
     });
 
     resizeObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateDisplacementMap, 0);
-    });
-
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    setTimeout(updateDisplacementMap, 0);
+    scheduleDisplacementMapUpdate(true);
   }, [width, height]);
 
   const supportsSVGFilters = () => {

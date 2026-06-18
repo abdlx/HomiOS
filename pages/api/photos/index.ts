@@ -24,9 +24,11 @@ const IGNORED_DIRS = new Set([
   'temp', 'tmp', 'proc', 'sys', 'dev', 'run', 'snap', 'var'
 ]);
 
-const MAX_MEDIA_RESULTS = 20000;
-const DEFAULT_SCAN_TIMEOUT_MS = 45000;
-const SELECTED_SOURCE_SCAN_TIMEOUT_MS = 120000;
+const DEFAULT_MAX_MEDIA_RESULTS = 1500;
+const HARD_MAX_MEDIA_RESULTS = 5000;
+const DEFAULT_SCAN_TIMEOUT_MS = Number(process.env.PHOTOS_SCAN_TIMEOUT_MS || 12000);
+const SELECTED_SOURCE_SCAN_TIMEOUT_MS = Number(process.env.PHOTOS_SELECTED_SCAN_TIMEOUT_MS || 60000);
+const PHOTO_ROOT_SCAN_CONCURRENCY = Number(process.env.PHOTO_ROOT_SCAN_CONCURRENCY || 2);
 
 interface FolderSummary {
   id: string;
@@ -43,6 +45,7 @@ interface FolderSummary {
 
 interface ScanContext {
   deadline: number;
+  maxResults: number;
   media: any[];
   seenMedia: Set<string>;
   folders: Map<string, FolderSummary>;
@@ -84,7 +87,7 @@ function addFolderMedia(ctx: ScanContext, folderPath: string, mediaType: 'image'
 }
 
 async function findMediaInDir(dir: string, ctx: ScanContext): Promise<void> {
-  if (Date.now() > ctx.deadline || ctx.media.length >= MAX_MEDIA_RESULTS) {
+  if (Date.now() > ctx.deadline || ctx.media.length >= ctx.maxResults) {
     ctx.truncated = true;
     return;
   }
@@ -92,7 +95,7 @@ async function findMediaInDir(dir: string, ctx: ScanContext): Promise<void> {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
-      if (Date.now() > ctx.deadline || ctx.media.length >= MAX_MEDIA_RESULTS) {
+      if (Date.now() > ctx.deadline || ctx.media.length >= ctx.maxResults) {
         ctx.truncated = true;
         return;
       }
@@ -143,6 +146,18 @@ async function filterExistingRoots(roots: string[]) {
     }
   }
   return existing;
+}
+
+async function scanRootsWithConcurrency(roots: string[], ctx: ScanContext) {
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, PHOTO_ROOT_SCAN_CONCURRENCY), roots.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < roots.length && !ctx.truncated) {
+      const index = nextIndex++;
+      await findMediaInDir(roots[index], ctx).catch(() => {});
+    }
+  }));
 }
 
 async function getScanRoots() {
@@ -227,14 +242,23 @@ function getRequestedSources(req: any): string[] | null {
   }
 }
 
+function getRequestedLimit(req: any) {
+  const raw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_MAX_MEDIA_RESULTS;
+  return Math.min(HARD_MAX_MEDIA_RESULTS, Math.max(100, Math.floor(parsed)));
+}
+
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).end();
 
   try {
     const requestedSources = getRequestedSources(req);
+    const maxResults = getRequestedLimit(req);
     const ctx: ScanContext = {
       deadline: Date.now() + (requestedSources ? SELECTED_SOURCE_SCAN_TIMEOUT_MS : DEFAULT_SCAN_TIMEOUT_MS),
+      maxResults,
       media: [],
       seenMedia: new Set(),
       folders: new Map(),
@@ -242,7 +266,7 @@ export default async function handler(req: any, res: any) {
       skipped: 0,
     };
     const roots = await filterExistingRoots(requestedSources || await getScanRoots());
-    await Promise.all(roots.map(root => findMediaInDir(root, ctx).catch(() => {})));
+    await scanRootsWithConcurrency(roots, ctx);
 
     // Sort by modified date descending
     ctx.media.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
@@ -255,7 +279,7 @@ export default async function handler(req: any, res: any) {
       roots,
       truncated: ctx.truncated,
       skipped: ctx.skipped,
-      limit: MAX_MEDIA_RESULTS,
+      limit: maxResults,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
