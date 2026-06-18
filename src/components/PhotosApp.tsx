@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Toolbar from './Toolbar';
 import FileArea from './FileArea';
 import QuickLookModal from './QuickLookModal';
-import Sidebar from './Sidebar';
 import { FileItem, ViewMode } from '../types';
 import { toast } from './SystemUI';
-import { Menu } from 'lucide-react';
+import { Folder, Image as ImageIcon, Menu, X } from 'lucide-react';
 
 interface PhotosAppProps {
   onClose?: () => void;
@@ -24,29 +23,10 @@ function readPhotoSources(): string[] {
   }
 }
 
-function normalizePath(source: string) {
-  return source.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
-}
-
-function isInsidePath(candidate: string | undefined, parent: string | null) {
-  if (!parent) return true;
-  if (!candidate) return false;
-  const normalizedCandidate = normalizePath(candidate);
-  const normalizedParent = normalizePath(parent);
-  return normalizedCandidate === normalizedParent || normalizedCandidate.startsWith(`${normalizedParent}/`);
-}
-
-function pathLabel(source: string | null) {
-  if (!source) return 'All Photos';
-  const cleaned = source.replace(/\\/g, '/').replace(/\/+$/, '');
-  return cleaned.split('/').filter(Boolean).pop() || source;
-}
-
 export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [mediaFolders, setMediaFolders] = useState<FileItem[]>([]);
   const [configuredSources, setConfiguredSources] = useState<string[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -55,7 +35,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   const [quickLookFile, setQuickLookFile] = useState<FileItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>('root');
+  const [activeSection, setActiveSection] = useState<string>('all-photos');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -78,8 +58,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
     const handleSourcesChanged = () => {
       const nextSources = readPhotoSources();
       setConfiguredSources(nextSources);
-      setSourceFilter(null);
-      setActiveSection('root');
+      setActiveSection('all-photos');
       setSelectedFileId(null);
       loadPhotos(nextSources);
     };
@@ -151,7 +130,6 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
 
   const handleFileDoubleClick = (file: FileItem) => {
     if (file.type === 'folder') {
-      setSourceFilter(null);
       selectSection(`folder:${file.id}`);
       return;
     }
@@ -170,39 +148,13 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
     ? mediaFolders.find((folder) => folder.id === activeSection.slice('folder:'.length))
     : null;
 
-  const visibleFolders = !activeFolder && sourceFilter
-    ? mediaFolders.filter((folder) => isInsidePath(folder.id, sourceFilter))
-    : [];
-
   const visibleMedia = activeFolder
     ? currentFiles.filter((file) => file.folderPath === activeFolder.id)
-    : sourceFilter
-      ? currentFiles.filter((file) => isInsidePath(file.folderPath || file.id, sourceFilter))
-      : currentFiles;
-
-  const visibleBaseFiles = activeFolder
-    ? visibleMedia
-    : sourceFilter
-      ? [...visibleFolders, ...visibleMedia]
-      : visibleMedia;
+    : currentFiles;
 
   const sectionTitle = activeFolder
     ? activeFolder.name
-    : sourceFilter
-      ? pathLabel(sourceFilter)
-      : 'All Photos';
-
-  const handleNavigateHome = () => {
-    setSourceFilter(null);
-    setActiveSection('root');
-    setSelectedFileId(null);
-  };
-
-  const handleNavigateSource = (source: string) => {
-    setSourceFilter(source);
-    setSelectedFileId(null);
-    setQuickLookFile(null);
-  };
+    : 'All Photos';
 
   const handleCloseSidebar = () => {
     if (isMobile && isDrawerOpen) {
@@ -212,7 +164,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
     }
   };
 
-  const processedFiles = visibleBaseFiles
+  const processedFiles = visibleMedia
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)
     .sort((a, b) => {
       if (sortOption === 'size') return parseFloat(b.size) - parseFloat(a.size);
@@ -234,18 +186,99 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
           <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsDrawerOpen(false)} />
         )}
 
-        <Sidebar
-          activeSection={activeSection}
-          setActiveSection={setActiveSection}
-          selectedTag={null}
-          setSelectedTag={() => {}}
-          onNavigateHome={handleNavigateHome}
-          onNavigateFolder={handleNavigateSource}
-          onNavigateStorage={() => toast({ message: 'Storage opens in Files', tone: 'info' })}
-          onNavigateShared={() => toast({ message: 'Sharing opens in Files', tone: 'info' })}
-          isMobileDrawer={isDrawerOpen}
-          onCloseDrawer={handleCloseSidebar}
-        />
+        <div className={`relative flex flex-col select-none justify-between bg-white dark:bg-[#1f1f22] md:border border-neutral-200/50 dark:border-white/10 transition-colors duration-300 ${
+          isDrawerOpen
+            ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300'
+            : 'hidden md:flex w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5'
+        }`}>
+          <div className="flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center space-x-2">
+                <div
+                  className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all"
+                  title="Close"
+                  onClick={handleCloseSidebar}
+                />
+                <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
+                <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
+              </div>
+              {isDrawerOpen && (
+                <button
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-500 dark:text-neutral-400 active:scale-95 transition-all"
+                  title="Close Sidebar"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <div className="mb-4 flex items-center gap-2.5 px-2">
+              <div className="w-7 h-7 rounded-xl bg-pink-500 text-white flex items-center justify-center shadow-sm">
+                <ImageIcon size={15} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">Photos</h2>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate">
+                  {configuredSources.length === 0 ? 'Scanning all sources' : `${configuredSources.length} selected source${configuredSources.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 sidebar-scroll min-h-0">
+              <div>
+                <button
+                  onClick={() => selectSection('all-photos')}
+                  className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium ${
+                    activeSection === 'all-photos'
+                      ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <ImageIcon size={16} className="flex-shrink-0" />
+                  <span className="truncate flex-1">All Photos</span>
+                  <span className="text-[10px] font-semibold text-neutral-400">{currentFiles.length}</span>
+                </button>
+              </div>
+
+              <div>
+                <span className="px-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-1">
+                  Media Folders
+                </span>
+                <div className="space-y-0.5">
+                  {mediaFolders.map((folder) => {
+                    const isActive = activeSection === `folder:${folder.id}`;
+                    return (
+                      <button
+                        key={folder.id}
+                        onClick={() => selectSection(`folder:${folder.id}`)}
+                        className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium ${
+                          isActive
+                            ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Folder size={14} className="flex-shrink-0 text-sky-500" />
+                        <span className="truncate flex-1" title={folder.id}>{folder.name}</span>
+                        <span className="text-[10px] font-semibold text-neutral-400">{folder.mediaCount || parseInt(folder.size, 10) || 0}</span>
+                      </button>
+                    );
+                  })}
+                  {mediaFolders.length === 0 && (
+                    <div className="px-2 py-2 text-xs text-gray-400 dark:text-gray-500 italic">
+                      No media folders found
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2.5 border-t border-neutral-200/30 dark:border-white/10 flex items-center justify-between px-1.5 text-neutral-400 dark:text-neutral-500 text-[10px]">
+            <span className="font-semibold text-neutral-500 dark:text-neutral-400">{mediaFolders.length} folders</span>
+            <span className="opacity-75">{currentFiles.length} media</span>
+          </div>
+        </div>
 
         {/* Dynamic Body */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#161618] w-full md:pt-3 md:pr-3 md:pb-3">
