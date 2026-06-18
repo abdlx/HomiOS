@@ -384,6 +384,29 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
                   <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">Performance</h3>
                   <div className="space-y-4">
+                    <div className="grid grid-cols-3 items-center gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Resource profile</label>
+                      <div className="col-span-2">
+                        <select
+                          value={performanceSettings.profile}
+                          onChange={(e) => {
+                            const profile = e.target.value as any;
+                            updatePerformanceSettings({
+                              profile,
+                              backgroundPolling: profile === 'beautiful' ? 'live' : profile === 'server_saver' ? 'quiet' : 'balanced',
+                              glassSurfaces: profile !== 'server_saver',
+                              reduceMotion: profile === 'server_saver',
+                            });
+                          }}
+                          className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:[color-scheme:dark]"
+                        >
+                          <option value="beautiful">Beautiful</option>
+                          <option value="balanced">Balanced</option>
+                          <option value="server_saver">Server Saver</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
                       <div>
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Glass surfaces</p>

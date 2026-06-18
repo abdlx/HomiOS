@@ -7,6 +7,8 @@ interface SambaShare {
   name: string;
   path: string;
   read_only: number;
+  enabled?: number;
+  expires_at?: string | null;
   comment: string;
   created_at: string;
   sambaUsers: any[];
@@ -33,6 +35,8 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   const [newShareName, setNewShareName] = useState('');
   const [newSharePath, setNewSharePath] = useState('');
   const [newShareReadOnly, setNewShareReadOnly] = useState(false);
+  const [newShareEnabled, setNewShareEnabled] = useState(true);
+  const [newShareExpiresAt, setNewShareExpiresAt] = useState('');
   const [newShareUsers, setNewShareUsers] = useState<number[]>([]);
 
   // New User form state
@@ -45,6 +49,8 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   const [editShareName, setEditShareName] = useState('');
   const [editSharePath, setEditSharePath] = useState('');
   const [editShareReadOnly, setEditShareReadOnly] = useState(false);
+  const [editShareEnabled, setEditShareEnabled] = useState(true);
+  const [editShareExpiresAt, setEditShareExpiresAt] = useState('');
 
   // Resetting Password state
   const [resettingUserId, setResettingUserId] = useState<number | null>(null);
@@ -79,13 +85,22 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
     const res = await fetch('/api/shares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newShareName, path: newSharePath, readOnly: newShareReadOnly, userIds: newShareUsers })
+      body: JSON.stringify({
+        name: newShareName,
+        path: newSharePath,
+        readOnly: newShareReadOnly,
+        enabled: newShareEnabled,
+        expiresAt: newShareExpiresAt || null,
+        userIds: newShareUsers
+      })
     });
     if (res.ok) {
       setIsAddingShare(false);
       setNewShareName('');
       setNewSharePath('');
       setNewShareReadOnly(false);
+      setNewShareEnabled(true);
+      setNewShareExpiresAt('');
       setNewShareUsers([]);
       loadData();
     } else {
@@ -109,7 +124,14 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
     const res = await fetch('/api/shares', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editingShareId, name: editShareName, path: editSharePath, readOnly: editShareReadOnly })
+      body: JSON.stringify({
+        id: editingShareId,
+        name: editShareName,
+        path: editSharePath,
+        readOnly: editShareReadOnly,
+        enabled: editShareEnabled,
+        expiresAt: editShareExpiresAt || null
+      })
     });
     if (res.ok) {
       setEditingShareId(null);
@@ -121,15 +143,20 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   };
 
   const toggleShareAccess = async (shareId: number, currentUsers: any[], userId: number) => {
-    const isLinked = currentUsers.some(u => u.id === userId);
-    const userIds = isLinked 
-      ? currentUsers.filter(u => u.id !== userId).map(u => u.id)
-      : [...currentUsers.map(u => u.id), userId];
+    const current = currentUsers.find(u => u.id === userId);
+    const userAccess = currentUsers
+      .filter(u => u.id !== userId)
+      .map(u => ({ id: u.id, access: u.access === 'read' ? 'read' : 'write' }));
+    if (!current) {
+      userAccess.push({ id: userId, access: 'write' });
+    } else if (current.access !== 'read') {
+      userAccess.push({ id: userId, access: 'read' });
+    }
       
     const res = await fetch('/api/shares', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: shareId, userIds })
+      body: JSON.stringify({ id: shareId, userAccess })
     });
     if (res.ok) loadData();
   };
@@ -249,6 +276,17 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                     <input type="checkbox" checked={newShareReadOnly} onChange={e => setNewShareReadOnly(e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
                     Read Only
                   </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={newShareEnabled} onChange={e => setNewShareEnabled(e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
+                    Enabled
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={newShareExpiresAt}
+                    onChange={e => setNewShareExpiresAt(e.target.value)}
+                    className="border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm"
+                    title="Optional expiry"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Allowed Users</label>
@@ -314,11 +352,16 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                     ) : (
                       <span className="px-2 py-1 bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 text-xs font-semibold rounded border border-green-100 dark:border-green-500/20">Read / Write</span>
                     )}
+                    {share.enabled === 0 && (
+                      <span className="px-2 py-1 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 text-xs font-semibold rounded">Disabled</span>
+                    )}
                     <button onClick={() => {
                       setEditingShareId(share.id);
                       setEditShareName(share.name);
                       setEditSharePath(share.path);
                       setEditShareReadOnly(!!share.read_only);
+                      setEditShareEnabled(share.enabled !== 0);
+                      setEditShareExpiresAt(share.expires_at ? String(share.expires_at).slice(0, 16) : '');
                     }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Share">
                       <Edit2 size={16} />
                     </button>
@@ -340,11 +383,24 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                         <input type="text" value={editSharePath} onChange={e => setEditSharePath(e.target.value)} className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded text-sm px-2 py-1.5" />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                        <input type="checkbox" checked={editShareReadOnly} onChange={e => setEditShareReadOnly(e.target.checked)} className="rounded text-blue-600" />
-                        Read Only
-                      </label>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                          <input type="checkbox" checked={editShareReadOnly} onChange={e => setEditShareReadOnly(e.target.checked)} className="rounded text-blue-600" />
+                          Read Only
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                          <input type="checkbox" checked={editShareEnabled} onChange={e => setEditShareEnabled(e.target.checked)} className="rounded text-blue-600" />
+                          Enabled
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={editShareExpiresAt}
+                          onChange={e => setEditShareExpiresAt(e.target.value)}
+                          className="border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded px-2 py-1.5 text-sm"
+                          title="Optional expiry"
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <button onClick={() => setEditingShareId(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded">Cancel</button>
                         <button onClick={saveEditedShare} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded flex items-center gap-1"><Save size={14}/> Save</button>
@@ -357,7 +413,8 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-2">Access Control</p>
                   <div className="flex flex-wrap gap-2">
                     {users.map(u => {
-                      const hasAccess = share.sambaUsers?.some((su: any) => su.id === u.id);
+                      const access = share.sambaUsers?.find((su: any) => su.id === u.id)?.access;
+                      const hasAccess = !!access;
                       return (
                         <button
                           key={u.id}
@@ -365,7 +422,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 ${hasAccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'}`}
                         >
                           {hasAccess ? <Check size={12} /> : <Lock size={12} className="opacity-50" />}
-                          {u.username}
+                          {u.username}{hasAccess ? ` • ${access === 'read' ? 'Read' : 'Write'}` : ''}
                         </button>
                       );
                     })}

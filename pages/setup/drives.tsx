@@ -4,6 +4,9 @@ import { useRouter } from 'next/router';
 export default function DriveSetup() {
   const [drives, setDrives] = useState<{path: string, label: string}[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [photoSources, setPhotoSources] = useState<string[]>([]);
+  const [performanceProfile, setPerformanceProfile] = useState<'beautiful' | 'balanced' | 'server_saver'>('balanced');
+  const [backupDestination, setBackupDestination] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -17,7 +20,7 @@ export default function DriveSetup() {
     const res = await fetch('/api/setup/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ drives: selected })
+      body: JSON.stringify({ drives: selected, photoSources, performanceProfile, backupDestination })
     });
 
     if (res.ok) {
@@ -35,26 +38,62 @@ export default function DriveSetup() {
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto mb-6">
+          <div className="bg-slate-700 rounded-lg p-4 mb-4">
+            <label className="block text-sm font-semibold text-white mb-2">Resource Profile</label>
+            <select
+              value={performanceProfile}
+              onChange={(e) => setPerformanceProfile(e.target.value as any)}
+              className="w-full rounded-lg bg-slate-800 text-white border border-slate-600 px-3 py-2"
+            >
+              <option value="beautiful">Beautiful</option>
+              <option value="balanced">Balanced</option>
+              <option value="server_saver">Server Saver</option>
+            </select>
+          </div>
+
           {drives.map((drive) => (
-            <label key={drive.path} className="flex items-center gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-slate-600">
-              <input
-                type="checkbox"
-                checked={selected.includes(drive.path)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelected([...selected, drive.path]);
-                  } else {
-                    setSelected(selected.filter(p => p !== drive.path));
-                  }
-                }}
-                className="w-5 h-5 rounded"
-              />
-              <div>
-                <p className="text-white font-medium">{drive.label}</p>
-                <p className="text-slate-400 text-sm font-mono">{drive.path}</p>
-              </div>
-            </label>
+            <div key={drive.path} className="p-4 bg-slate-700 rounded-lg hover:bg-slate-600">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(drive.path)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelected([...selected, drive.path]);
+                    } else {
+                      setSelected(selected.filter(p => p !== drive.path));
+                    }
+                  }}
+                  className="w-5 h-5 rounded"
+                />
+                <div>
+                  <p className="text-white font-medium">{drive.label}</p>
+                  <p className="text-slate-400 text-sm font-mono">{drive.path}</p>
+                </div>
+              </label>
+              <label className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={photoSources.includes(drive.path)}
+                  onChange={(e) => {
+                    if (e.target.checked) setPhotoSources([...photoSources, drive.path]);
+                    else setPhotoSources(photoSources.filter(p => p !== drive.path));
+                  }}
+                />
+                Use as Photos source
+              </label>
+            </div>
           ))}
+
+          <div className="bg-slate-700 rounded-lg p-4">
+            <label className="block text-sm font-semibold text-white mb-2">Optional Local Backup Destination</label>
+            <input
+              value={backupDestination}
+              onChange={(e) => setBackupDestination(e.target.value)}
+              placeholder="/mnt/backup or D:\\Backups"
+              className="w-full rounded-lg bg-slate-800 text-white border border-slate-600 px-3 py-2"
+            />
+          </div>
         </div>
 
         <button

@@ -26,7 +26,7 @@ export default async function handler(req: any, res: any) {
       // Attach valid samba users for each share
       const enriched = shares.map((share) => {
         const users = db.prepare(`
-          SELECT su.id, su.username, su.enabled
+          SELECT su.id, su.username, su.enabled, COALESCE(shu.access, 'write') as access
           FROM samba_users su
           JOIN share_users shu ON shu.samba_user_id = su.id
           WHERE shu.share_id = ?
@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
 
     // ── POST ──────────────────────────────────────────────────────────────────
     if (req.method === 'POST') {
-      const { name, path: sharePath, readOnly = false, comment = '', userIds = [] } = req.body;
+      const { name, path: sharePath, readOnly = false, comment = '', enabled = true, expiresAt = null, userIds = [], userAccess = [] } = req.body;
 
       if (!name || !sharePath) {
         return res.status(400).json({ error: 'name and path are required' });
@@ -52,18 +52,21 @@ export default async function handler(req: any, res: any) {
       }
 
       const result = db.prepare(
-        'INSERT INTO shares (user_id, name, path, read_only, comment) VALUES (?, ?, ?, ?, ?)'
-      ).run(session.userId, name, sharePath, readOnly ? 1 : 0, comment);
+        'INSERT INTO shares (user_id, name, path, read_only, comment, enabled, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(session.userId, name, sharePath, readOnly ? 1 : 0, comment, enabled ? 1 : 0, expiresAt || null);
 
       const shareId = result.lastInsertRowid;
 
       // Link samba users
-      if (Array.isArray(userIds) && userIds.length > 0) {
+      const accessRows = Array.isArray(userAccess) && userAccess.length > 0
+        ? userAccess
+        : (Array.isArray(userIds) ? userIds.map((uid: any) => ({ id: uid, access: readOnly ? 'read' : 'write' })) : []);
+      if (accessRows.length > 0) {
         const linkStmt = db.prepare(
-          'INSERT OR IGNORE INTO share_users (share_id, samba_user_id) VALUES (?, ?)'
+          'INSERT OR IGNORE INTO share_users (share_id, samba_user_id, access) VALUES (?, ?, ?)'
         );
-        for (const uid of userIds) {
-          linkStmt.run(shareId, uid);
+        for (const row of accessRows) {
+          linkStmt.run(shareId, row.id ?? row.userId ?? row, row.access === 'read' ? 'read' : 'write');
         }
       }
 
@@ -78,7 +81,7 @@ export default async function handler(req: any, res: any) {
 
     // ── PATCH ─────────────────────────────────────────────────────────────────
     if (req.method === 'PATCH') {
-      const { id, name, path: sharePath, readOnly, comment, userIds } = req.body;
+      const { id, name, path: sharePath, readOnly, comment, enabled, expiresAt, userIds, userAccess } = req.body;
 
       if (!id) return res.status(400).json({ error: 'id is required' });
 
@@ -102,6 +105,8 @@ export default async function handler(req: any, res: any) {
       if (sharePath !== undefined) { updates.push('path = ?'); values.push(sharePath); }
       if (readOnly !== undefined) { updates.push('read_only = ?'); values.push(readOnly ? 1 : 0); }
       if (comment !== undefined) { updates.push('comment = ?'); values.push(comment); }
+      if (enabled !== undefined) { updates.push('enabled = ?'); values.push(enabled ? 1 : 0); }
+      if (expiresAt !== undefined) { updates.push('expires_at = ?'); values.push(expiresAt || null); }
 
       if (updates.length > 0) {
         values.push(id, session.userId);
@@ -109,13 +114,16 @@ export default async function handler(req: any, res: any) {
       }
 
       // Replace share_users if userIds provided
-      if (Array.isArray(userIds)) {
+      if (Array.isArray(userIds) || Array.isArray(userAccess)) {
         db.prepare('DELETE FROM share_users WHERE share_id = ?').run(id);
         const linkStmt = db.prepare(
-          'INSERT OR IGNORE INTO share_users (share_id, samba_user_id) VALUES (?, ?)'
+          'INSERT OR IGNORE INTO share_users (share_id, samba_user_id, access) VALUES (?, ?, ?)'
         );
-        for (const uid of userIds) {
-          linkStmt.run(id, uid);
+        const accessRows = Array.isArray(userAccess) && userAccess.length > 0
+          ? userAccess
+          : (Array.isArray(userIds) ? userIds.map((uid: any) => ({ id: uid, access: readOnly ? 'read' : 'write' })) : []);
+        for (const row of accessRows) {
+          linkStmt.run(id, row.id ?? row.userId ?? row, row.access === 'read' ? 'read' : 'write');
         }
       }
 

@@ -13,6 +13,7 @@
  */
 import { getDb } from './db.ts';
 import { logAudit } from './audit.ts';
+import { createNotification } from './notifications.ts';
 
 export type NotifyEvent =
   | 'deploy.success' | 'deploy.failed'
@@ -41,6 +42,18 @@ export async function notifyTeam(teamId: string, event: NotifyEvent, message: st
   } catch { return; }
 
   const title = EVENT_TITLES[event] || event;
+  try {
+    createNotification({
+      teamId,
+      title,
+      message,
+      tone: event.includes('failed') || event.includes('unreachable') ? 'danger' : event.includes('success') || event.includes('recovered') ? 'success' : 'info',
+      sourceType: 'notify',
+      sourceId: event,
+    });
+  } catch {
+    // Notification center should never break outbound notifications.
+  }
   await Promise.allSettled(channels.map(async (ch) => {
     const config = JSON.parse(ch.config || '{}');
     try {

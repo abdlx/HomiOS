@@ -9,7 +9,10 @@ import { execSync, spawnSync } from 'child_process';
 
 export function regenerateSmbConf(db: any) {
   try {
-    const shares = db.prepare('SELECT * FROM shares').all() as any[];
+    const shares = db.prepare(`
+      SELECT * FROM shares
+      WHERE enabled = 1 AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+    `).all() as any[];
 
     let config = `[global]
   workgroup = WORKGROUP
@@ -28,12 +31,14 @@ export function regenerateSmbConf(db: any) {
     for (const share of shares) {
       // Resolve the valid users for this share from share_users join
       const rows = db.prepare(`
-        SELECT su.username FROM samba_users su
+        SELECT su.username, COALESCE(shu.access, 'write') as access FROM samba_users su
         JOIN share_users shu ON shu.samba_user_id = su.id
         WHERE shu.share_id = ? AND su.enabled = 1
-      `).all(share.id) as { username: string }[];
+      `).all(share.id) as { username: string; access: string }[];
 
       const validUsers = rows.map(r => r.username).join(', ');
+      const readUsers = rows.filter(r => r.access === 'read').map(r => r.username).join(', ');
+      const writeUsers = rows.filter(r => r.access !== 'read').map(r => r.username).join(', ');
 
       config += `[${share.name}]
   path = ${share.path}
@@ -42,6 +47,8 @@ export function regenerateSmbConf(db: any) {
   writable = ${share.read_only ? 'no' : 'yes'}
   guest ok = no
   valid users = ${validUsers || '@nobody'}
+  read list = ${readUsers || ''}
+  write list = ${share.read_only ? '' : writeUsers}
   create mask = 0664
   directory mask = 0775
   force user = root

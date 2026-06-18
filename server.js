@@ -77,6 +77,7 @@ app.prepare().then(async () => {
 
     const io = new SocketIOServer(httpServer);
     let activeTerminalSessions = 0;
+    global.openfinderTerminalSessions = global.openfinderTerminalSessions || new Map();
 
     io.on('connection', async (socket) => {
       const { validateSessionCookie } = await import('./lib/api-auth.ts');
@@ -121,9 +122,18 @@ app.prepare().then(async () => {
           env: process.env,
         });
         activeTerminalSessions += 1;
+        global.openfinderTerminalSessions.set(socket.id, {
+          id: socket.id,
+          shell,
+          startedAt: new Date().toISOString(),
+          kill: () => {
+            try { ptyProcess?.kill(); } catch (e) {}
+          },
+        });
         ptyProcess.on('data', (data) => socket.emit('output', data));
         ptyProcess.on('exit', () => {
           socket.emit('output', '\r\n[process exited; reconnect to start a new shell]\r\n');
+          global.openfinderTerminalSessions.delete(socket.id);
           releasePty();
         });
         refreshIdleTimer();
@@ -151,6 +161,7 @@ app.prepare().then(async () => {
       });
       socket.on('disconnect', () => {
         if (ptyProcess) { try { ptyProcess.kill(); } catch (e) {} }
+        global.openfinderTerminalSessions.delete(socket.id);
         clearIdleTimer();
       });
     });
@@ -165,6 +176,14 @@ app.prepare().then(async () => {
   server.all('*', (req, res) => {
     return handle(req, res);
   });
+
+  try {
+    const { startJobWorker } = await import('./lib/jobs.ts');
+    startJobWorker();
+    console.log('OpenFinder job worker started');
+  } catch (e) {
+    console.warn('OpenFinder job worker failed to start:', e);
+  }
 
   httpServer.listen(PORT, (err) => {
     if (err) throw err;

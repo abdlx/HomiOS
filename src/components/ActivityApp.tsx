@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Wifi, Monitor, Zap, Menu } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Wifi, Monitor, Zap, Menu, ListChecks, Pause, Play, RotateCcw, XCircle } from 'lucide-react';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
+import { Job } from '../types';
 
 interface ActivityAppProps {
   onClose?: () => void;
@@ -18,6 +19,9 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [dependencies, setDependencies] = useState<any>(null);
+  const [terminalSessions, setTerminalSessions] = useState<any[]>([]);
   const { settings: performanceSettings } = usePerformanceSettings();
 
   useEffect(() => {
@@ -69,11 +73,47 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
     };
   }, [isActive, performanceSettings.backgroundPolling]);
 
+  useEffect(() => {
+    if (!isActive) return;
+    let cancelled = false;
+    const fetchJobs = async () => {
+      try {
+        const [jobsRes, depsRes] = await Promise.all([
+          fetch('/api/jobs?limit=30'),
+          fetch('/api/system/dependencies'),
+        ]);
+        if (!cancelled && jobsRes.ok) setJobs(await jobsRes.json());
+        if (!cancelled && depsRes.ok) setDependencies(await depsRes.json());
+        const terminalsRes = await fetch('/api/system/terminal-sessions');
+        if (!cancelled && terminalsRes.ok) setTerminalSessions(await terminalsRes.json());
+      } catch (e) {
+        if (!cancelled) console.error('Failed to fetch jobs', e);
+      }
+    };
+    fetchJobs();
+    const timer = setInterval(fetchJobs, activeTab === 'jobs' ? 2500 : 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isActive, activeTab]);
+
+  const updateJob = async (id: string, action: 'pause' | 'resume' | 'cancel' | 'retry') => {
+    await fetch(`/api/jobs/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const res = await fetch('/api/jobs?limit=30');
+    if (res.ok) setJobs(await res.json());
+  };
+
   const tabs = [
     { id: 'cpu', label: 'CPU', icon: Cpu },
     { id: 'memory', label: 'Memory', icon: Activity },
     { id: 'disk', label: 'Disk', icon: HardDrive },
     { id: 'network', label: 'Network', icon: Wifi },
+    { id: 'jobs', label: 'Tasks', icon: ListChecks },
   ];
 
   const renderLineChart = (dataKey: 'cpu' | 'memory', color: string, gradientId: string) => {
@@ -299,6 +339,101 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeTab === 'jobs' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {[
+                  ['Sharp', dependencies?.sharp],
+                  ['FFmpeg', dependencies?.ffmpeg],
+                  ['Tesseract', dependencies?.tesseract],
+                  ['PDF Text', dependencies?.poppler],
+                ].map(([label, ok]) => (
+                  <div key={label as string} className="bg-white dark:bg-[#1f1f22] border border-neutral-200/50 dark:border-white/10 rounded-2xl p-4 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{label as string}</p>
+                    <p className={`mt-1 text-sm font-semibold ${ok ? 'text-emerald-500' : 'text-amber-500'}`}>{ok ? 'Available' : 'Missing'}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white dark:bg-[#1f1f22] border border-neutral-200/50 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-5 py-4 border-b border-neutral-200/50 dark:border-white/10 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-white">Background Tasks</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Indexing, thumbnails, backups, restores, and OCR jobs</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      await fetch('/api/index/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'files' }) });
+                      const res = await fetch('/api/jobs?limit=30');
+                      if (res.ok) setJobs(await res.json());
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-600 transition"
+                  >
+                    Refresh Index
+                  </button>
+                </div>
+
+                <div className="divide-y divide-neutral-100 dark:divide-white/10">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="p-4 flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">{job.name}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            job.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' :
+                            job.status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' :
+                            job.status === 'running' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' :
+                            'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+                          }`}>{job.status}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{job.type} • {job.resourceClass}{job.error ? ` • ${job.error}` : ''}</p>
+                        <div className="h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden mt-2">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${job.progress || 0}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {job.status === 'queued' && <button onClick={() => updateJob(job.id, 'pause')} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10" title="Pause"><Pause size={14} /></button>}
+                        {job.status === 'paused' && <button onClick={() => updateJob(job.id, 'resume')} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10" title="Resume"><Play size={14} /></button>}
+                        {(job.status === 'queued' || job.status === 'paused') && <button onClick={() => updateJob(job.id, 'cancel')} className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500" title="Cancel"><XCircle size={14} /></button>}
+                        {(job.status === 'failed' || job.status === 'cancelled') && <button onClick={() => updateJob(job.id, 'retry')} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10" title="Retry"><RotateCcw size={14} /></button>}
+                      </div>
+                    </div>
+                  ))}
+                  {jobs.length === 0 && (
+                    <div className="p-8 text-center text-sm text-slate-400 dark:text-slate-500">No background tasks yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#1f1f22] border border-neutral-200/50 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-5 py-4 border-b border-neutral-200/50 dark:border-white/10">
+                  <h3 className="font-semibold text-slate-800 dark:text-white">Terminal Sessions</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">OpenFinder-controlled terminal shells</p>
+                </div>
+                <div className="divide-y divide-neutral-100 dark:divide-white/10">
+                  {terminalSessions.map((session) => (
+                    <div key={session.id} className="p-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{session.shell}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{session.id} • {new Date(session.startedAt).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await fetch('/api/system/terminal-sessions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: session.id }) });
+                          setTerminalSessions((sessions) => sessions.filter((item) => item.id !== session.id));
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-500/20"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  ))}
+                  {terminalSessions.length === 0 && <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">No terminal sessions running.</div>}
+                </div>
+              </div>
             </div>
           )}
         </div>

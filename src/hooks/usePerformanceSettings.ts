@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 
 export type BackgroundPollingMode = 'live' | 'balanced' | 'quiet';
+export type ResourceProfile = 'beautiful' | 'balanced' | 'server_saver';
 
 export interface PerformanceSettings {
+  profile: ResourceProfile;
   glassSurfaces: boolean;
   reduceMotion: boolean;
   backgroundPolling: BackgroundPollingMode;
@@ -12,6 +14,7 @@ export interface PerformanceSettings {
 const STORAGE_KEY = 'openfinder_performance_settings';
 
 const DEFAULT_SETTINGS: PerformanceSettings = {
+  profile: 'balanced',
   glassSurfaces: true,
   reduceMotion: false,
   backgroundPolling: 'balanced',
@@ -28,6 +31,7 @@ function normalizeSettings(value: unknown): PerformanceSettings {
       : DEFAULT_SETTINGS.backgroundPolling;
 
   return {
+    profile: candidate.profile === 'beautiful' || candidate.profile === 'server_saver' ? candidate.profile : DEFAULT_SETTINGS.profile,
     glassSurfaces: typeof candidate.glassSurfaces === 'boolean' ? candidate.glassSurfaces : DEFAULT_SETTINGS.glassSurfaces,
     reduceMotion: typeof candidate.reduceMotion === 'boolean' ? candidate.reduceMotion : DEFAULT_SETTINGS.reduceMotion,
     backgroundPolling,
@@ -71,6 +75,13 @@ export function usePerformanceSettings() {
   const updateSettings = (updates: Partial<PerformanceSettings>) => {
     setSettings((current) => {
       const next = normalizeSettings({ ...current, ...updates });
+      if (updates.profile && updates.profile !== current.profile) {
+        fetch('/api/system/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile: next.profile }),
+        }).catch(() => {});
+      }
       writeSettings(next);
       return next;
     });

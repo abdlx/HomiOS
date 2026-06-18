@@ -184,13 +184,176 @@ export function getDb(): any {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS jobs (
+      id             TEXT PRIMARY KEY,
+      team_id        TEXT,
+      user_id        INTEGER,
+      type           TEXT NOT NULL,
+      status         TEXT NOT NULL DEFAULT 'queued',
+      resource_class TEXT NOT NULL DEFAULT 'io',
+      priority       INTEGER DEFAULT 0,
+      progress       INTEGER DEFAULT 0,
+      name           TEXT NOT NULL,
+      payload        TEXT DEFAULT '{}',
+      result         TEXT DEFAULT '{}',
+      error          TEXT,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      started_at     DATETIME,
+      finished_at    DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS job_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id     TEXT NOT NULL,
+      type       TEXT NOT NULL,
+      message    TEXT NOT NULL,
+      data       TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS job_artifacts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id     TEXT NOT NULL,
+      kind       TEXT NOT NULL,
+      path       TEXT,
+      meta       TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS file_index (
+      id          TEXT PRIMARY KEY,
+      team_id     TEXT,
+      path        TEXT NOT NULL UNIQUE,
+      name        TEXT NOT NULL,
+      kind        TEXT NOT NULL,
+      size        INTEGER DEFAULT 0,
+      modified    DATETIME,
+      content     TEXT DEFAULT '',
+      metadata    TEXT DEFAULT '{}',
+      indexed_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS media_index (
+      id          TEXT PRIMARY KEY,
+      team_id     TEXT,
+      path        TEXT NOT NULL UNIQUE,
+      name        TEXT NOT NULL,
+      media_type  TEXT NOT NULL,
+      size        INTEGER DEFAULT 0,
+      modified    DATETIME,
+      width       INTEGER,
+      height      INTEGER,
+      duration    REAL,
+      metadata    TEXT DEFAULT '{}',
+      indexed_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS index_state (
+      scope      TEXT PRIMARY KEY,
+      status     TEXT NOT NULL DEFAULT 'idle',
+      root_path  TEXT,
+      last_run_at DATETIME,
+      meta       TEXT DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS thumbnail_cache (
+      id          TEXT PRIMARY KEY,
+      source_path TEXT NOT NULL,
+      variant     TEXT NOT NULL,
+      cache_path  TEXT,
+      source_mtime INTEGER DEFAULT 0,
+      source_size INTEGER DEFAULT 0,
+      status      TEXT NOT NULL DEFAULT 'missing',
+      error       TEXT,
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(source_path, variant)
+    );
+
+    CREATE TABLE IF NOT EXISTS backup_plans (
+      id               TEXT PRIMARY KEY,
+      team_id          TEXT,
+      user_id          INTEGER,
+      name             TEXT NOT NULL,
+      source_path      TEXT NOT NULL,
+      destination_type TEXT NOT NULL,
+      destination      TEXT NOT NULL,
+      schedule         TEXT,
+      enabled          INTEGER DEFAULT 1,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS backup_runs (
+      id           TEXT PRIMARY KEY,
+      plan_id      TEXT,
+      job_id       TEXT,
+      status       TEXT NOT NULL DEFAULT 'queued',
+      source_path  TEXT NOT NULL,
+      destination  TEXT NOT NULL,
+      bytes_total  INTEGER DEFAULT 0,
+      bytes_copied INTEGER DEFAULT 0,
+      error        TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at  DATETIME,
+      FOREIGN KEY(plan_id) REFERENCES backup_plans(id) ON DELETE SET NULL,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS backup_items (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id      TEXT NOT NULL,
+      source_path TEXT NOT NULL,
+      backup_path TEXT NOT NULL,
+      size        INTEGER DEFAULT 0,
+      checksum    TEXT,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(run_id) REFERENCES backup_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_id     TEXT,
+      user_id     INTEGER,
+      title       TEXT NOT NULL,
+      message     TEXT NOT NULL,
+      tone        TEXT NOT NULL DEFAULT 'info',
+      source_type TEXT,
+      source_id   TEXT,
+      read_at     DATETIME,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_audit_team    ON audit_logs(team_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_status   ON jobs(status, priority, created_at);
+    CREATE INDEX IF NOT EXISTS idx_file_index_path ON file_index(path);
+    CREATE INDEX IF NOT EXISTS idx_media_index_path ON media_index(path);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at, created_at);
   `);
+
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS file_index_fts
+      USING fts5(id UNINDEXED, name, path, content);
+    `);
+  } catch (e) {
+    console.warn('[db] SQLite FTS5 unavailable; search will use fallback LIKE queries.');
+  }
 
   ensureColumn('users', 'totp_secret', 'TEXT');
   ensureColumn('users', 'totp_enabled', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'recovery_codes', 'TEXT');
+  ensureColumn('shares', 'enabled', 'INTEGER DEFAULT 1');
+  ensureColumn('shares', 'expires_at', 'DATETIME');
+  ensureColumn('share_users', 'access', "TEXT DEFAULT 'write'");
 
   return db;
 }

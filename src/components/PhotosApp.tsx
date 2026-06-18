@@ -122,7 +122,7 @@ export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps =
           size: `${(file.size / 1024).toFixed(1)} KB`,
           updatedAt: file.modified ? file.modified.split('T')[0] : new Date().toISOString().split('T')[0],
           folderColor: 'blue',
-          thumbnailUrl: `/api/files?raw=true&path=${encodeURIComponent(file.path)}`,
+          thumbnailUrl: `/api/thumbnails?variant=grid&path=${encodeURIComponent(file.path)}`,
           folderPath: file.folderPath,
           folderName: file.folderName,
         } as FileItem & { folderPath?: string; folderName?: string }));
@@ -133,7 +133,7 @@ export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps =
           size: `${folder.mediaCount || folder.size || 0} items`,
           updatedAt: folder.modified ? folder.modified.split('T')[0] : new Date().toISOString().split('T')[0],
           folderColor: 'blue',
-          thumbnailUrl: folder.coverPath ? `/api/files?raw=true&path=${encodeURIComponent(folder.coverPath)}` : undefined,
+          thumbnailUrl: folder.coverPath ? `/api/thumbnails?variant=grid&path=${encodeURIComponent(folder.coverPath)}` : undefined,
           mediaCount: folder.mediaCount || folder.size || 0,
           imageCount: folder.imageCount || 0,
           videoCount: folder.videoCount || 0,

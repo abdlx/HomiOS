@@ -78,3 +78,87 @@ export interface DriveItem {
   usedBytes?: string;
   totalBytes?: string;
 }
+
+export type JobType =
+  | 'index.files'
+  | 'index.photos'
+  | 'thumbnail.generate'
+  | 'backup.run'
+  | 'backup.restore'
+  | 'ocr.run'
+  | 'zip.create'
+  | 'file.move';
+
+export type JobStatus = 'queued' | 'running' | 'paused' | 'cancelled' | 'failed' | 'completed';
+export type JobResourceClass = 'cpu' | 'io' | 'media' | 'backup';
+export type ResourceProfile = 'beautiful' | 'balanced' | 'server_saver';
+export type ThumbnailVariant = 'grid' | 'preview';
+
+export interface Job {
+  id: string;
+  type: JobType;
+  status: JobStatus;
+  resourceClass: JobResourceClass;
+  progress: number;
+  name: string;
+  payload?: any;
+  result?: any;
+  error?: string;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface JobEvent {
+  id: number;
+  jobId: string;
+  type: string;
+  message: string;
+  data?: any;
+  createdAt: string;
+}
+
+export interface SearchResult {
+  id: string;
+  kind: 'file' | 'folder' | 'note' | 'media';
+  name: string;
+  path?: string;
+  snippet?: string;
+  score?: number;
+  modified?: string;
+}
+
+export interface BackupPlan {
+  id: string;
+  name: string;
+  sourcePath: string;
+  destinationType: 'local' | 's3';
+  destination: string;
+  schedule?: string;
+  enabled: boolean;
+}
+
+export interface BackupRun {
+  id: string;
+  planId?: string;
+  status: JobStatus;
+  sourcePath: string;
+  destination: string;
+  bytesTotal?: number;
+  bytesCopied?: number;
+  createdAt: string;
+  finishedAt?: string;
+}
+
+export interface NotificationItem {
+  id: number;
+  teamId?: string;
+  userId?: number;
+  title: string;
+  message: string;
+  tone: 'info' | 'success' | 'warning' | 'danger';
+  sourceType?: string;
+  sourceId?: string;
+  readAt?: string;
+  createdAt: string;
+}

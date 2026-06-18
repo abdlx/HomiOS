@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Cloud, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code
+  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -31,6 +31,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'coolify', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const ALL_APPS: Record<string, any> = {
     files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
@@ -85,6 +87,20 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [performanceSettings.backgroundPolling]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications?limit=20');
+        if (res.ok) setNotifications(await res.json());
+      } catch {
+        // Notifications are nice-to-have.
+      }
+    };
+    fetchNotifications();
+    const timer = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const activeAppIds = Object.keys(ALL_APPS);
@@ -190,9 +206,48 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           <Wifi size={15} strokeWidth={2} className="text-white/80" />
           <BatteryFull size={17} strokeWidth={2} className="text-white/80" />
           <Search size={14} strokeWidth={2.5} className="text-white/80" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsNotificationsOpen((open) => !open);
+            }}
+            className="relative text-white/80 hover:text-white transition"
+            title="Notifications"
+          >
+            <Bell size={15} strokeWidth={2} />
+            {notifications.some((item) => !item.readAt) && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-400" />}
+          </button>
           {now && <span className="font-medium tabular-nums tracking-tight">{now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
         </div>
       </div>
+
+      {isNotificationsOpen && (
+        <div className="fixed top-9 right-4 z-[120] w-[340px] max-w-[calc(100vw-24px)] rounded-2xl border border-white/10 bg-[#1c1c1e]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+            <span className="text-sm font-semibold text-white">Notifications</span>
+            <span className="text-[11px] text-white/45">{notifications.filter((item) => !item.readAt).length} unread</span>
+          </div>
+          <div className="max-h-[420px] overflow-y-auto p-2">
+            {notifications.map((item) => (
+              <button
+                key={item.id}
+                onClick={async () => {
+                  await fetch(`/api/notifications/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true }) });
+                  setNotifications((items) => items.map((n) => n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n));
+                }}
+                className={`w-full text-left p-3 rounded-xl mb-1 hover:bg-white/10 transition ${item.readAt ? 'opacity-65' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-white truncate">{item.title}</span>
+                  {!item.readAt && <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />}
+                </div>
+                <p className="text-xs text-white/55 mt-1 line-clamp-2">{item.message}</p>
+              </button>
+            ))}
+            {notifications.length === 0 && <div className="p-8 text-center text-sm text-white/45">No notifications yet.</div>}
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center mb-8 md:mb-10">

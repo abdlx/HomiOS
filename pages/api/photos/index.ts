@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
 import { getSession } from '../../../lib/auth';
+import { getDb } from '../../../lib/db.ts';
 
 const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -256,6 +257,50 @@ export default async function handler(req: any, res: any) {
   try {
     const requestedSources = getRequestedSources(req);
     const maxResults = getRequestedLimit(req);
+    if (req.query.live !== 'true') {
+      const db = getDb();
+      const cached = db.prepare(`
+        SELECT path, name, media_type as type, size, modified, metadata
+        FROM media_index
+        ORDER BY datetime(modified) DESC
+        LIMIT ?
+      `).all(maxResults) as any[];
+      if (cached.length > 0) {
+        const media = cached
+          .map((row) => ({
+            id: row.path,
+            name: row.name,
+            path: row.path,
+            type: row.type,
+            size: row.size,
+            modified: row.modified,
+            folderPath: path.dirname(row.path),
+            folderName: path.basename(path.dirname(row.path)),
+          }));
+        const folders = Array.from(media.reduce((map, item) => {
+          const existing = map.get(item.folderPath) || {
+            id: item.folderPath,
+            name: item.folderName,
+            path: item.folderPath,
+            type: 'folder',
+            size: 0,
+            modified: item.modified,
+            mediaCount: 0,
+            imageCount: 0,
+            videoCount: 0,
+            coverPath: item.path,
+          };
+          existing.size += 1;
+          existing.mediaCount += 1;
+          if (item.type === 'image') existing.imageCount += 1;
+          if (item.type === 'video') existing.videoCount += 1;
+          map.set(item.folderPath, existing);
+          return map;
+        }, new Map<string, any>()).values());
+        return res.json({ media, folders, roots: requestedSources || [], truncated: cached.length >= maxResults, skipped: 0, limit: maxResults, cached: true });
+      }
+    }
+
     const ctx: ScanContext = {
       deadline: Date.now() + (requestedSources ? SELECTED_SOURCE_SCAN_TIMEOUT_MS : DEFAULT_SCAN_TIMEOUT_MS),
       maxResults,

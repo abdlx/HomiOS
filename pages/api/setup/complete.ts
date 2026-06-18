@@ -1,11 +1,13 @@
 import { getDb } from '../../../lib/db.ts';
 import { withAuth } from '../../../lib/api-auth.ts';
+import { setResourceProfile } from '../../../lib/resource-profile.ts';
+import { createBackupPlan } from '../../../lib/backups.ts';
 
 export default withAuth(async (req, res, session) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { drives } = req.body || {};
+    const { drives, performanceProfile, photoSources, backupDestination } = req.body || {};
     const db = getDb();
 
     db.exec(`
@@ -23,6 +25,34 @@ export default withAuth(async (req, res, session) => {
     for (const drivePath of drives || []) {
       const label = String(drivePath).split('/').pop() || 'Drive';
       insert.run(session.userId, drivePath, label);
+    }
+
+    if (['beautiful', 'balanced', 'server_saver'].includes(performanceProfile)) {
+      setResourceProfile(performanceProfile);
+      db.prepare(`
+        INSERT INTO app_settings (key, value, updated_at)
+        VALUES ('setup.performance_profile', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+      `).run(JSON.stringify(performanceProfile));
+    }
+
+    if (Array.isArray(photoSources)) {
+      db.prepare(`
+        INSERT INTO app_settings (key, value, updated_at)
+        VALUES ('photos.sources', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+      `).run(JSON.stringify(photoSources.filter(Boolean)));
+    }
+
+    if (backupDestination && drives?.[0]) {
+      createBackupPlan({
+        teamId: session.teamId,
+        userId: session.userId,
+        name: 'Default Local Backup',
+        sourcePath: drives[0],
+        destinationType: 'local',
+        destination: String(backupDestination),
+      });
     }
 
     res.json({ ok: true });

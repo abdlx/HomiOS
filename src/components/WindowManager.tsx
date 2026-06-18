@@ -8,6 +8,7 @@ import CoolifyApp from './CoolifyApp';
 import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
 import VSCodeApp from './VSCodeApp';
+import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -22,6 +23,7 @@ interface WindowManagerProps {
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
   const [view, setView] = useState<string>(initialView);
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { settings: performanceSettings } = usePerformanceSettings();
   const hasActiveTransfers = transfers.some(task => task.status === 'uploading' || task.status === 'pending' || task.status === 'paused');
   const windowVariants = {
@@ -40,6 +42,19 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       transition: { duration: performanceSettings.reduceMotion ? 0.1 : 0.2, ease: "easeOut" as const },
     },
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsCommandPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleTransfers = (event: Event) => {
@@ -74,6 +89,12 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
 
   return (
     <div className="relative h-screen w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenView={(nextView) => setView(nextView)}
+      />
+
       {transfers.length > 0 && (() => {
         const active = transfers.filter(task => task.status === 'uploading' || task.status === 'pending');
         const failed = transfers.filter(task => task.status === 'error');
