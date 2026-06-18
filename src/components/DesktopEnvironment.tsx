@@ -3,6 +3,7 @@ import {
   Activity, BatteryFull, Boxes, Cloud, Command, Cpu, Folder, FolderOpen, HardDrive,
   Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { FloatingDock } from './ui/floating-dock';
@@ -115,18 +116,25 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
     const iconSize = source === 'dock' ? 28 : 34;
     return (
-      <div className="relative group cursor-pointer flex flex-col items-center text-center" onClick={getOnClick(app.id)} onContextMenu={(e) => handleContextMenu(e, app.id, source)}>
+      <motion.div 
+        className="relative group cursor-pointer flex flex-col items-center text-center" 
+        onClick={getOnClick(app.id)} 
+        onContextMenu={(e) => handleContextMenu(e, app.id, source)}
+        whileHover={source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
+        whileTap={{ scale: 0.9, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+      >
         {source === 'dock' && (
           <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
             {app.label}
           </span>
         )}
-        <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] group-hover:-translate-y-2 group-hover:scale-[1.05] transition-all duration-300 ease-out mb-2 border border-white/10 relative overflow-hidden`}>
+        <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] mb-2 border border-white/10 relative overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
           <app.icon size={iconSize} strokeWidth={1.5} className="drop-shadow-md z-10" />
         </div>
         {source === 'grid' && <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md">{app.label}</span>}
-      </div>
+      </motion.div>
     );
   };
 

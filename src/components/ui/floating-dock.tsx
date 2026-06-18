@@ -110,6 +110,8 @@ function IconContainer({
         style={{ width, height }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        whileTap={{ scale: 0.85, y: 4 }}
+        transition={{ type: "spring", stiffness: 400, damping: 17 }}
         className="rounded-[18px] flex items-center justify-center relative cursor-pointer group origin-bottom"
       >
         <AnimatePresence>

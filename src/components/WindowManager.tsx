@@ -9,6 +9,7 @@ import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
+import { motion } from 'motion/react';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
@@ -93,94 +94,108 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       </div>
 
       {/* Files App overlay */}
-      <div 
-        className={`absolute z-10 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'files' 
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div 
+        initial={false}
+        animate={view === 'files' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-10 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'files' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <App onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Settings App overlay */}
-      <div 
-        className={`absolute z-20 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'settings' 
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div 
+        initial={false}
+        animate={view === 'settings' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-20 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'settings' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <SettingsApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Terminal App overlay */}
-      <div 
-        className={`absolute z-30 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'terminal' 
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div 
+        initial={false}
+        animate={view === 'terminal' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-30 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'terminal' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
           <TerminalApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Activity App overlay */}
-      <div 
-        className={`absolute z-40 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'activity' 
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]' 
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div 
+        initial={false}
+        animate={view === 'activity' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-40 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'activity' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
           <ActivityApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
       {/* Coolify overlay */}
-      <div
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'coolify'
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]'
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div
+        initial={false}
+        animate={view === 'coolify' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'coolify' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
           <CoolifyApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Notes App overlay */}
-      <div
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'notes'
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]'
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div
+        initial={false}
+        animate={view === 'notes' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'notes' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <NotesApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Photos App overlay */}
-      <div
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:origin-bottom ${
-          view === 'photos'
-            ? 'opacity-100 pointer-events-auto scale-100 translate-y-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)]'
-            : 'opacity-0 pointer-events-none scale-[0.92] translate-y-8'
-        }`}
+      <motion.div
+        initial={false}
+        animate={view === 'photos' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'photos' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <PhotosApp onClose={() => setView('desktop')} />
         </div>
-      </div>
+      </motion.div>
 
     </div>
   );
