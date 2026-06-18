@@ -49,7 +49,10 @@ apt-get update -qq
 apt-get install -y \
   curl git nginx samba ntfs-3g exfatprogs \
   util-linux build-essential python3-dev \
+  ffmpeg tesseract-ocr tesseract-ocr-eng poppler-utils \
   > /dev/null 2>&1
+
+log "Speed Core media tools installed: ffmpeg, Tesseract OCR, Poppler PDF tools."
 
 # ── 2. Node.js 22 LTS ─────────────────────────────────────────
 if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 22 ]]; then
@@ -80,6 +83,9 @@ fi
 # ── 4. Install npm dependencies & build ───────────────────────
 log "Installing Node.js packages..."
 npm install --legacy-peer-deps --silent
+
+log "Verifying Speed Core Node package support..."
+node -e "import('sharp').then(() => console.log('sharp ok')).catch((err) => { console.error('sharp failed:', err.message); process.exit(1); })"
 
 log "Building production Next.js bundle..."
 npm run build
@@ -268,7 +274,10 @@ set -e
 
 cd $INSTALL_DIR
 git pull
+apt-get update -qq
+apt-get install -y ffmpeg tesseract-ocr tesseract-ocr-eng poppler-utils > /dev/null 2>&1
 npm install --legacy-peer-deps --silent
+node -e "import('sharp').catch((err) => { console.error('sharp failed:', err.message); process.exit(1); })"
 npm run build
 
 chmod +x $INSTALL_DIR/scripts/coolify-up.sh $INSTALL_DIR/scripts/coolify-down.sh 2>/dev/null || true

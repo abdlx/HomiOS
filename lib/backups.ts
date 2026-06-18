@@ -3,11 +3,12 @@ import fsp from 'fs/promises';
 import path from 'path';
 import { createWriteStream } from 'fs';
 import { randomUUID } from 'crypto';
-// @ts-expect-error archiver's CJS typing does not expose a default export cleanly under this TS config.
-import archiver from 'archiver';
+import { createRequire } from 'module';
 import { getDb } from './db.ts';
 import { uploadBackupToS3 } from './s3.ts';
 
+const require = createRequire(import.meta.url);
+const archiver = require('archiver');
 const BACKUP_ROOT = process.env.BACKUP_WORK_DIR || path.join(process.cwd(), 'data', '.cache', 'backups');
 
 async function copyRecursive(source: string, destination: string, onProgress?: (bytes: number) => void) {
