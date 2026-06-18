@@ -185,7 +185,34 @@ systemctl enable smbd --quiet
 systemctl restart smbd
 log "Samba configured — sharing /mnt/openfinder-storage only."
 
-# ── 8. Nginx reverse proxy ───────────────────────────────────
+# ── 8. Install & configure code-server ───────────────────────
+log "Installing code-server..."
+if ! command -v code-server &>/dev/null; then
+  curl -fsSL https://code-server.dev/install.sh | sh > /dev/null 2>&1
+fi
+
+cat > /etc/systemd/system/code-server.service <<EOF
+[Unit]
+Description=code-server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=PASSWORD=
+ExecStart=/usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable code-server --quiet
+systemctl restart code-server
+log "code-server configured on port 8080."
+
+# ── 9. Nginx reverse proxy ───────────────────────────────────
 # NOTE: This app uses Next.js SSR (getServerSideProps), so we CANNOT
 # use 'output: export'. Nginx proxies ALL traffic to the Node.js process.
 log "Configuring Nginx reverse proxy..."
@@ -223,7 +250,7 @@ ln -sf /etc/nginx/sites-available/openfinder /etc/nginx/sites-enabled/
 nginx -t && systemctl restart nginx
 log "Nginx configured — proxying port 80 → Node.js :3000"
 
-# ── 9. Auto-update script ─────────────────────────────────────
+# ── 10. Auto-update script ────────────────────────────────────
 cat > /usr/local/bin/openfinder-update <<UPDATEEOF
 #!/bin/bash
 set -e
@@ -236,6 +263,11 @@ npm run build
 chmod +x $INSTALL_DIR/scripts/coolify-up.sh $INSTALL_DIR/scripts/coolify-down.sh 2>/dev/null || true
 if [ "\${COOLIFY_ENABLED:-true}" = "true" ]; then
   COOLIFY_APP_PORT="\${COOLIFY_APP_PORT:-8000}" COOLIFY_DATA_DIR="\${COOLIFY_DATA_DIR:-/data/coolify}" bash $INSTALL_DIR/scripts/coolify-up.sh
+fi
+
+if command -v code-server &>/dev/null; then
+  curl -fsSL https://code-server.dev/install.sh | sh > /dev/null 2>&1
+  systemctl restart code-server
 fi
 
 # Re-inject APP_KEY from the persisted key file into the systemd unit
@@ -263,6 +295,7 @@ echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
 if [ "$COOLIFY_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
 fi
+echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP:8080${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u openfinder -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC}"

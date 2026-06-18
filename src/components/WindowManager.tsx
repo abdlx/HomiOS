@@ -7,13 +7,14 @@ import ActivityApp from './ActivityApp';
 import CoolifyApp from './CoolifyApp';
 import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
+import VSCodeApp from './VSCodeApp';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'notes' | 'photos';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'notes' | 'photos' | 'vscode';
   username?: string;
 }
 
@@ -47,6 +48,8 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/notes');
     } else if (view === 'photos') {
       window.history.pushState(null, '', '/photos');
+    } else if (view === 'vscode') {
+      window.history.pushState(null, '', '/vscode');
     }
   }, [view]);
 
@@ -89,6 +92,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           onOpenCoolify={() => setView('coolify')}
           onOpenNotes={() => setView('notes')}
           onOpenPhotos={() => setView('photos')}
+          onOpenVSCode={() => setView('vscode')}
           username={username}
         />
       </div>
@@ -194,6 +198,21 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
           <PhotosApp onClose={() => setView('desktop')} />
+        </div>
+      </motion.div>
+
+      {/* VS Code App overlay */}
+      <motion.div
+        initial={false}
+        animate={view === 'vscode' ? "visible" : "hidden"}
+        variants={{
+          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
+          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
+        }}
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'vscode' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      >
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
+          <VSCodeApp onClose={() => setView('desktop')} />
         </div>
       </motion.div>
 

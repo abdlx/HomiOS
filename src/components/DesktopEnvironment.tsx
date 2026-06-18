@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Cloud, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon
+  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -17,10 +17,11 @@ interface DesktopEnvironmentProps {
   onOpenCoolify: () => void;
   onOpenNotes: () => void;
   onOpenPhotos: () => void;
+  onOpenVSCode: () => void;
   username?: string;
 }
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -38,8 +39,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
     notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
     photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
+    vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
   };
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos'];
+  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode'];
 
   useEffect(() => {
     setNow(new Date());
@@ -66,7 +68,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
     let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id)) : ['files'];
-    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : ['activity', 'terminal', 'coolify', 'settings', 'finder', 'photos'];
+    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder', 'photos'];
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     currentGrid = [...currentGrid, ...missingApps];
     setGridAppIds(currentGrid);
@@ -97,6 +99,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'coolify') return onOpenCoolify;
     if (id === 'notes') return onOpenNotes;
     if (id === 'photos') return onOpenPhotos;
+    if (id === 'vscode') return onOpenVSCode;
     return undefined;
   };
 
