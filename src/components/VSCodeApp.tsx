@@ -9,10 +9,10 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [checkKey, setCheckKey] = useState(0);
 
-  // Default code-server port is usually 8080
+  // Route through the Nginx reverse proxy on /code/
   const vscodeUrl = useMemo(() => {
-    if (typeof window === 'undefined') return 'http://localhost:8080';
-    return `http://${window.location.hostname}:8080`;
+    if (typeof window === 'undefined') return '/code/';
+    return `${window.location.origin}/code/`;
   }, []);
 
   useEffect(() => {
@@ -85,9 +85,9 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
               <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-blue-400">
                 <Code2 size={28} strokeWidth={1.7} />
               </div>
-              <h3 className="text-lg font-semibold mb-2">code-server is starting or not installed.</h3>
+              <h3 className="text-lg font-semibold mb-2">VS Code is starting or not installed.</h3>
               <p className="text-sm text-white/55 mb-5">
-                OpenFinder will load VS Code here once `code-server` is available on port 8080.
+                OpenFinder will load VS Code here once `code-server` is running locally.
                 To install it on your server, run:<br/>
                 <code className="bg-black/30 p-1 rounded mt-2 block text-xs">curl -fsSL https://code-server.dev/install.sh | sh</code>
               </p>
@@ -102,7 +102,7 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
                   onClick={() => window.open(vscodeUrl, '_blank', 'noopener,noreferrer')}
                   className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition"
                 >
-                  Open Port 8080
+                  Open /code/
                 </button>
               </div>
             </div>

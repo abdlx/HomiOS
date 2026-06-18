@@ -200,7 +200,7 @@ After=network.target
 Type=simple
 User=root
 Environment=PASSWORD=
-ExecStart=/usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none
+ExecStart=/usr/bin/code-server --bind-addr 127.0.0.1:8080 --auth none
 Restart=always
 
 [Install]
@@ -239,6 +239,17 @@ server {
         proxy_read_timeout 36000s;
         proxy_send_timeout 36000s;
         send_timeout 36000s;
+    }
+
+    # Internal code-server proxy
+    location /code/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 }
 NGINXEOF
@@ -295,7 +306,7 @@ echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
 if [ "$COOLIFY_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
 fi
-echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP:8080${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u openfinder -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC}"
