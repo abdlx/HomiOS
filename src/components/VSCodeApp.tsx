@@ -3,9 +3,10 @@ import { ExternalLink, RefreshCw, Code2, X } from 'lucide-react';
 
 interface VSCodeAppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
-export default function VSCodeApp({ onClose }: VSCodeAppProps) {
+export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [checkKey, setCheckKey] = useState(0);
 
@@ -16,6 +17,8 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
+
     let cancelled = false;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2500);
@@ -37,7 +40,7 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [vscodeUrl, checkKey]);
+  }, [vscodeUrl, checkKey, isActive]);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#1e1e1e] text-white">
@@ -88,7 +91,7 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
               <h3 className="text-lg font-semibold mb-2">VS Code is starting or not installed.</h3>
               <p className="text-sm text-white/55 mb-5">
                 OpenFinder will load VS Code here once `code-server` is running locally.
-                To install it on your server, run:<br/>
+                To install it on your server, run:<br />
                 <code className="bg-black/30 p-1 rounded mt-2 block text-xs">curl -fsSL https://code-server.dev/install.sh | sh</code>
               </p>
               <div className="flex items-center justify-center gap-3">
@@ -109,7 +112,7 @@ export default function VSCodeApp({ onClose }: VSCodeAppProps) {
           </div>
         )}
 
-        {isOnline !== false && (
+        {isActive && isOnline !== false && (
           <iframe
             key={checkKey}
             src={vscodeUrl}

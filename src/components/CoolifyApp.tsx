@@ -3,9 +3,10 @@ import { ExternalLink, RefreshCw, Server, X } from 'lucide-react';
 
 interface CoolifyAppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
-export default function CoolifyApp({ onClose }: CoolifyAppProps) {
+export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [checkKey, setCheckKey] = useState(0);
 
@@ -15,6 +16,8 @@ export default function CoolifyApp({ onClose }: CoolifyAppProps) {
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
+
     let cancelled = false;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2500);
@@ -36,7 +39,7 @@ export default function CoolifyApp({ onClose }: CoolifyAppProps) {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [coolifyUrl, checkKey]);
+  }, [coolifyUrl, checkKey, isActive]);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#0b1120] text-white">
@@ -106,7 +109,7 @@ export default function CoolifyApp({ onClose }: CoolifyAppProps) {
           </div>
         )}
 
-        {isOnline !== false && (
+        {isActive && isOnline !== false && (
           <iframe
             key={checkKey}
             src={coolifyUrl}

@@ -6,6 +6,7 @@ import {
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
+import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
 import GlassSurface from '../../components/GlassSurface';
 
@@ -25,6 +26,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
+  const { settings: performanceSettings } = usePerformanceSettings();
   const [now, setNow] = useState<Date | null>(null);
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'coolify', 'settings', 'finder']);
@@ -50,18 +52,39 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   }, []);
 
   useEffect(() => {
+    const intervalByMode = {
+      live: 3000,
+      balanced: 7000,
+      quiet: 15000,
+    } as const;
+    let controller: AbortController | null = null;
+
     const fetchStats = async () => {
+      if (document.visibilityState === 'hidden') return;
+      controller?.abort();
+      controller = new AbortController();
+
       try {
-        const res = await fetch('/api/system/stats');
+        const res = await fetch('/api/system/stats', { signal: controller.signal });
         if (res.ok) setStats(await res.json());
       } catch (e) {
-        console.error('Failed to fetch stats', e);
+        if ((e as any)?.name !== 'AbortError') console.error('Failed to fetch stats', e);
       }
     };
+
     fetchStats();
-    const timer = setInterval(fetchStats, 5000);
-    return () => clearInterval(timer);
-  }, []);
+    const timer = setInterval(fetchStats, intervalByMode[performanceSettings.backgroundPolling]);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchStats();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      controller?.abort();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [performanceSettings.backgroundPolling]);
 
   useEffect(() => {
     const activeAppIds = Object.keys(ALL_APPS);
@@ -115,6 +138,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     setContextMenu({ x, y, appId, source });
   };
 
+  const SurfaceBackdrop = () => (
+    performanceSettings.glassSurfaces ? (
+      <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+    ) : (
+      <div className="w-full h-full rounded-[32px] bg-black/25 border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.16)] backdrop-blur-md" />
+    )
+  );
+
   const AppIcon = ({ app, source }: { app: any; source: 'grid' | 'dock' }) => {
     const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
     const iconSize = source === 'dock' ? 28 : 34;
@@ -123,9 +154,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         className="relative group cursor-pointer flex flex-col items-center text-center" 
         onClick={getOnClick(app.id)} 
         onContextMenu={(e) => handleContextMenu(e, app.id, source)}
-        whileHover={source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
-        whileTap={{ scale: 0.9, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+        whileHover={!performanceSettings.reduceMotion && source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
+        whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.9, y: 0 }}
+        transition={performanceSettings.reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 300, damping: 15 }}
       >
         {source === 'dock' && (
           <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
@@ -171,7 +202,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+              <SurfaceBackdrop />
             </div>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-start space-x-3 max-w-[70%]"><div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400"><Activity size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">CPU Usage</h3><p className="text-white/50 text-[11px] mt-1 line-clamp-2">{stats?.cpu?.model || 'Processor'}</p></div></div>
@@ -181,14 +212,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+              <SurfaceBackdrop />
             </div>
             <div className="flex items-center justify-between mb-6"><div className="flex items-center space-x-3"><div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400"><Cpu size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Memory</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${(stats.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
             <div className="flex items-center justify-between"><div className="flex items-center space-x-3"><div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400"><HardDrive size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Storage</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.disk.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
           </div>
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+              <SurfaceBackdrop />
             </div>
             <div className="flex justify-between items-start mb-4"><div className="flex items-center space-x-3"><div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400"><Zap size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">System Load</h3><p className="text-white/50 text-[11px]">Avg over 1 min</p></div></div><span className="text-2xl font-bold text-white">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span></div>
             <div className="grid grid-cols-2 gap-3"><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Cores</span><span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400" />{stats?.cpu?.cores || 0}</span></div><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Platform</span><span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400" />{stats?.os?.platform || 'N/A'}</span></div></div>
@@ -205,6 +236,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
         <FloatingDock
+          glassSurfaces={performanceSettings.glassSurfaces}
+          reduceMotion={performanceSettings.reduceMotion}
           desktopClassName="transition-colors duration-500"
           items={dockAppIds.map((id) => {
             const app = ALL_APPS[id];

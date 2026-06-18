@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Cpu, HardDrive, Wifi, Monitor, Zap, Menu } from 'lucide-react';
+import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 
 interface ActivityAppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
 interface HistoryPoint {
@@ -11,20 +13,34 @@ interface HistoryPoint {
   time: string;
 }
 
-export default function ActivityApp({ onClose }: ActivityAppProps) {
+export default function ActivityApp({ onClose, isActive = true }: ActivityAppProps) {
   const [activeTab, setActiveTab] = useState('cpu');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const { settings: performanceSettings } = usePerformanceSettings();
 
   useEffect(() => {
+    if (!isActive) return;
+
+    const intervalByMode = {
+      live: 2000,
+      balanced: 4000,
+      quiet: 10000,
+    } as const;
+    let controller: AbortController | null = null;
+
     const fetchStats = async () => {
+      if (document.visibilityState === 'hidden') return;
+      controller?.abort();
+      controller = new AbortController();
+
       try {
-        const res = await fetch('/api/system/stats');
+        const res = await fetch('/api/system/stats', { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setStats(data);
-          
+
           setHistory(prev => {
             const newHistory = [...prev, {
               cpu: data.cpu?.usagePercent || 0,
@@ -35,14 +51,23 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
           });
         }
       } catch (e) {
-        console.error('Failed to fetch stats', e);
+        if ((e as any)?.name !== 'AbortError') console.error('Failed to fetch stats', e);
       }
     };
-    
+
     fetchStats();
-    const timer = setInterval(fetchStats, 2000);
-    return () => clearInterval(timer);
-  }, []);
+    const timer = setInterval(fetchStats, intervalByMode[performanceSettings.backgroundPolling]);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchStats();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      controller?.abort();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isActive, performanceSettings.backgroundPolling]);
 
   const tabs = [
     { id: 'cpu', label: 'CPU', icon: Cpu },
@@ -69,7 +94,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
           <span>50%</span>
           <span>0%</span>
         </div>
-        
+
         {/* Grid lines */}
         <div className="absolute inset-4 flex flex-col justify-between z-0 pointer-events-none">
           <div className="w-full h-px bg-slate-100 dark:bg-white/10"></div>
@@ -97,7 +122,7 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
 
   return (
     <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 relative transition-colors duration-300" onContextMenu={(e) => e.preventDefault()}>
-      
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />
@@ -117,11 +142,10 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all text-sm font-medium ${
-                activeTab === tab.id
+              className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all text-sm font-medium ${activeTab === tab.id
                   ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-white/10 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <tab.icon size={18} strokeWidth={2} className={activeTab === tab.id ? 'text-blue-500 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'} />
               <span>{tab.label}</span>
@@ -149,12 +173,12 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
               <span>Live Updates</span>
             </div>
           </div>
-          
+
           {/* CPU TAB */}
           {activeTab === 'cpu' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {renderLineChart('cpu', '#3b82f6', 'cpuGradient')}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-5 border border-neutral-200/50 dark:border-white/10">
                   <span className="text-slate-400 dark:text-slate-500 text-xs font-medium uppercase tracking-wider block mb-1">Model</span>
@@ -193,10 +217,10 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
                     <span className="text-slate-500 dark:text-slate-400 text-sm mb-1 font-semibold">GB / {stats ? (stats.memory.total / 1024 / 1024 / 1024).toFixed(1) : '0'} GB</span>
                   </div>
                   <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full mt-4 overflow-hidden">
-                    <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${stats ? (stats.memory.used/stats.memory.total)*100 : 0}%` }}></div>
+                    <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${stats ? (stats.memory.used / stats.memory.total) * 100 : 0}%` }}></div>
                   </div>
                 </div>
-                
+
                 <div className="bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-6 border border-neutral-200/50 dark:border-white/10 flex flex-col justify-center">
                   <span className="text-slate-400 dark:text-slate-500 text-xs font-medium uppercase tracking-wider block mb-2">Memory Free</span>
                   <div className="flex items-end space-x-2">
@@ -215,17 +239,17 @@ export default function ActivityApp({ onClose }: ActivityAppProps) {
                 <div className="w-32 h-32 relative mb-6">
                   <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
                     <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="12" />
-                    <circle 
-                      cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" strokeWidth="12" 
-                      strokeDasharray={`${stats ? ((stats.disk.total - stats.disk.free) / stats.disk.total) * 251.2 : 0} 251.2`} 
+                    <circle
+                      cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" strokeWidth="12"
+                      strokeDasharray={`${stats ? ((stats.disk.total - stats.disk.free) / stats.disk.total) * 251.2 : 0} 251.2`}
                       className="transition-all duration-1000 ease-out"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800">
-                    <span className="text-2xl font-bold">{stats ? (((stats.disk.total - stats.disk.free)/stats.disk.total)*100).toFixed(0) : '0'}%</span>
+                    <span className="text-2xl font-bold">{stats ? (((stats.disk.total - stats.disk.free) / stats.disk.total) * 100).toFixed(0) : '0'}%</span>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-12 w-full max-w-md text-center">
                   <div>
                     <span className="text-slate-400 dark:text-slate-500 text-xs font-medium uppercase tracking-wider block mb-1">Used Space</span>

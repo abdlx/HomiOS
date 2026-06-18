@@ -2,6 +2,10 @@ import os from 'os';
 import fs from 'fs';
 import { withAuth } from '../../../lib/api-auth.ts';
 
+const CACHE_TTL_MS = 1000;
+let cachedStats: { expiresAt: number; value: any } | null = null;
+let pendingStats: Promise<any> | null = null;
+
 /** Aggregate busy/idle tick counters across all cores. */
 function cpuTimes() {
   let idle = 0, total = 0;
@@ -27,6 +31,32 @@ function sampleCpuPercent(ms = 120): Promise<number> {
 
 export default withAuth(async (req: any, res: any) => {
   try {
+    const now = Date.now();
+    if (cachedStats && cachedStats.expiresAt > now) {
+      res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=4');
+      return res.status(200).json(cachedStats.value);
+    }
+
+    if (pendingStats) {
+      const value = await pendingStats;
+      res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=4');
+      return res.status(200).json(value);
+    }
+
+    pendingStats = buildStats();
+    const stats = await pendingStats;
+    cachedStats = { expiresAt: Date.now() + CACHE_TTL_MS, value: stats };
+    pendingStats = null;
+    res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=4');
+    return res.status(200).json(stats);
+  } catch (error) {
+    pendingStats = null;
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch system stats' });
+  }
+});
+
+async function buildStats() {
     const cpus = os.cpus();
     const loadAvg = os.loadavg()[0];
     const cpuUsagePercent = await sampleCpuPercent();
@@ -47,7 +77,7 @@ export default withAuth(async (req: any, res: any) => {
       console.warn('Could not fetch disk stats:', e);
     }
 
-    res.status(200).json({
+    return {
       cpu: {
         usagePercent: cpuUsagePercent,
         cores: cpus.length,
@@ -71,10 +101,5 @@ export default withAuth(async (req: any, res: any) => {
         hostname: os.hostname(),
         version: os.version ? os.version() : os.release()
       }
-    });
-
-  } catch (error) {
-    console.error('Stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch system stats' });
-  }
-});
+    };
+}

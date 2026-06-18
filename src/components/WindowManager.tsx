@@ -11,6 +11,7 @@ import VSCodeApp from './VSCodeApp';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
@@ -21,6 +22,23 @@ interface WindowManagerProps {
 export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
   const [view, setView] = useState<string>(initialView);
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
+  const { settings: performanceSettings } = usePerformanceSettings();
+  const windowVariants = {
+    visible: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: performanceSettings.reduceMotion
+        ? { duration: 0.12, ease: "easeOut" as const }
+        : { type: "spring" as const, stiffness: 350, damping: 25, mass: 0.5 },
+    },
+    hidden: {
+      opacity: 0,
+      scale: performanceSettings.reduceMotion ? 1 : 0.92,
+      y: performanceSettings.reduceMotion ? 0 : 32,
+      transition: { duration: performanceSettings.reduceMotion ? 0.1 : 0.2, ease: "easeOut" as const },
+    },
+  };
 
   useEffect(() => {
     const handleTransfers = (event: Event) => {
@@ -81,11 +99,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
           </button>
         );
       })()}
-      
+
       {/* Desktop Environment - ALWAYS MOUNTED to prevent load delays */}
       <div className="absolute inset-0 z-0">
-        <DesktopEnvironment 
-          onOpenFinder={() => setView('files')} 
+        <DesktopEnvironment
+          onOpenFinder={() => setView('files')}
           onOpenSettings={() => setView('settings')}
           onOpenTerminal={() => setView('terminal')}
           onOpenActivity={() => setView('activity')}
@@ -98,13 +116,10 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       </div>
 
       {/* Files App overlay */}
-      <motion.div 
+      <motion.div
         initial={false}
         animate={view === 'files' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-10 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'files' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
@@ -113,13 +128,10 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       </motion.div>
 
       {/* Settings App overlay */}
-      <motion.div 
+      <motion.div
         initial={false}
         animate={view === 'settings' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-20 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'settings' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
@@ -128,13 +140,10 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       </motion.div>
 
       {/* Terminal App overlay */}
-      <motion.div 
+      <motion.div
         initial={false}
         animate={view === 'terminal' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-30 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'terminal' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
@@ -143,31 +152,25 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       </motion.div>
 
       {/* Activity App overlay */}
-      <motion.div 
+      <motion.div
         initial={false}
         animate={view === 'activity' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-40 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'activity' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
-          <ActivityApp onClose={() => setView('desktop')} />
+          <ActivityApp onClose={() => setView('desktop')} isActive={view === 'activity'} />
         </div>
       </motion.div>
       {/* Coolify overlay */}
       <motion.div
         initial={false}
         animate={view === 'coolify' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'coolify' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
-          <CoolifyApp onClose={() => setView('desktop')} />
+          <CoolifyApp onClose={() => setView('desktop')} isActive={view === 'coolify'} />
         </div>
       </motion.div>
 
@@ -175,10 +178,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       <motion.div
         initial={false}
         animate={view === 'notes' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'notes' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
@@ -190,14 +190,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       <motion.div
         initial={false}
         animate={view === 'photos' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'photos' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          <PhotosApp onClose={() => setView('desktop')} />
+          <PhotosApp onClose={() => setView('desktop')} isActive={view === 'photos'} />
         </div>
       </motion.div>
 
@@ -205,19 +202,14 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       <motion.div
         initial={false}
         animate={view === 'vscode' ? "visible" : "hidden"}
-        variants={{
-          visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.5 } },
-          hidden: { opacity: 0, scale: 0.92, y: 32, transition: { duration: 0.2, ease: "easeOut" } }
-        }}
+        variants={windowVariants}
         className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'vscode' ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
-          <VSCodeApp onClose={() => setView('desktop')} />
+          <VSCodeApp onClose={() => setView('desktop')} isActive={view === 'vscode'} />
         </div>
       </motion.div>
 
     </div>
   );
 }
-
-

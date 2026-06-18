@@ -12,6 +12,8 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 const PORT = process.env.PORT || 3000;
+const MAX_TERMINAL_SESSIONS = Number(process.env.MAX_TERMINAL_SESSIONS || 8);
+const TERMINAL_IDLE_TIMEOUT_MS = Number(process.env.TERMINAL_IDLE_TIMEOUT_MS || 30 * 60 * 1000);
 
 app.prepare().then(async () => {
   const server = express();
@@ -20,11 +22,10 @@ app.prepare().then(async () => {
     const { Server: TusServer } = await import('@tus/server');
     const { FileStore } = await import('@tus/file-store');
     const fs = await import('fs');
+    const fsp = await import('fs/promises');
 
     const tusUploadDir = process.env.TUS_UPLOAD_DIR || path.join(process.cwd(), 'data_mock', '.tus_uploads');
-    if (!fs.existsSync(tusUploadDir)) {
-      fs.mkdirSync(tusUploadDir, { recursive: true });
-    }
+    await fsp.mkdir(tusUploadDir, { recursive: true });
 
     const tusServer = new TusServer({
       path: '/api/upload',
@@ -44,9 +45,9 @@ app.prepare().then(async () => {
             const dest = path.resolve(BASE_PATH, String(targetPath).replace(/^\/+/, ''));
             const destDir = path.dirname(dest);
             if (!fs.existsSync(destDir)) {
-              fs.mkdirSync(destDir, { recursive: true });
+              await fsp.mkdir(destDir, { recursive: true });
             }
-            fs.renameSync(path.join(tusUploadDir, upload.id), dest);
+            await fsp.rename(path.join(tusUploadDir, upload.id), dest);
           } catch (e) {
             console.error('TUS move error:', e);
           }
@@ -75,6 +76,7 @@ app.prepare().then(async () => {
     const os = await import('os');
 
     const io = new SocketIOServer(httpServer);
+    let activeTerminalSessions = 0;
 
     io.on('connection', async (socket) => {
       const { validateSessionCookie } = await import('./lib/api-auth.ts');
@@ -82,29 +84,74 @@ app.prepare().then(async () => {
       if (!session) { socket.disconnect(); return; }
 
       let ptyProcess = null;
+      let idleTimer = null;
+
+      const clearIdleTimer = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = null;
+      };
+
+      const releasePty = () => {
+        if (activeTerminalSessions > 0) activeTerminalSessions -= 1;
+        ptyProcess = null;
+        clearIdleTimer();
+      };
+
+      const refreshIdleTimer = () => {
+        clearIdleTimer();
+        idleTimer = setTimeout(() => {
+          if (ptyProcess) {
+            socket.emit('output', '\r\n[terminal closed after being idle]\r\n');
+            try { ptyProcess.kill(); } catch (e) {}
+          }
+        }, TERMINAL_IDLE_TIMEOUT_MS);
+      };
+
       const ensurePty = () => {
         if (ptyProcess) return ptyProcess;
+        if (activeTerminalSessions >= MAX_TERMINAL_SESSIONS) {
+          socket.emit('output', `\r\n[terminal limit reached: ${MAX_TERMINAL_SESSIONS} active sessions]\r\n`);
+          return null;
+        }
+
         const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
         ptyProcess = pty.spawn(shell, [], {
           name: 'xterm-256color', cols: 80, rows: 30,
           cwd: process.env.HOME || process.env.USERPROFILE || process.cwd(),
           env: process.env,
         });
+        activeTerminalSessions += 1;
         ptyProcess.on('data', (data) => socket.emit('output', data));
         ptyProcess.on('exit', () => {
           socket.emit('output', '\r\n[process exited; reconnect to start a new shell]\r\n');
-          ptyProcess = null;
+          releasePty();
         });
+        refreshIdleTimer();
         return ptyProcess;
       };
 
-      socket.on('input', (data) => { try { ensurePty().write(data); } catch (e) {} });
+      socket.on('input', (data) => {
+        try {
+          const p = ensurePty();
+          if (p) {
+            refreshIdleTimer();
+            p.write(data);
+          }
+        } catch (e) {}
+      });
       socket.on('resize', (size) => {
-        try { const p = ensurePty(); if (size && size.cols && size.rows) p.resize(size.cols, size.rows); }
+        try {
+          const p = ensurePty();
+          if (p && size && size.cols && size.rows) {
+            refreshIdleTimer();
+            p.resize(size.cols, size.rows);
+          }
+        }
         catch (e) { console.warn('Resize error', e); }
       });
       socket.on('disconnect', () => {
         if (ptyProcess) { try { ptyProcess.kill(); } catch (e) {} }
+        clearIdleTimer();
       });
     });
 

@@ -6,6 +6,7 @@ import archiver from 'archiver';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
+const FILE_STAT_CONCURRENCY = Number(process.env.FILE_STAT_CONCURRENCY || 32);
 
 function securePath(p: string) {
   // We strip leading slashes so that path resolves relative to BASE_PATH.
@@ -14,6 +15,25 @@ function securePath(p: string) {
   // This allows full system access in production without path jail errors.
   const resolved = path.resolve(BASE_PATH, p.replace(/^\/+/, ''));
   return resolved;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+
+  return results;
 }
 
 export const config = {
@@ -41,7 +61,7 @@ export default async function handler(req: any, res: any) {
         }
 
         const archive = archiver('zip', {
-          zlib: { level: 9 }
+          zlib: { level: Number(process.env.ZIP_COMPRESSION_LEVEL || 3) }
         });
 
         res.setHeader('Content-Type', 'application/zip');
@@ -99,8 +119,10 @@ export default async function handler(req: any, res: any) {
 
       try {
         const files = await readdir(fullPath, { withFileTypes: true });
-        const detailed = await Promise.all(
-          files.map(async (f) => {
+        const detailed = await mapWithConcurrency(
+          files,
+          FILE_STAT_CONCURRENCY,
+          async (f) => {
             const fullPath_ = path.join(fullPath, f.name);
             let size = 0;
             let modified = new Date().toISOString();
@@ -123,7 +145,7 @@ export default async function handler(req: any, res: any) {
               modified,
               path: path.relative(BASE_PATH, fullPath_)
             };
-          })
+          }
         );
         res.json(detailed.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name)));
       } catch (err) {

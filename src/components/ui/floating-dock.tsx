@@ -8,14 +8,18 @@ export const FloatingDock = ({
   items,
   desktopClassName,
   mobileClassName,
+  glassSurfaces = true,
+  reduceMotion = false,
 }: {
   items: { title: string; icon: React.ReactNode; href?: string; id?: string, onClick?: () => void }[];
   desktopClassName?: string;
   mobileClassName?: string;
+  glassSurfaces?: boolean;
+  reduceMotion?: boolean;
 }) => {
   return (
     <>
-      <FloatingDockDesktop items={items} className={desktopClassName} />
+      <FloatingDockDesktop items={items} className={desktopClassName} glassSurfaces={glassSurfaces} reduceMotion={reduceMotion} />
     </>
   );
 };
@@ -23,9 +27,13 @@ export const FloatingDock = ({
 const FloatingDockDesktop = ({
   items,
   className,
+  glassSurfaces,
+  reduceMotion,
 }: {
   items: { title: string; icon: React.ReactNode; href?: string; id?: string, onClick?: () => void }[];
   className?: string;
+  glassSurfaces: boolean;
+  reduceMotion: boolean;
 }) => {
   let mouseX = useMotionValue(Infinity);
   return (
@@ -35,19 +43,23 @@ const FloatingDockDesktop = ({
       className={`mx-auto flex h-20 gap-4 items-end rounded-[32px] px-4 pb-3 relative ${className || ""}`}
     >
       <div className="absolute inset-0 -z-10">
-        <GlassSurface
-          width="100%"
-          height="100%"
-          borderRadius={32}
-          distortionScale={300}
-          opacity={1}
-          borderWidth={0.2}
-          displace={1.6}
-          backgroundOpacity={0}
-        />
+        {glassSurfaces ? (
+          <GlassSurface
+            width="100%"
+            height="100%"
+            borderRadius={32}
+            distortionScale={300}
+            opacity={1}
+            borderWidth={0.2}
+            displace={1.6}
+            backgroundOpacity={0}
+          />
+        ) : (
+          <div className="w-full h-full rounded-[32px] bg-black/30 border border-white/10 shadow-[0_14px_36px_rgba(0,0,0,0.24)] backdrop-blur-md" />
+        )}
       </div>
       {items.map((item) => (
-        <IconContainer mouseX={mouseX} key={item.title} {...item} />
+        <IconContainer mouseX={mouseX} reduceMotion={reduceMotion} key={item.title} {...item} />
       ))}
     </motion.div>
   );
@@ -59,12 +71,14 @@ function IconContainer({
   icon,
   href,
   onClick,
+  reduceMotion,
 }: {
   mouseX: any;
   title: string;
   icon: React.ReactNode;
   href?: string;
   onClick?: () => void;
+  reduceMotion: boolean;
 }) {
   let ref = useRef<HTMLDivElement>(null);
 
@@ -73,11 +87,11 @@ function IconContainer({
     return val - bounds.x - bounds.width / 2;
   });
 
-  let widthTransform = useTransform(distance, [-150, 0, 150], [56, 80, 56]);
-  let heightTransform = useTransform(distance, [-150, 0, 150], [56, 80, 56]);
+  let widthTransform = useTransform(distance, [-150, 0, 150], reduceMotion ? [56, 56, 56] : [56, 80, 56]);
+  let heightTransform = useTransform(distance, [-150, 0, 150], reduceMotion ? [56, 56, 56] : [56, 80, 56]);
 
-  let widthTransformIcon = useTransform(distance, [-150, 0, 150], [56, 80, 56]);
-  let heightTransformIcon = useTransform(distance, [-150, 0, 150], [56, 80, 56]);
+  let widthTransformIcon = useTransform(distance, [-150, 0, 150], reduceMotion ? [56, 56, 56] : [56, 80, 56]);
+  let heightTransformIcon = useTransform(distance, [-150, 0, 150], reduceMotion ? [56, 56, 56] : [56, 80, 56]);
 
   let width = useSpring(widthTransform, {
     mass: 0.1,
@@ -110,8 +124,8 @@ function IconContainer({
         style={{ width, height }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        whileTap={{ scale: 0.85, y: 4 }}
-        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+        whileTap={reduceMotion ? undefined : { scale: 0.85, y: 4 }}
+        transition={reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 400, damping: 17 }}
         className="rounded-[18px] flex items-center justify-center relative cursor-pointer group origin-bottom"
       >
         <AnimatePresence>

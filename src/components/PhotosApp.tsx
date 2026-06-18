@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Toolbar from './Toolbar';
 import FileArea from './FileArea';
 import QuickLookModal from './QuickLookModal';
@@ -8,6 +8,7 @@ import { Folder, Image as ImageIcon, Menu, X } from 'lucide-react';
 
 interface PhotosAppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
 const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
@@ -23,7 +24,7 @@ function readPhotoSources(): string[] {
   }
 }
 
-export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
+export default function PhotosApp({ onClose, isActive = true }: PhotosAppProps = {}) {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [mediaFolders, setMediaFolders] = useState<FileItem[]>([]);
   const [configuredSources, setConfiguredSources] = useState<string[]>([]);
@@ -36,6 +37,7 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('all-photos');
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -53,14 +55,22 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
   useEffect(() => {
     const sources = readPhotoSources();
     setConfiguredSources(sources);
-    loadPhotos(sources);
+    if (isActive) {
+      hasLoadedRef.current = true;
+      loadPhotos(sources);
+    }
 
     const handleSourcesChanged = () => {
       const nextSources = readPhotoSources();
       setConfiguredSources(nextSources);
       setActiveSection('all-photos');
       setSelectedFileId(null);
-      loadPhotos(nextSources);
+      if (isActive) {
+        hasLoadedRef.current = true;
+        loadPhotos(nextSources);
+      } else {
+        hasLoadedRef.current = false;
+      }
     };
 
     window.addEventListener('storage', handleSourcesChanged);
@@ -69,7 +79,15 @@ export default function PhotosApp({ onClose }: PhotosAppProps = {}) {
       window.removeEventListener('storage', handleSourcesChanged);
       window.removeEventListener('openfinder:photos-sources-changed', handleSourcesChanged);
     };
-  }, []);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive || hasLoadedRef.current) return;
+    const sources = readPhotoSources();
+    setConfiguredSources(sources);
+    hasLoadedRef.current = true;
+    loadPhotos(sources);
+  }, [isActive]);
 
   const loadPhotos = async (sources = configuredSources) => {
     setLoading(true);

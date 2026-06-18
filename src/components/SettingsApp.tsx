@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { useTheme, ThemePreference } from '../hooks/useTheme';
+import { usePerformanceSettings, BackgroundPollingMode } from '../hooks/usePerformanceSettings';
 import { confirmDialog, promptDialog, toast } from './SystemUI';
 import {
   Settings, Monitor, Users, Wifi, Info, CheckCircle2,
@@ -37,6 +38,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   const { wallpaper, changeWallpaper } = useWallpaper();
   const { username, changeUsername } = useUsername();
   const { theme, resolvedTheme, changeTheme } = useTheme();
+  const { settings: performanceSettings, updateSettings: updatePerformanceSettings } = usePerformanceSettings();
   const [sysStats, setSysStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
@@ -375,6 +377,59 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                         <span className="text-sm font-medium">{t.label}</span>
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Performance Preferences */}
+                <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
+                  <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">Performance</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Glass surfaces</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Use the rich desktop glass effect on cards and dock.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={performanceSettings.glassSurfaces}
+                          onChange={(e) => updatePerformanceSettings({ glassSurfaces: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reduce motion</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Prefer lighter transitions and fewer animated effects.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={performanceSettings.reduceMotion}
+                          onChange={(e) => updatePerformanceSettings({ reduceMotion: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 dark:bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Background activity</label>
+                      <div className="col-span-2">
+                        <select
+                          value={performanceSettings.backgroundPolling}
+                          onChange={(e) => updatePerformanceSettings({ backgroundPolling: e.target.value as BackgroundPollingMode })}
+                          className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:[color-scheme:dark]"
+                        >
+                          <option value="live">Live</option>
+                          <option value="balanced">Balanced</option>
+                          <option value="quiet">Quiet</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
