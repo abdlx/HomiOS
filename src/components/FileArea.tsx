@@ -206,8 +206,8 @@ export default function FileArea({
                 isSelected ? 'scale-[1.02]' : ''
               }`}>
                 
-                {file.type === 'image' && file.thumbnailUrl ? (
-                  <div className={`w-[110px] h-[75px] rounded-lg overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
+                {file.type === 'folder' && file.thumbnailUrl ? (
+                  <div className={`relative w-[110px] h-[82px] rounded-xl overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
                     isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
                   }`}>
                     <img 
@@ -216,6 +216,36 @@ export default function FileArea({
                       className="w-full h-full object-cover pointer-events-none"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-black/55 text-white text-[10px] font-bold text-left truncate">
+                      {file.size}
+                    </div>
+                  </div>
+                ) : (file.type === 'image' || file.type === 'video') && file.thumbnailUrl ? (
+                  <div className={`w-[110px] h-[75px] rounded-lg overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
+                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
+                  }`}>
+                    {file.type === 'video' ? (
+                      <div className="relative w-full h-full bg-neutral-900">
+                        <video
+                          src={file.thumbnailUrl}
+                          className="w-full h-full object-cover pointer-events-none"
+                          muted
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/15">
+                          <div className="w-8 h-8 rounded-full bg-black/55 text-white flex items-center justify-center">
+                            <Video size={16} fill="currentColor" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <img 
+                        src={file.thumbnailUrl} 
+                        alt={file.name}
+                        className="w-full h-full object-cover pointer-events-none"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
                   </div>
                 ) : file.type === 'folder' ? (
                   renderFolderIcon(file.folderColor)
@@ -450,9 +480,17 @@ export default function FileArea({
           <div className="w-full flex flex-col items-center space-y-3">
             <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider w-full text-left border-b border-neutral-200/55 dark:border-white/10 pb-1">Quick Preview</p>
 
-            {activeFile.type === 'image' && activeFile.thumbnailUrl ? (
+            {activeFile.type === 'folder' && activeFile.thumbnailUrl ? (
+              <div className="w-40 h-28 rounded-lg overflow-hidden border border-neutral-300 dark:border-white/10 shadow-inner bg-white dark:bg-white/5 flex items-center justify-center">
+                <img src={activeFile.thumbnailUrl} className="w-full h-full object-cover" alt="Preview"/>
+              </div>
+            ) : (activeFile.type === 'image' || activeFile.type === 'video') && activeFile.thumbnailUrl ? (
               <div className="w-40 h-28 rounded-lg overflow-hidden border border-neutral-300 dark:border-white/10 shadow-inner bg-white dark:bg-white/5 flex items-center justify-center p-1">
-                <img src={activeFile.thumbnailUrl} className="w-full h-full object-cover rounded" alt="Preview"/>
+                {activeFile.type === 'video' ? (
+                  <video src={activeFile.thumbnailUrl} className="w-full h-full object-cover rounded" muted preload="metadata" />
+                ) : (
+                  <img src={activeFile.thumbnailUrl} className="w-full h-full object-cover rounded" alt="Preview"/>
+                )}
               </div>
             ) : activeFile.type === 'folder' ? (
               renderFolderIcon(activeFile.folderColor, 'lg')
@@ -492,8 +530,8 @@ export default function FileArea({
 
   // RENDER IMMERSIVE PROJECTION SLIDER GALLERY VIEW
   const renderGallery = () => {
-    // Only display images / documents in gallery mode
-    const galleryItems = files.filter(f => f.type === 'image' || f.type === 'document');
+    // Only display media / documents in gallery mode
+    const galleryItems = files.filter(f => f.type === 'image' || f.type === 'video' || f.type === 'document');
     if (galleryItems.length === 0) {
       return (
         <div className="text-center p-12 text-sm text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-white/5 border border-dashed border-neutral-200 dark:border-white/10 rounded-xl" onContextMenu={(e) => handleContextMenu(e, null)}>
@@ -535,12 +573,21 @@ export default function FileArea({
             onContextMenu={(e) => handleContextMenu(e, currentItem)}
             className="relative max-w-md w-full h-56 bg-zinc-800 rounded-xl overflow-hidden flex items-center justify-center border border-zinc-700 p-2 shadow-inner group cursor-pointer"
           >
-            {currentItem.type === 'image' && currentItem.thumbnailUrl ? (
-              <img 
-                src={currentItem.thumbnailUrl} 
-                className="max-h-full max-w-full object-contain rounded-lg shadow-md transition-all group-hover:scale-105 duration-300" 
-                alt={currentItem.name} 
-              />
+            {(currentItem.type === 'image' || currentItem.type === 'video') && currentItem.thumbnailUrl ? (
+              currentItem.type === 'video' ? (
+                <video 
+                  src={currentItem.thumbnailUrl} 
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-md transition-all group-hover:scale-105 duration-300" 
+                  muted
+                  preload="metadata"
+                />
+              ) : (
+                <img 
+                  src={currentItem.thumbnailUrl} 
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-md transition-all group-hover:scale-105 duration-300" 
+                  alt={currentItem.name} 
+                />
+              )
             ) : (
               <div className="scale-125">
                 {renderFileIcon(currentItem, 'lg')}
@@ -579,8 +626,12 @@ export default function FileArea({
                 idx === safeIndex ? 'border-blue-500 scale-105 ring-2 ring-blue-500/20' : 'border-zinc-700 opacity-60 hover:opacity-100'
               }`}
             >
-              {item.type === 'image' && item.thumbnailUrl ? (
-                <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="thumb" />
+              {(item.type === 'image' || item.type === 'video') && item.thumbnailUrl ? (
+                item.type === 'video' ? (
+                  <video src={item.thumbnailUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                ) : (
+                  <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="thumb" />
+                )
               ) : (
                 <div className="bg-zinc-800 w-full h-full flex items-center justify-center text-zinc-400">
                   <FileText size={12} />
