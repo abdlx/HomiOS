@@ -19,54 +19,80 @@ export default function NotesApp({ onClose }: NotesAppProps) {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load notes
+  // Load notes from server
   useEffect(() => {
-    const saved = localStorage.getItem('openfinder_notes');
-    if (saved) {
+    const fetchNotes = async () => {
       try {
-        const parsed = JSON.parse(saved);
-        setNotes(parsed);
-        if (parsed.length > 0) {
-          setActiveNoteId(parsed[0].id);
+        const res = await fetch('/api/notes');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setNotes(data);
+            setActiveNoteId(data[0].id);
+          } else {
+            // Create default note if none exist
+            const defaultNote: Note = {
+              id: Date.now().toString(),
+              title: 'Welcome to Notes',
+              content: 'This is a clean, feature-rich notes app that syncs to the server automatically.\n\n- Beautiful typography\n- Auto-saving\n- Seamless integration',
+              updatedAt: Date.now(),
+            };
+            await fetch('/api/notes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(defaultNote)
+            });
+            setNotes([defaultNote]);
+            setActiveNoteId(defaultNote.id);
+          }
         }
       } catch (e) {
-        console.error('Failed to parse notes');
+        console.error('Failed to fetch notes', e);
       }
-    } else {
-      // Default note
-      const defaultNote: Note = {
-        id: Date.now().toString(),
-        title: 'Welcome to Notes',
-        content: 'This is a clean, feature-rich notes app that matches the system design.\n\n- Beautiful typography\n- Auto-saving\n- Seamless integration',
-        updatedAt: Date.now(),
-      };
-      setNotes([defaultNote]);
-      setActiveNoteId(defaultNote.id);
-      localStorage.setItem('openfinder_notes', JSON.stringify([defaultNote]));
-    }
+    };
+    fetchNotes();
   }, []);
 
-  // Auto-save whenever notes array changes
+  // Auto-save active note to server with debounce
   useEffect(() => {
-    if (notes.length > 0) {
-      localStorage.setItem('openfinder_notes', JSON.stringify(notes));
-    } else if (notes.length === 0 && localStorage.getItem('openfinder_notes')) {
-        localStorage.setItem('openfinder_notes', JSON.stringify([]));
-    }
-  }, [notes]);
+    if (!activeNoteId) return;
+    const note = notes.find((n) => n.id === activeNoteId);
+    if (!note) return;
+
+    const timer = setTimeout(() => {
+      fetch('/api/notes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: note.id, title: note.title, content: note.content }),
+      }).catch(err => console.error('Auto-save failed', err));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [notes, activeNoteId]);
 
   const activeNote = notes.find((n) => n.id === activeNoteId);
 
-  const handleCreateNote = () => {
+  const handleCreateNote = async () => {
     const newNote: Note = {
       id: Date.now().toString(),
       title: 'New Note',
       content: '',
       updatedAt: Date.now(),
     };
-    setNotes([newNote, ...notes]);
-    setActiveNoteId(newNote.id);
-    if (isMobileDrawerOpen) setIsMobileDrawerOpen(false);
+    
+    // Save immediately
+    try {
+      await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newNote)
+      });
+      setNotes([newNote, ...notes]);
+      setActiveNoteId(newNote.id);
+      if (isMobileDrawerOpen) setIsMobileDrawerOpen(false);
+    } catch (e) {
+      toast({ message: 'Failed to create note', tone: 'danger' });
+    }
   };
 
   const handleUpdateNote = (id: string, updates: Partial<Note>) => {
@@ -84,12 +110,26 @@ export default function NotesApp({ onClose }: NotesAppProps) {
     });
     if (!ok) return;
 
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-    if (activeNoteId === id) {
-      const remaining = notes.filter((n) => n.id !== id);
-      setActiveNoteId(remaining.length > 0 ? remaining[0].id : null);
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      
+      if (res.ok) {
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        if (activeNoteId === id) {
+          const remaining = notes.filter((n) => n.id !== id);
+          setActiveNoteId(remaining.length > 0 ? remaining[0].id : null);
+        }
+        toast({ message: 'Note deleted', tone: 'success' });
+      } else {
+        toast({ message: 'Failed to delete note', tone: 'danger' });
+      }
+    } catch (e) {
+      toast({ message: 'Failed to delete note', tone: 'danger' });
     }
-    toast({ message: 'Note deleted', tone: 'success' });
   };
 
   const filteredNotes = notes.filter(
@@ -111,77 +151,95 @@ export default function NotesApp({ onClose }: NotesAppProps) {
         )}
 
         {/* Sidebar (List of Notes) */}
-        <div
-          className={`absolute md:relative z-50 md:z-auto h-full flex flex-col bg-white dark:bg-[#1c1c1e] border-r border-neutral-200/50 dark:border-white/10 w-72 md:w-64 transition-transform duration-300 ${
-            isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-        >
-          <div className="p-4 pt-6 md:pt-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center">
-              <Edit3 size={18} className="mr-2 text-amber-500" />
-              Notes
-            </h2>
-            <div className="flex space-x-1">
-                <button
-                onClick={handleCreateNote}
-                className="p-1.5 text-gray-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
-                title="New Note"
-                >
-                <Plus size={18} />
-                </button>
-                {onClose && (
-                    <button
-                        onClick={onClose}
-                        className="md:hidden p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                    >
-                        <X size={18} />
-                    </button>
-                )}
-            </div>
-          </div>
-
-          <div className="px-4 pb-2">
-            <input
-              type="text"
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 dark:bg-white/5 border-none text-sm rounded-xl px-3 py-2 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-shadow"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 hide-scrollbar">
-            {filteredNotes.length === 0 ? (
-              <div className="text-center py-8 px-4 text-sm text-gray-400">
-                No notes found.
+        <div className={`relative flex flex-col select-none justify-between bg-white dark:bg-[#1f1f22] md:border border-neutral-200/50 dark:border-white/10 transition-colors duration-300 ${
+          isMobileDrawerOpen
+            ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300'
+            : 'hidden md:flex w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5'
+        }`}>
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* macOS Window Title bar actions */}
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center space-x-2">
+                <div 
+                  className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" 
+                  title="Close" 
+                  onClick={onClose}
+                />
+                <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
+                <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:brightness-90 transition-all" title="Zoom" />
               </div>
-            ) : (
-              filteredNotes.map((note) => (
-                <button
-                  key={note.id}
-                  onClick={() => {
-                    setActiveNoteId(note.id);
-                    if (window.innerWidth < 768) setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-3 rounded-xl transition-colors flex flex-col group ${
-                    activeNoteId === note.id
-                      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
-                      : 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
-                  }`}
+              {isMobileDrawerOpen && (
+                <button 
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-500 dark:text-neutral-400 active:scale-95 transition-all"
                 >
-                  <div className="font-semibold text-sm truncate max-w-full">
-                    {note.title || 'Untitled Note'}
-                  </div>
-                  <div
-                    className={`text-[11px] mt-1 truncate max-w-full ${
-                      activeNoteId === note.id ? 'text-amber-100' : 'text-gray-400 dark:text-gray-500'
-                    }`}
-                  >
-                    {new Date(note.updatedAt).toLocaleDateString()} &bull; {note.content.substring(0, 30) || 'No additional text'}
-                  </div>
+                  <X size={16} />
                 </button>
-              ))
-            )}
+              )}
+            </div>
+
+            {/* Title / Action */}
+            <div className="flex items-center justify-between mb-4 px-1 mt-2">
+              <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 tracking-wide">
+                Notes
+              </h2>
+              <button
+                onClick={handleCreateNote}
+                className="flex items-center justify-center bg-white dark:bg-white/10 hover:bg-neutral-50 dark:hover:bg-white/20 text-neutral-600 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 rounded-full w-7 h-7 border border-neutral-200/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
+                title="New Note"
+              >
+                <Plus size={14} className="stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="mb-4 px-1">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  placeholder="Search notes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-neutral-200 dark:border-white/10 rounded-full focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 shadow-inner"
+                />
+              </div>
+            </div>
+
+            {/* Notes List */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1 sidebar-scroll min-h-0">
+              {filteredNotes.length === 0 ? (
+                <div className="text-center py-8 px-4 text-xs text-gray-400">
+                  No notes found.
+                </div>
+              ) : (
+                filteredNotes.map((note) => {
+                  const isActive = activeNoteId === note.id;
+                  return (
+                    <button
+                      key={note.id}
+                      onClick={() => {
+                        setActiveNoteId(note.id);
+                        if (window.innerWidth < 768) setIsMobileDrawerOpen(false);
+                      }}
+                      className={`w-full flex flex-col items-start px-2 py-2 rounded-md text-left transition-colors font-medium group ${
+                        isActive
+                          ? 'bg-amber-500/10 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold truncate max-w-full w-full">
+                        {note.title || 'Untitled Note'}
+                      </div>
+                      <div
+                        className={`text-[10px] mt-0.5 truncate max-w-full w-full ${isActive ? 'opacity-90' : 'opacity-70'}`}
+                      >
+                        {new Date(note.updatedAt).toLocaleDateString()} &bull; {note.content.substring(0, 30) || 'No text'}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
 
@@ -213,24 +271,31 @@ export default function NotesApp({ onClose }: NotesAppProps) {
             
             {activeNote ? (
               <div className="flex flex-col h-full">
-                {/* Editor Toolbar (Desktop) */}
-                <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-white/5">
-                  <div className="flex items-center space-x-2 text-sm text-gray-400">
-                    <AlignLeft size={16} />
-                    <span>{activeNote.content.split(/\s+/).filter(w => w.length > 0).length} words</span>
+                {/* Editor Toolbar (Desktop) - Matching Finder Toolbar */}
+                <div className="hidden md:flex flex-row items-center justify-between gap-3 px-6 pt-5 pb-3 bg-transparent select-none border-b border-neutral-100 dark:border-white/5">
+                  <div className="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-start">
+                    <div className="flex items-center space-x-2 bg-neutral-100/60 dark:bg-white/5 rounded-full px-3 py-1.5 border border-neutral-200/40 dark:border-white/10 shadow-sm">
+                      <AlignLeft size={14} className="text-gray-500" />
+                      <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 tracking-wide">
+                        {activeNote.content.split(/\s+/).filter(w => w.length > 0).length} words
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-xs text-gray-400 font-medium">
-                      Last edited {new Date(activeNote.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <div className="w-px h-4 bg-gray-200 dark:bg-white/10"></div>
-                    <button
-                      onClick={() => handleDeleteNote(activeNote.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                      title="Delete Note"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  
+                  <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
+                    <div className="flex items-center space-x-3 bg-neutral-100/60 dark:bg-white/5 rounded-full px-3 py-1.5 border border-neutral-200/40 dark:border-white/10 shadow-sm">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide">
+                        Last edited {new Date(activeNote.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div className="w-px h-3 bg-gray-300 dark:bg-white/20"></div>
+                      <button
+                        onClick={() => handleDeleteNote(activeNote.id)}
+                        className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-white/10 hover:shadow-sm transition-all cursor-pointer"
+                        title="Delete Note"
+                      >
+                        <Trash2 size={13} className="stroke-[2.5]" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -269,3 +334,4 @@ export default function NotesApp({ onClose }: NotesAppProps) {
     </div>
   );
 }
+

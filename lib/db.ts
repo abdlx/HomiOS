@@ -1,4 +1,4 @@
-﻿/**
+/**
  * The single shared SQLite connection and schema for OpenFinder.
  *
  * Backed by node:sqlite (built into Node since 22.13). Everything lives in one
@@ -173,6 +173,15 @@ export function getDb(): any {
       PRIMARY KEY (share_id, samba_user_id),
       FOREIGN KEY(share_id)      REFERENCES shares(id)      ON DELETE CASCADE,
       FOREIGN KEY(samba_user_id) REFERENCES samba_users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id         TEXT PRIMARY KEY,
+      user_id    INTEGER NOT NULL,
+      title      TEXT NOT NULL,
+      content    TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
