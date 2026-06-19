@@ -227,6 +227,7 @@ export default function FileArea({
     let label = ext.substring(0, 3).toUpperCase() || 'DOC';
 
     if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) { Icon = Video; color = 'text-purple-500'; label = 'VID'; }
+    else if (ext === 'pdf') { Icon = FileText; color = 'text-red-500'; label = 'PDF'; }
     else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) { Icon = Archive; color = 'text-amber-600'; label = 'ZIP'; }
     else if (['js', 'ts', 'jsx', 'tsx', 'py', 'go', 'html', 'css', 'json', 'sh'].includes(ext)) { Icon = Code; color = 'text-emerald-500'; label = 'DEV'; }
     else if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) { Icon = Music; color = 'text-pink-500'; label = 'AUD'; }

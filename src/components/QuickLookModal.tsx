@@ -23,6 +23,8 @@ import {
   Rewind,
   FastForward,
   RotateCcw,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { FileItem } from '../types';
 import LazyMediaThumbnail from './LazyMediaThumbnail';
@@ -96,6 +98,7 @@ export default function QuickLookModal({
   const viewerRef = useRef<HTMLDivElement>(null);
 
   const fileUrl = mediaUrl(file);
+  const pdfUrl = `${fileUrl}#toolbar=1&navpanes=0&view=FitH`;
   const language = resolveLanguage(file.name);
   const mediaFiles = files.filter((item): item is FileItem & { type: 'image' | 'video' } => item.type === 'image' || item.type === 'video');
   const safeIndex = currentIndex >= 0 ? currentIndex : mediaFiles.findIndex((item) => item.id === file.id);
@@ -201,6 +204,7 @@ export default function QuickLookModal({
   };
 
   const isMedia = file.type === 'image' || file.type === 'video';
+  const isPdf = file.type === 'pdf' || file.name.toLowerCase().endsWith('.pdf');
   const fitClass = fitMode === 'fill' ? 'object-cover w-full h-full' : fitMode === 'actual' ? 'max-w-none max-h-none' : 'object-contain max-w-full max-h-full';
 
   return (
@@ -214,8 +218,8 @@ export default function QuickLookModal({
             <X size={18} />
           </button>
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-white/10 text-slate-300">
-            {file.type === 'video' ? <Video size={12} /> : file.type === 'image' ? <ImageIcon size={12} /> : null}
-            {file.type === 'text' ? language : file.type}
+            {file.type === 'video' ? <Video size={12} /> : file.type === 'image' ? <ImageIcon size={12} /> : isPdf ? <FileText size={12} /> : null}
+            {isPdf ? 'PDF' : file.type === 'text' ? language : file.type}
           </span>
         </div>
 
@@ -247,6 +251,11 @@ export default function QuickLookModal({
             <button onClick={() => setShowInfo(prev => !prev)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Info">
               <Info size={17} />
             </button>
+          )}
+          {isPdf && (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Open in new tab">
+              <ExternalLink size={17} />
+            </a>
           )}
           <button onClick={() => { onDelete(file.id); onClose(); }} className="p-2 rounded-lg text-red-400 hover:text-white hover:bg-red-500 transition-colors" title="Delete">
             <Trash2 size={17} />
@@ -298,7 +307,17 @@ export default function QuickLookModal({
             </div>
           )}
 
-          {(file.type === 'text' || file.type === 'document') && (
+          {isPdf && (
+            <div className="absolute inset-0 bg-neutral-900">
+              <iframe
+                src={pdfUrl}
+                title={file.name}
+                className="w-full h-full border-0 bg-neutral-900"
+              />
+            </div>
+          )}
+
+          {(file.type === 'text' || (file.type === 'document' && !isPdf)) && (
             <div className="h-full p-5 flex flex-col gap-4">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {monacoAvailable ? `Monaco Editor - ${language}` : 'File Content'}

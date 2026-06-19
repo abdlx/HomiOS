@@ -132,6 +132,7 @@ export default function App({ onClose }: AppProps = {}) {
           ...(() => {
             const isImage = file.name.match(/\.(jpg|png|jpeg|gif|webp|svg)$/i);
             const isVideo = file.name.match(/\.(mp4|webm|mkv|avi|mov|m4v)$/i);
+            const isPdf = file.name.match(/\.pdf$/i);
             return {
               type: file.isDir
                 ? 'folder'
@@ -139,7 +140,9 @@ export default function App({ onClose }: AppProps = {}) {
                   ? 'image'
                   : (isVideo
                     ? 'video'
-                    : (file.name.match(/\.(txt|md|json|csv|log|js|ts|jsx|tsx|css|html)$/i) ? 'text' : 'document'))),
+                    : (isPdf
+                      ? 'pdf'
+                      : (file.name.match(/\.(txt|md|json|csv|log|js|ts|jsx|tsx|css|html)$/i) ? 'text' : 'document')))),
               thumbnailUrl: !file.isDir && (isImage || isVideo)
                 ? `/api/thumbnails?variant=grid&path=${encodeURIComponent(file.path || file.name)}`
                 : undefined,
@@ -644,10 +647,11 @@ export default function App({ onClose }: AppProps = {}) {
       .filter(([id, data]) => data.tags?.includes(tag))
       .map(([id, data]) => {
         const ext = data.name?.split('.').pop()?.toLowerCase();
-        let type: 'folder' | 'image' | 'video' | 'text' | 'document' = 'document';
+        let type: 'folder' | 'image' | 'video' | 'pdf' | 'text' | 'document' = 'document';
         if (!data.name?.includes('.')) type = 'folder';
         else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '')) type = 'image';
         else if (['mp4', 'webm', 'mkv', 'avi'].includes(ext || '')) type = 'video';
+        else if (ext === 'pdf') type = 'pdf';
         else if (['txt', 'md', 'json', 'csv', 'log', 'js', 'ts', 'jsx', 'tsx', 'css', 'html'].includes(ext || '')) type = 'text';
 
         return {
