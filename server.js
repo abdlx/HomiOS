@@ -38,6 +38,16 @@ app.prepare().then(async () => {
       if (!session) throw { status_code: 401, body: 'Unauthorized' };
       return session;
     };
+    const normalizeUploadPath = (value) => {
+      const parts = String(value || '')
+        .replace(/\\/g, '/')
+        .split('/')
+        .filter(Boolean);
+      if (parts.length === 0 || parts.some((part) => part === '.' || part === '..')) {
+        throw { status_code: 400, body: 'Invalid target path' };
+      }
+      return parts.join('/');
+    };
 
     const moveUploadIntoPlace = async (upload, dest) => {
       const source = upload.storage?.type === 'file' && upload.storage.path
@@ -64,7 +74,7 @@ app.prepare().then(async () => {
         await requireTusSession(req);
       },
       onUploadCreate: async (req, upload) => {
-        const targetPath = getTusHeader(req, 'x-target-path');
+        const targetPath = normalizeUploadPath(getTusHeader(req, 'x-target-path'));
         if (!targetPath) throw { status_code: 400, body: 'Missing target path' };
         return {
           metadata: {
@@ -74,7 +84,7 @@ app.prepare().then(async () => {
         };
       },
       onUploadFinish: async (req, upload) => {
-        const targetPath = upload.metadata?.targetPath || getTusHeader(req, 'x-target-path');
+        const targetPath = normalizeUploadPath(upload.metadata?.targetPath || getTusHeader(req, 'x-target-path'));
         if (!targetPath) throw { status_code: 400, body: 'Missing target path' };
 
         try {

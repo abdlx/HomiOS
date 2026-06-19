@@ -287,6 +287,11 @@ export default function App({ onClose }: AppProps = {}) {
   };
 
   const handleUploadFiles = async (files: FileList | File[]) => {
+    const DIRECT_UPLOAD_MAX_BYTES = 16 * 1024 * 1024;
+    const TUS_CHUNK_BYTES = 8 * 1024 * 1024;
+    const UPLOAD_CONCURRENCY = 4;
+    const DIRECT_UPLOAD_RETRIES = 2;
+
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
     const apiPath = getApiPath();
@@ -299,17 +304,131 @@ export default function App({ onClose }: AppProps = {}) {
         .join('/');
     };
     const uploadTargets = fileArray.map((file) => getRelativeUploadPath(file));
+    const uploadPaths = uploadTargets.map((target, i) => `/${apiPath}/${target || fileArray[i].name}`.replace(/\/+/g, '/'));
 
     const newTransfers: TransferTask[] = fileArray.map((f, i) => ({
       id: Math.random().toString(36).substr(2, 9),
       name: uploadTargets[i] || f.name,
       progress: 0,
-      status: 'uploading',
+      status: 'pending',
       type: 'upload'
     }));
     setTransfers(prev => [...prev, ...newTransfers]);
 
-    // Try TUS first, fall back to plain XHR
+    let TusUpload: any = null;
+    try {
+      TusUpload = (await import('tus-js-client')).Upload;
+    } catch {
+      // tus-js-client not installed - direct uploads still work.
+    }
+
+    const sleep = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms));
+
+    const runWithConcurrency = async (count: number, worker: (index: number) => Promise<void>) => {
+      let nextIndex = 0;
+      const workerCount = Math.min(count, UPLOAD_CONCURRENCY);
+      await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (nextIndex < count) {
+          const index = nextIndex++;
+          await worker(index);
+        }
+      }));
+    };
+
+    const directUploadOnce = (file: File, taskId: string, uploadPath: string) => (
+      new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const pct = Math.round((event.loaded / event.total) * 100);
+            updateTransferThrottled(taskId, {
+              progress: pct,
+              bytesUploaded: event.loaded,
+              bytesTotal: event.total,
+            });
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+            return;
+          }
+          reject(new Error(xhr.responseText || `Upload failed with HTTP ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error('Network error while uploading'));
+        xhr.onabort = () => reject(new Error('Upload aborted'));
+        xhr.send(file);
+      })
+    );
+
+    const uploadDirect = async (file: File, taskId: string, uploadPath: string) => {
+      for (let attempt = 0; attempt <= DIRECT_UPLOAD_RETRIES; attempt++) {
+        try {
+          await directUploadOnce(file, taskId, uploadPath);
+          return;
+        } catch (error) {
+          if (attempt === DIRECT_UPLOAD_RETRIES) throw error;
+          await sleep(600 * (attempt + 1));
+        }
+      }
+    };
+
+    const uploadWithTus = (file: File, taskId: string, uploadPath: string) => (
+      new Promise<void>((resolve, reject) => {
+        const upload = new TusUpload(file, {
+          endpoint: '/api/upload',
+          retryDelays: [0, 1000, 3000, 5000, 10000],
+          removeFingerprintOnSuccess: true,
+          chunkSize: TUS_CHUNK_BYTES,
+          metadata: { filename: file.name, filetype: file.type },
+          headers: { 'x-target-path': uploadPath.replace(/^\/+/, '') },
+          onProgress(bytesUploaded: number, bytesTotal: number) {
+            const pct = Math.round((bytesUploaded / bytesTotal) * 100);
+            updateTransferThrottled(taskId, { progress: pct, bytesUploaded, bytesTotal });
+          },
+          onSuccess() {
+            resolve();
+          },
+          onError(error: unknown) {
+            reject(error);
+          },
+        });
+        updateTransferThrottled(taskId, { tusUpload: upload }, true);
+        upload.start();
+      })
+    );
+
+    await runWithConcurrency(fileArray.length, async (i) => {
+      const file = fileArray[i];
+      const taskId = newTransfers[i].id;
+      const uploadPath = uploadPaths[i];
+
+      updateTransferThrottled(taskId, { status: 'uploading', progress: 0 }, true);
+
+      try {
+        if (TusUpload && file.size > DIRECT_UPLOAD_MAX_BYTES) {
+          await uploadWithTus(file, taskId, uploadPath);
+        } else {
+          await uploadDirect(file, taskId, uploadPath);
+        }
+        updateTransferThrottled(taskId, {
+          progress: 100,
+          status: 'completed',
+          bytesUploaded: file.size,
+          bytesTotal: file.size,
+        }, true);
+      } catch (error) {
+        updateTransferThrottled(taskId, {
+          status: 'error',
+          description: error instanceof Error ? error.message : 'Upload failed',
+        }, true);
+      }
+    });
+
+    loadFiles();
+    return;
+
     let tusAvailable = false;
     try {
       const { Upload } = await import('tus-js-client');
@@ -696,6 +815,7 @@ export default function App({ onClose }: AppProps = {}) {
             {transfers.map(task => (
               <div key={task.id} className="bg-neutral-50 dark:bg-white/5 border border-neutral-100 dark:border-white/10 p-3 rounded-xl flex items-center space-x-3">
                 <div className="flex-shrink-0">
+                  {task.status === 'pending' && <Loader2 size={16} className="text-neutral-400" />}
                   {task.status === 'uploading' && <Loader2 size={16} className="text-blue-500 animate-spin" />}
                   {task.status === 'paused' && <PauseCircle size={16} className="text-amber-500" />}
                   {task.status === 'completed' && <CheckCircle size={16} className="text-green-500" />}

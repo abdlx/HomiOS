@@ -13,7 +13,14 @@ function securePath(p: string) {
   // If BASE_PATH is '/' (production), 'mnt/data' resolves to '/mnt/data'.
   // If BASE_PATH is 'data_mock', 'Projects' resolves to 'data_mock/Projects'.
   // This allows full system access in production without path jail errors.
-  const resolved = path.resolve(BASE_PATH, p.replace(/^\/+/, ''));
+  const parts = String(p || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean);
+  if (parts.some((part) => part === '.' || part === '..')) {
+    throw new Error('Invalid path');
+  }
+  const resolved = path.resolve(BASE_PATH, parts.join('/'));
   return resolved;
 }
 
