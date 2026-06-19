@@ -99,6 +99,14 @@ export default function FileArea({
     setContextMenu({ file, x: e.clientX, y: e.clientY });
   };
 
+  const openFolderInCodeServer = (file: FileItem) => {
+    const relativePath = file.id.replace(/\\/g, '/').replace(/^\/+/, '');
+    const folderPath = relativePath.startsWith('home/') ? `/${relativePath}` : `/home/${relativePath}`;
+    const url = new URL('/code/', window.location.origin);
+    url.searchParams.set('folder', folderPath);
+    window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  };
+
   // Drag and Drop simulation handlers
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -760,6 +768,7 @@ export default function FileArea({
           onFavorite={contextMenu.file ? (f) => onUpdateMetadata?.(f.id, { isFavorite: !f.isFavorite, name: f.name }) : undefined}
           onDelete={contextMenu.file ? (fId) => onDeleteFile(fId) : undefined}
           onShare={onShare}
+          onOpenInCodeServer={contextMenu.file?.type === 'folder' ? openFolderInCodeServer : undefined}
           onCreateFile={async () => {
             const name = await promptDialog({ title: 'New File', placeholder: 'e.g. Note.txt', confirmLabel: 'Create' });
             if (name && name.trim()) onAddNewFile?.(name.trim(), 'text');

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2 } from 'lucide-react';
+import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2, Code2 } from 'lucide-react';
 import { FileItem } from '../types';
 
 interface ContextMenuProps {
@@ -20,12 +20,13 @@ interface ContextMenuProps {
   onPaste?: () => void;
   onTag?: (file: FileItem, tag: string) => void;
   onShare?: (file: FileItem) => void;
+  onOpenInCodeServer?: (file: FileItem) => void;
 }
 
 export default function ContextMenu({
   file, x, y, clipboardState, onClose,
   onQuickLook, onRename, onFavorite, onDelete,
-  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare
+  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare, onOpenInCodeServer
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&raw=true` : '';
@@ -101,6 +102,9 @@ export default function ContextMenu({
           )}
           {file?.type === 'folder' && (
             <Item icon={<Share2 size={13} />} label="Share Folder..." onClick={() => onShare?.(file)} />
+          )}
+          {file?.type === 'folder' && (
+            <Item icon={<Code2 size={13} />} label="Open in Code Server" onClick={() => onOpenInCodeServer?.(file)} />
           )}
           <Item icon={<Edit3 size={13} />} label="Rename" onClick={() => onRename?.(file)} />
           <Item icon={<Copy size={13} />} label="Copy" onClick={() => onCopy?.(file)} />
