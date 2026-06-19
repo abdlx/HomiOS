@@ -22,6 +22,77 @@ interface DesktopEnvironmentProps {
   username?: string;
 }
 
+type DesktopAppSource = 'grid' | 'dock';
+
+type DesktopAppConfig = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  color: string;
+};
+
+const ALL_APPS: Record<string, DesktopAppConfig> = {
+  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
+  settings: { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
+  activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
+  terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
+  coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
+  finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
+  notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
+  photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
+  vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
+};
+
+const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode'];
+
+const MetricCardBackdrop = React.memo(function MetricCardBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
+  return glassSurfaces ? (
+    <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+  ) : (
+    <div className="w-full h-full rounded-[32px] bg-black/25 border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.16)] backdrop-blur-md" />
+  );
+});
+
+const DashboardAppIcon = React.memo(function DashboardAppIcon({
+  app,
+  source,
+  onClick,
+  onContextMenu,
+  reduceMotion,
+}: {
+  app: DesktopAppConfig;
+  source: DesktopAppSource;
+  onClick?: () => void;
+  onContextMenu: (e: React.MouseEvent, appId: string, source: DesktopAppSource) => void;
+  reduceMotion: boolean;
+}) {
+  const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
+  const iconSize = source === 'dock' ? 28 : 34;
+  const Icon = app.icon;
+
+  return (
+    <motion.div
+      className="relative group cursor-pointer flex flex-col items-center text-center"
+      onClick={onClick}
+      onContextMenu={(e) => onContextMenu(e, app.id, source)}
+      whileHover={!reduceMotion && source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
+      whileTap={reduceMotion ? undefined : { scale: 0.9, y: 0 }}
+      transition={reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 300, damping: 15 }}
+    >
+      {source === 'dock' && (
+        <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
+          {app.label}
+        </span>
+      )}
+      <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] mb-2 border border-white/10 relative overflow-hidden`}>
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
+        <Icon size={iconSize} strokeWidth={1.5} className="drop-shadow-md z-10" />
+      </div>
+      {source === 'grid' && <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md">{app.label}</span>}
+    </motion.div>
+  );
+});
+
 export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
@@ -33,19 +104,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
-  const ALL_APPS: Record<string, any> = {
-    files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
-    settings: { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
-    activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
-    terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
-    coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
-    finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
-    notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
-    photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
-    vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
-  };
-  const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode'];
 
   useEffect(() => {
     setNow(new Date());
@@ -154,40 +212,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     setContextMenu({ x, y, appId, source });
   };
 
-  const SurfaceBackdrop = () => (
-    performanceSettings.glassSurfaces ? (
-      <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
-    ) : (
-      <div className="w-full h-full rounded-[32px] bg-black/25 border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.16)] backdrop-blur-md" />
-    )
-  );
-
-  const AppIcon = ({ app, source }: { app: any; source: 'grid' | 'dock' }) => {
-    const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
-    const iconSize = source === 'dock' ? 28 : 34;
-    return (
-      <motion.div 
-        className="relative group cursor-pointer flex flex-col items-center text-center" 
-        onClick={getOnClick(app.id)} 
-        onContextMenu={(e) => handleContextMenu(e, app.id, source)}
-        whileHover={!performanceSettings.reduceMotion && source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
-        whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.9, y: 0 }}
-        transition={performanceSettings.reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 300, damping: 15 }}
-      >
-        {source === 'dock' && (
-          <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-lg border border-white/10">
-            {app.label}
-          </span>
-        )}
-        <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] mb-2 border border-white/10 relative overflow-hidden`}>
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
-          <app.icon size={iconSize} strokeWidth={1.5} className="drop-shadow-md z-10" />
-        </div>
-        {source === 'grid' && <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md">{app.label}</span>}
-      </motion.div>
-    );
-  };
-
   return (
     <div className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white transition-all duration-1000" style={{ backgroundImage: `url('${wallpaper}')` }} onContextMenu={(e) => e.preventDefault()}>
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/25" />
@@ -257,7 +281,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <SurfaceBackdrop />
+              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
             </div>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-start space-x-3 max-w-[70%]"><div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400"><Activity size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">CPU Usage</h3><p className="text-white/50 text-[11px] mt-1 line-clamp-2">{stats?.cpu?.model || 'Processor'}</p></div></div>
@@ -267,14 +291,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <SurfaceBackdrop />
+              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
             </div>
             <div className="flex items-center justify-between mb-6"><div className="flex items-center space-x-3"><div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400"><Cpu size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Memory</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${(stats.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
             <div className="flex items-center justify-between"><div className="flex items-center space-x-3"><div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400"><HardDrive size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Storage</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.disk.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
           </div>
           <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
             <div className="absolute inset-0 -z-10">
-              <SurfaceBackdrop />
+              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
             </div>
             <div className="flex justify-between items-start mb-4"><div className="flex items-center space-x-3"><div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400"><Zap size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">System Load</h3><p className="text-white/50 text-[11px]">Avg over 1 min</p></div></div><span className="text-2xl font-bold text-white">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span></div>
             <div className="grid grid-cols-2 gap-3"><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Cores</span><span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400" />{stats?.cpu?.cores || 0}</span></div><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Platform</span><span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400" />{stats?.os?.platform || 'N/A'}</span></div></div>
@@ -284,7 +308,17 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 md:gap-x-[52px] gap-y-6 md:gap-y-8 w-full max-w-[900px] mb-8 px-4 md:px-12">
           {gridAppIds.map((id) => {
             const app = ALL_APPS[id];
-            return app ? <div key={app.id} className="flex flex-col items-center"><AppIcon app={app} source="grid" /></div> : null;
+            return app ? (
+              <div key={app.id} className="flex flex-col items-center">
+                <DashboardAppIcon
+                  app={app}
+                  source="grid"
+                  onClick={getOnClick(app.id)}
+                  onContextMenu={handleContextMenu}
+                  reduceMotion={performanceSettings.reduceMotion}
+                />
+              </div>
+            ) : null;
           })}
         </div>
       </div>
