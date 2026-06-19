@@ -180,6 +180,9 @@ export default async function handler(req: any, res: any) {
         return res.json({ ok: true, path: uploadPath });
       }
 
+      const { mkdir } = await import('fs/promises');
+      await mkdir(path.dirname(uploadFullPath), { recursive: true });
+
       // If it's a JSON body with content, write the content string
       // Otherwise, assume the body IS the raw file buffer (e.g. upload)
       let contentToWrite: string | Buffer;

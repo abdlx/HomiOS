@@ -26,7 +26,7 @@ interface FileAreaProps {
   onFileDoubleClick: (file: FileItem) => void;
   onDeleteFile: (id: string) => void;
   onRenameFile: (id: string, newName: string) => void;
-  onUploadFiles: (files: FileList) => void;
+  onUploadFiles: (files: FileList | File[]) => void;
   viewMode: ViewMode;
   currentPath: string[];
   onUpdateMetadata?: (fileId: string, metadata: any) => void;
@@ -123,15 +123,70 @@ export default function FileArea({
     e.stopPropagation();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const readDirectoryEntries = (reader: any): Promise<any[]> => (
+    new Promise((resolve, reject) => {
+      const entries: any[] = [];
+      const readBatch = () => {
+        reader.readEntries((batch: any[]) => {
+          if (batch.length === 0) {
+            resolve(entries);
+            return;
+          }
+          entries.push(...batch);
+          readBatch();
+        }, reject);
+      };
+      readBatch();
+    })
+  );
+
+  const fileFromEntry = (entry: any): Promise<File> => (
+    new Promise((resolve, reject) => entry.file(resolve, reject))
+  );
+
+  const collectDroppedEntryFiles = async (entry: any): Promise<File[]> => {
+    if (!entry) return [];
+
+    if (entry.isFile) {
+      const file = fileFromEntry(entry);
+      return file.then((f) => {
+        const relativePath = String(entry.fullPath || f.name).replace(/^\/+/, '');
+        Object.defineProperty(f, 'relativePath', { value: relativePath, configurable: true });
+        return [f];
+      });
+    }
+
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const entries = await readDirectoryEntries(reader);
+      const nested = await Promise.all(entries.map(collectDroppedEntryFiles));
+      return nested.flat();
+    }
+
+    return [];
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
 
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles && droppedFiles.length > 0) {
-      onUploadFiles(droppedFiles);
+    const items = Array.from(e.dataTransfer.items || []);
+    const entries = items
+      .map((item: any) => typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null)
+      .filter(Boolean);
+
+    if (entries.length > 0) {
+      const droppedFiles = (await Promise.all(entries.map(collectDroppedEntryFiles))).flat();
+      if (droppedFiles.length > 0) {
+        onUploadFiles(droppedFiles);
+      }
+      return;
+    }
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onUploadFiles(e.dataTransfer.files);
     }
   };
 

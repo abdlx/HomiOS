@@ -290,10 +290,19 @@ export default function App({ onClose }: AppProps = {}) {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
     const apiPath = getApiPath();
+    const getRelativeUploadPath = (file: File) => {
+      const rawPath = (file as any).relativePath || (file as any).webkitRelativePath || file.name;
+      return String(rawPath)
+        .replace(/\\/g, '/')
+        .split('/')
+        .filter((part) => part && part !== '.' && part !== '..')
+        .join('/');
+    };
+    const uploadTargets = fileArray.map((file) => getRelativeUploadPath(file));
 
-    const newTransfers: TransferTask[] = fileArray.map(f => ({
+    const newTransfers: TransferTask[] = fileArray.map((f, i) => ({
       id: Math.random().toString(36).substr(2, 9),
-      name: f.name,
+      name: uploadTargets[i] || f.name,
       progress: 0,
       status: 'uploading',
       type: 'upload'
@@ -313,7 +322,7 @@ export default function App({ onClose }: AppProps = {}) {
             retryDelays: [0, 1000, 3000, 5000],
             chunkSize: 5 * 1024 * 1024, // 5 MB chunks
             metadata: { filename: file.name, filetype: file.type },
-            headers: { 'x-target-path': `${apiPath}/${file.name}` },
+            headers: { 'x-target-path': `${apiPath}/${uploadTargets[i] || file.name}` },
             onProgress(bytesUploaded, bytesTotal) {
               const pct = Math.round((bytesUploaded / bytesTotal) * 100);
               setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: pct, bytesUploaded, bytesTotal } : t));
@@ -339,7 +348,7 @@ export default function App({ onClose }: AppProps = {}) {
       await Promise.all(fileArray.map((file, i) =>
         new Promise<void>(resolve => {
           const taskId = newTransfers[i].id;
-          const uploadPath = `/${apiPath}/${file.name}`;
+          const uploadPath = `/${apiPath}/${uploadTargets[i] || file.name}`;
           const xhr = new XMLHttpRequest();
           xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
           xhr.upload.onprogress = (event) => {
