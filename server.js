@@ -39,6 +39,22 @@ app.prepare().then(async () => {
       return session;
     };
 
+    const moveUploadIntoPlace = async (upload, dest) => {
+      const source = upload.storage?.type === 'file' && upload.storage.path
+        ? upload.storage.path
+        : path.join(tusUploadDir, upload.id);
+
+      try {
+        await fsp.rename(source, dest);
+      } catch (error) {
+        if (error?.code !== 'EXDEV') throw error;
+        await fsp.copyFile(source, dest);
+        await fsp.unlink(source);
+      }
+
+      await fsp.rm(path.join(tusUploadDir, `${upload.id}.json`), { force: true });
+    };
+
     const tusServer = new TusServer({
       path: '/api/upload',
       datastore: new FileStore({ directory: tusUploadDir }),
@@ -57,19 +73,20 @@ app.prepare().then(async () => {
       },
       onUploadFinish: async (req, upload) => {
         const targetPath = upload.metadata?.targetPath || getTusHeader(req, 'x-target-path');
-        if (targetPath) {
-          try {
-            const isDev = process.env.NODE_ENV !== 'production';
-            const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
-            const dest = path.resolve(BASE_PATH, String(targetPath).replace(/^\/+/, ''));
-            const destDir = path.dirname(dest);
-            if (!fs.existsSync(destDir)) {
-              await fsp.mkdir(destDir, { recursive: true });
-            }
-            await fsp.rename(path.join(tusUploadDir, upload.id), dest);
-          } catch (e) {
-            console.error('TUS move error:', e);
+        if (!targetPath) throw { status_code: 400, body: 'Missing target path' };
+
+        try {
+          const isDev = process.env.NODE_ENV !== 'production';
+          const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
+          const dest = path.resolve(BASE_PATH, String(targetPath).replace(/^\/+/, ''));
+          const destDir = path.dirname(dest);
+          if (!fs.existsSync(destDir)) {
+            await fsp.mkdir(destDir, { recursive: true });
           }
+          await moveUploadIntoPlace(upload, dest);
+        } catch (e) {
+          console.error('TUS move error:', e);
+          throw { status_code: 500, body: 'Upload finished, but OpenFinder could not place the file in the target folder' };
         }
         return {};
       },
