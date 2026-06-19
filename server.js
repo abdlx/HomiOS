@@ -27,17 +27,36 @@ app.prepare().then(async () => {
     const tusUploadDir = process.env.TUS_UPLOAD_DIR || path.join(process.cwd(), 'data_mock', '.tus_uploads');
     await fsp.mkdir(tusUploadDir, { recursive: true });
 
+    const { validateSessionCookie } = await import('./lib/api-auth.ts');
+    const getTusHeader = (req, name) => {
+      if (typeof req.headers?.get === 'function') return req.headers.get(name);
+      const value = req.headers?.[name.toLowerCase()] ?? req.headers?.[name];
+      return Array.isArray(value) ? value[0] : value;
+    };
+    const requireTusSession = async (req) => {
+      const session = await validateSessionCookie(getTusHeader(req, 'cookie'));
+      if (!session) throw { status_code: 401, body: 'Unauthorized' };
+      return session;
+    };
+
     const tusServer = new TusServer({
       path: '/api/upload',
       datastore: new FileStore({ directory: tusUploadDir }),
-      onUploadCreate: async (req, res, upload) => {
-        const { validateSessionCookie } = await import('./lib/api-auth.ts');
-        const session = await validateSessionCookie(req.headers.cookie);
-        if (!session) throw { status_code: 401, body: 'Unauthorized' };
-        return res;
+      onIncomingRequest: async (req) => {
+        await requireTusSession(req);
       },
-      onUploadFinish: async (req, res, upload) => {
-        const targetPath = req.headers['x-target-path'];
+      onUploadCreate: async (req, upload) => {
+        const targetPath = getTusHeader(req, 'x-target-path');
+        if (!targetPath) throw { status_code: 400, body: 'Missing target path' };
+        return {
+          metadata: {
+            ...upload.metadata,
+            targetPath: String(targetPath),
+          },
+        };
+      },
+      onUploadFinish: async (req, upload) => {
+        const targetPath = upload.metadata?.targetPath || getTusHeader(req, 'x-target-path');
         if (targetPath) {
           try {
             const isDev = process.env.NODE_ENV !== 'production';
@@ -52,7 +71,7 @@ app.prepare().then(async () => {
             console.error('TUS move error:', e);
           }
         }
-        return res;
+        return {};
       },
     });
 
