@@ -108,7 +108,13 @@ export default async function handler(req: any, res: any) {
           '.md': 'text/markdown',
           '.json': 'application/json',
           '.js': 'text/javascript',
+          '.cjs': 'text/javascript',
+          '.mjs': 'text/javascript',
+          '.jsx': 'text/javascript',
+          '.ts': 'text/typescript',
+          '.tsx': 'text/typescript',
           '.css': 'text/css',
+          '.scss': 'text/css',
           '.html': 'text/html'
         };
         

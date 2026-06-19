@@ -142,7 +142,7 @@ export default function App({ onClose }: AppProps = {}) {
                     ? 'video'
                     : (isPdf
                       ? 'pdf'
-                      : (file.name.match(/\.(txt|md|json|csv|log|js|ts|jsx|tsx|css|html)$/i) ? 'text' : 'document')))),
+                      : (file.name.match(/\.(txt|md|markdown|json|jsonc|csv|log|js|jsx|cjs|mjs|ts|tsx|cts|mts|css|scss|sass|less|html|htm|xml|yml|yaml|toml|ini|conf|env|sh|bash|zsh|ps1|bat|cmd|py|go|rs|java|c|h|cpp|hpp|cs|php|rb|sql)$/i) ? 'text' : 'document')))),
               thumbnailUrl: !file.isDir && (isImage || isVideo)
                 ? `/api/thumbnails?variant=grid&path=${encodeURIComponent(file.path || file.name)}`
                 : undefined,
@@ -652,7 +652,7 @@ export default function App({ onClose }: AppProps = {}) {
         else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '')) type = 'image';
         else if (['mp4', 'webm', 'mkv', 'avi'].includes(ext || '')) type = 'video';
         else if (ext === 'pdf') type = 'pdf';
-        else if (['txt', 'md', 'json', 'csv', 'log', 'js', 'ts', 'jsx', 'tsx', 'css', 'html'].includes(ext || '')) type = 'text';
+        else if (['txt', 'md', 'markdown', 'json', 'jsonc', 'csv', 'log', 'js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts', 'css', 'scss', 'sass', 'less', 'html', 'htm', 'xml', 'yml', 'yaml', 'toml', 'ini', 'conf', 'env', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'py', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'rb', 'sql'].includes(ext || '')) type = 'text';
 
         return {
           id, // id is full relative path in the file metadata

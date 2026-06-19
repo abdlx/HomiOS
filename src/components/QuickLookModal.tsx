@@ -46,8 +46,8 @@ type FitMode = 'fit' | 'fill' | 'actual';
 function resolveLanguage(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   const map: Record<string, string> = {
-    js: 'javascript', jsx: 'javascript',
-    ts: 'typescript', tsx: 'typescript',
+    js: 'javascript', jsx: 'javascript', cjs: 'javascript', mjs: 'javascript',
+    ts: 'typescript', tsx: 'typescript', cts: 'typescript', mts: 'typescript',
     json: 'json',
     md: 'markdown', markdown: 'markdown',
     html: 'html', htm: 'html',
@@ -65,6 +65,20 @@ function resolveLanguage(filename: string): string {
     conf: 'ini', ini: 'ini',
   };
   return map[ext] || 'plaintext';
+}
+
+function isTextPreviewFile(file: FileItem): boolean {
+  if (file.type === 'text') return true;
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  return [
+    'txt', 'md', 'markdown', 'json', 'jsonc', 'csv', 'log',
+    'js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts',
+    'css', 'scss', 'sass', 'less', 'html', 'htm', 'xml',
+    'yml', 'yaml', 'toml', 'ini', 'conf', 'env',
+    'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd',
+    'py', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'hpp',
+    'cs', 'php', 'rb', 'sql',
+  ].includes(ext);
 }
 
 function mediaUrl(file: FileItem) {
@@ -85,7 +99,7 @@ export default function QuickLookModal({
   const [textContent, setTextContent] = useState(file.content || '');
   const [isSaved, setIsSaved] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string>(file.tags?.[0] || '');
-  const [isLoadingContent, setIsLoadingContent] = useState(file.type === 'text');
+  const [isLoadingContent, setIsLoadingContent] = useState(isTextPreviewFile(file));
   const [monacoAvailable, setMonacoAvailable] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -100,6 +114,7 @@ export default function QuickLookModal({
   const fileUrl = mediaUrl(file);
   const pdfUrl = `${fileUrl}#toolbar=1&navpanes=0&view=FitH`;
   const language = resolveLanguage(file.name);
+  const isTextLike = isTextPreviewFile(file);
   const mediaFiles = files.filter((item): item is FileItem & { type: 'image' | 'video' } => item.type === 'image' || item.type === 'video');
   const safeIndex = currentIndex >= 0 ? currentIndex : mediaFiles.findIndex((item) => item.id === file.id);
   const canNavigate = mediaFiles.length > 1 && safeIndex >= 0;
@@ -120,9 +135,10 @@ export default function QuickLookModal({
     setRotation(0);
     setFitMode('fit');
     setIsPlaying(false);
-    setIsLoadingContent(file.type === 'text');
+    const shouldFetchText = isTextPreviewFile(file);
+    setIsLoadingContent(shouldFetchText);
 
-    if (file.type === 'text') {
+    if (shouldFetchText) {
       fetch(fileUrl)
         .then(res => res.text())
         .then(text => { setTextContent(text); setIsLoadingContent(false); })
@@ -219,7 +235,7 @@ export default function QuickLookModal({
           </button>
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-white/10 text-slate-300">
             {file.type === 'video' ? <Video size={12} /> : file.type === 'image' ? <ImageIcon size={12} /> : isPdf ? <FileText size={12} /> : null}
-            {isPdf ? 'PDF' : file.type === 'text' ? language : file.type}
+            {isPdf ? 'PDF' : isTextLike ? language : file.type}
           </span>
         </div>
 
@@ -317,7 +333,7 @@ export default function QuickLookModal({
             </div>
           )}
 
-          {(file.type === 'text' || (file.type === 'document' && !isPdf)) && (
+          {(isTextLike || (file.type === 'document' && !isPdf)) && (
             <div className="h-full p-5 flex flex-col gap-4">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {monacoAvailable ? `Monaco Editor - ${language}` : 'File Content'}
@@ -342,7 +358,7 @@ export default function QuickLookModal({
                         scrollBeyondLastLine: false,
                         lineNumbers: 'on',
                         wordWrap: 'on',
-                        readOnly: file.type !== 'text',
+                        readOnly: !isTextLike,
                         padding: { top: 16, bottom: 16 },
                         scrollbar: { verticalScrollbarSize: 8 },
                         smoothScrolling: true,
@@ -356,14 +372,14 @@ export default function QuickLookModal({
                   value={textContent}
                   onChange={(e) => setTextContent(e.target.value)}
                   className="flex-1 bg-black/40 border border-white/10 rounded-xl p-5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-200 resize-none"
-                  disabled={file.type !== 'text'}
+                  disabled={!isTextLike}
                 />
               )}
 
               <div className="flex items-center justify-end">
                 <button
                   onClick={handleSaveContent}
-                  disabled={file.type !== 'text' || isLoadingContent}
+                  disabled={!isTextLike || isLoadingContent}
                   className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold text-sm px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
                 >
                   <Check size={16} />

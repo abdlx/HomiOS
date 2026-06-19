@@ -229,7 +229,7 @@ export default function FileArea({
     if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) { Icon = Video; color = 'text-purple-500'; label = 'VID'; }
     else if (ext === 'pdf') { Icon = FileText; color = 'text-red-500'; label = 'PDF'; }
     else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) { Icon = Archive; color = 'text-amber-600'; label = 'ZIP'; }
-    else if (['js', 'ts', 'jsx', 'tsx', 'py', 'go', 'html', 'css', 'json', 'sh'].includes(ext)) { Icon = Code; color = 'text-emerald-500'; label = 'DEV'; }
+    else if (['js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts', 'py', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'rb', 'html', 'htm', 'css', 'scss', 'json', 'jsonc', 'xml', 'yml', 'yaml', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'sql'].includes(ext)) { Icon = Code; color = 'text-emerald-500'; label = 'DEV'; }
     else if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) { Icon = Music; color = 'text-pink-500'; label = 'AUD'; }
     else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) { Icon = ImageIcon; color = 'text-blue-500'; label = 'IMG'; }
 
