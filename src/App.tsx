@@ -320,6 +320,7 @@ export default function App({ onClose }: AppProps = {}) {
           const upload = new Upload(file, {
             endpoint: '/api/upload',
             retryDelays: [0, 1000, 3000, 5000],
+            removeFingerprintOnSuccess: true,
             chunkSize: 5 * 1024 * 1024, // 5 MB chunks
             metadata: { filename: file.name, filetype: file.type },
             headers: { 'x-target-path': `${apiPath}/${uploadTargets[i] || file.name}` },

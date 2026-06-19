@@ -57,6 +57,8 @@ app.prepare().then(async () => {
 
     const tusServer = new TusServer({
       path: '/api/upload',
+      relativeLocation: true,
+      respectForwardedHeaders: true,
       datastore: new FileStore({ directory: tusUploadDir }),
       onIncomingRequest: async (req) => {
         await requireTusSession(req);
