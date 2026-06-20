@@ -13,9 +13,13 @@ export default function Document() {
         <meta name="apple-mobile-web-app-title" content="OpenFinder" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="manifest" href="/manifest.json" />
+        {/* Primary manifest — can be swapped via JS before install prompt */}
+        <link rel="manifest" href="/manifest.json" id="pwa-manifest" />
         <meta name="theme-color" content="#000000" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* Preload alternate manifests so swap is instant */}
+        <link rel="preload" href="/manifest-files.json" as="fetch" crossOrigin="anonymous" />
+        <link rel="preload" href="/manifest-notes.json" as="fetch" crossOrigin="anonymous" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </Head>
       <body>

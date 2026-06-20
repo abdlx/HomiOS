@@ -10,6 +10,7 @@ import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
 import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
+import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
@@ -284,6 +285,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           <span className="font-medium text-white/70">Window</span>
         </div>
         <div className="flex items-center space-x-4">
+          <PWAInstallButton />
           <Wifi size={15} strokeWidth={2} className="text-white/80" />
           <BatteryFull size={17} strokeWidth={2} className="text-white/80" />
           <Search size={14} strokeWidth={2.5} className="text-white/80" />
@@ -410,6 +412,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           )}
         </div>
       )}
+      <PWAInstallChooser />
     </div>
   );
 }

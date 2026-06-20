@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import DesktopEnvironment from './DesktopEnvironment';
+import MobileLauncher from './MobileLauncher';
 import App from '../App';
 import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
@@ -14,6 +15,7 @@ import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
+import { useWallpaper } from '../hooks/useWallpaper';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
@@ -26,7 +28,16 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { settings: performanceSettings } = usePerformanceSettings();
+  const { wallpaper } = useWallpaper();
   const hasActiveTransfers = transfers.some(task => task.status === 'uploading' || task.status === 'pending' || task.status === 'paused');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const windowVariants = {
     visible: {
       opacity: 1,
@@ -125,20 +136,36 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         );
       })()}
 
-      {/* Desktop Environment - ALWAYS MOUNTED to prevent load delays */}
+      {/* Home Screen - Mobile uses native launcher, desktop uses DesktopEnvironment */}
       <div className="absolute inset-0 z-0">
-        <DesktopEnvironment
-          onOpenFinder={() => setView('files')}
-          onOpenSettings={() => setView('settings')}
-          onOpenTerminal={() => setView('terminal')}
-          onOpenActivity={() => setView('activity')}
-          onOpenCoolify={() => setView('coolify')}
-          onOpenNotes={() => setView('notes')}
-          onOpenPhotos={() => setView('photos')}
-          onOpenVSCode={() => setView('vscode')}
-          onOpenBrowser={() => setView('browser')}
-          username={username}
-        />
+        {isMobile ? (
+          <MobileLauncher
+            onOpenFinder={() => setView('files')}
+            onOpenSettings={() => setView('settings')}
+            onOpenTerminal={() => setView('terminal')}
+            onOpenActivity={() => setView('activity')}
+            onOpenCoolify={() => setView('coolify')}
+            onOpenNotes={() => setView('notes')}
+            onOpenPhotos={() => setView('photos')}
+            onOpenVSCode={() => setView('vscode')}
+            onOpenBrowser={() => setView('browser')}
+            username={username}
+            wallpaper={wallpaper}
+          />
+        ) : (
+          <DesktopEnvironment
+            onOpenFinder={() => setView('files')}
+            onOpenSettings={() => setView('settings')}
+            onOpenTerminal={() => setView('terminal')}
+            onOpenActivity={() => setView('activity')}
+            onOpenCoolify={() => setView('coolify')}
+            onOpenNotes={() => setView('notes')}
+            onOpenPhotos={() => setView('photos')}
+            onOpenVSCode={() => setView('vscode')}
+            onOpenBrowser={() => setView('browser')}
+            username={username}
+          />
+        )}
       </div>
 
       {/* Files App overlay */}
