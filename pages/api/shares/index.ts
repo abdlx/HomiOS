@@ -1,6 +1,7 @@
 import { getDb } from '../../../lib/db.ts';
 import { getSession } from '../../../lib/auth.ts';
 import { regenerateSmbConf } from '../../../lib/samba.ts';
+import fs from 'fs';
 
 /**
  * /api/shares
@@ -49,6 +50,14 @@ export default async function handler(req: any, res: any) {
       // Sanitise share name: alphanumeric + hyphens/underscores only
       if (!/^[a-zA-Z0-9_\-]+$/.test(name)) {
         return res.status(400).json({ error: 'Share name must be alphanumeric (hyphens/underscores allowed)' });
+      }
+
+      if (!fs.existsSync(sharePath)) {
+        try {
+          fs.mkdirSync(sharePath, { recursive: true });
+        } catch (e) {
+          console.warn('Failed to create share directory:', e);
+        }
       }
 
       const result = db.prepare(

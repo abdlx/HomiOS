@@ -18,7 +18,8 @@ export function regenerateSmbConf(db: any) {
   workgroup = WORKGROUP
   server string = OpenFinder
   security = user
-  map to guest = never
+  server role = standalone server
+  map to guest = bad user
   log file = /var/log/samba/log.%m
   max log size = 50
   passdb backend = tdbsam
