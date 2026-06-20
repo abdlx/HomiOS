@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Activity, BatteryFull, Boxes, Cloud, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell
+  Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
+  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -9,6 +9,7 @@ import { useUsername } from '../hooks/useUsername';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
 import GlassSurface from '../../components/GlassSurface';
+import NotificationCenter from './NotificationCenter';
 
 interface DesktopEnvironmentProps {
   onOpenFinder: () => void;
@@ -19,6 +20,7 @@ interface DesktopEnvironmentProps {
   onOpenNotes: () => void;
   onOpenPhotos: () => void;
   onOpenVSCode: () => void;
+  onOpenBrowser: () => void;
   username?: string;
 }
 
@@ -41,9 +43,10 @@ const ALL_APPS: Record<string, DesktopAppConfig> = {
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
   photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
   vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
+  browser: { id: 'browser', label: 'Browser', icon: Globe, color: 'from-[#14B8A6] to-[#0F766E]' },
 };
 
-const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode'];
+const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'browser'];
 
 const MetricCardBackdrop = React.memo(function MetricCardBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
   return glassSurfaces ? (
@@ -58,12 +61,18 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   source,
   onClick,
   onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
   reduceMotion,
 }: {
   app: DesktopAppConfig;
   source: DesktopAppSource;
   onClick?: () => void;
   onContextMenu: (e: React.MouseEvent, appId: string, source: DesktopAppSource) => void;
+  onDragStart: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
+  onDragOver: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
+  onDrop: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
   reduceMotion: boolean;
 }) {
   const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
@@ -75,6 +84,10 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
       className="relative group cursor-pointer flex flex-col items-center text-center"
       onClick={onClick}
       onContextMenu={(e) => onContextMenu(e, app.id, source)}
+      draggable
+      onDragStart={(e) => onDragStart(e as unknown as React.DragEvent, app.id, source)}
+      onDragOver={(e) => onDragOver(e as unknown as React.DragEvent, app.id, source)}
+      onDrop={(e) => onDrop(e as unknown as React.DragEvent, app.id, source)}
       whileHover={!reduceMotion && source === 'grid' ? { scale: 1.05, y: -8 } : undefined}
       whileTap={reduceMotion ? undefined : { scale: 0.9, y: 0 }}
       transition={reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 300, damping: 15 }}
@@ -93,7 +106,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   );
 });
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenBrowser }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -102,8 +115,9 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(['activity', 'terminal', 'coolify', 'settings', 'finder']);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [draggingApp, setDraggingApp] = useState<{ id: string; source: DesktopAppSource } | null>(null);
 
   useEffect(() => {
     setNow(new Date());
@@ -147,20 +161,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   }, [performanceSettings.backgroundPolling]);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch('/api/notifications?limit=20');
-        if (res.ok) setNotifications(await res.json());
-      } catch {
-        // Notifications are nice-to-have.
-      }
-    };
-    fetchNotifications();
-    const timer = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     const activeAppIds = Object.keys(ALL_APPS);
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
@@ -197,7 +197,64 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'notes') return onOpenNotes;
     if (id === 'photos') return onOpenPhotos;
     if (id === 'vscode') return onOpenVSCode;
+    if (id === 'browser') return onOpenBrowser;
     return undefined;
+  };
+
+  const moveApp = (appId: string, from: DesktopAppSource, to: DesktopAppSource, beforeId?: string) => {
+    const remove = (items: string[]) => items.filter((id) => id !== appId);
+    const insert = (items: string[]) => {
+      const clean = remove(items);
+      const targetIndex = beforeId ? clean.indexOf(beforeId) : -1;
+      if (targetIndex >= 0) {
+        clean.splice(targetIndex, 0, appId);
+        return clean;
+      }
+      return [...clean, appId];
+    };
+
+    if (from === 'grid' && to === 'grid') updateGrid(insert(gridAppIds));
+    if (from === 'dock' && to === 'dock') updateDock(insert(dockAppIds));
+    if (from === 'grid' && to === 'dock') {
+      updateGrid(remove(gridAppIds));
+      updateDock(insert(dockAppIds));
+    }
+    if (from === 'dock' && to === 'grid') {
+      updateDock(remove(dockAppIds));
+      updateGrid(insert(gridAppIds));
+    }
+  };
+
+  const handleAppDragStart = (e: React.DragEvent, appId: string, source: DesktopAppSource) => {
+    setDraggingApp({ id: appId, source });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/openfinder-app', JSON.stringify({ id: appId, source }));
+  };
+
+  const readDraggedApp = (e: React.DragEvent) => {
+    if (draggingApp) return draggingApp;
+    try {
+      const raw = e.dataTransfer.getData('application/openfinder-app');
+      return raw ? JSON.parse(raw) as { id: string; source: DesktopAppSource } : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleAppDragOver = (e: React.DragEvent) => {
+    if (draggingApp || e.dataTransfer.types.includes('application/openfinder-app')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleAppDrop = (e: React.DragEvent, beforeId?: string, targetSource?: DesktopAppSource) => {
+    e.preventDefault();
+    const dragged = readDraggedApp(e);
+    if (!dragged) return;
+    const destination = targetSource || dragged.source;
+    if (dragged.id !== beforeId) moveApp(dragged.id, dragged.source, destination, beforeId);
+    setDraggingApp(null);
   };
 
   const handleContextMenu = (e: React.MouseEvent, appId: string, source: 'grid' | 'dock') => {
@@ -239,39 +296,13 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             title="Notifications"
           >
             <Bell size={15} strokeWidth={2} />
-            {notifications.some((item) => !item.readAt) && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-400" />}
+            {unreadNotifications > 0 && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-400" />}
           </button>
           {now && <span className="font-medium tabular-nums tracking-tight">{now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
         </div>
       </div>
 
-      {isNotificationsOpen && (
-        <div className="fixed top-9 right-4 z-[120] w-[340px] max-w-[calc(100vw-24px)] rounded-2xl border border-white/10 bg-[#1c1c1e]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-            <span className="text-sm font-semibold text-white">Notifications</span>
-            <span className="text-[11px] text-white/45">{notifications.filter((item) => !item.readAt).length} unread</span>
-          </div>
-          <div className="max-h-[420px] overflow-y-auto p-2">
-            {notifications.map((item) => (
-              <button
-                key={item.id}
-                onClick={async () => {
-                  await fetch(`/api/notifications/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true }) });
-                  setNotifications((items) => items.map((n) => n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n));
-                }}
-                className={`w-full text-left p-3 rounded-xl mb-1 hover:bg-white/10 transition ${item.readAt ? 'opacity-65' : ''}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-white truncate">{item.title}</span>
-                  {!item.readAt && <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />}
-                </div>
-                <p className="text-xs text-white/55 mt-1 line-clamp-2">{item.message}</p>
-              </button>
-            ))}
-            {notifications.length === 0 && <div className="p-8 text-center text-sm text-white/45">No notifications yet.</div>}
-          </div>
-        </div>
-      )}
+      <NotificationCenter open={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
 
       <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center mb-8 md:mb-10">
@@ -305,7 +336,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 md:gap-x-[52px] gap-y-6 md:gap-y-8 w-full max-w-[900px] mb-8 px-4 md:px-12">
+        <div
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 md:gap-x-[52px] gap-y-6 md:gap-y-8 w-full max-w-[900px] mb-8 px-4 md:px-12"
+          onDragOver={handleAppDragOver}
+          onDrop={(e) => handleAppDrop(e, undefined, 'grid')}
+        >
           {gridAppIds.map((id) => {
             const app = ALL_APPS[id];
             return app ? (
@@ -315,6 +350,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                   source="grid"
                   onClick={getOnClick(app.id)}
                   onContextMenu={handleContextMenu}
+                  onDragStart={handleAppDragStart}
+                  onDragOver={(e) => {
+                    handleAppDragOver(e);
+                  }}
+                  onDrop={(e, appId) => handleAppDrop(e, appId, 'grid')}
                   reduceMotion={performanceSettings.reduceMotion}
                 />
               </div>
@@ -324,6 +364,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       </div>
 
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
+        <div onDragOver={handleAppDragOver} onDrop={(e) => handleAppDrop(e, undefined, 'dock')}>
         <FloatingDock
           glassSurfaces={performanceSettings.glassSurfaces}
           reduceMotion={performanceSettings.reduceMotion}
@@ -333,7 +374,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             if (!app) return null;
             return {
               title: app.label,
+              id: app.id,
               onClick: getOnClick(app.id),
+              onDragStart: (e: React.DragEvent) => handleAppDragStart(e, app.id, 'dock'),
+              onDragOver: (e: React.DragEvent) => handleAppDragOver(e),
+              onDrop: (e: React.DragEvent) => handleAppDrop(e, app.id, 'dock'),
               icon: (
                 <div 
                   className={`w-full h-full rounded-2xl bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden`}
@@ -347,6 +392,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             };
           }).filter(Boolean) as any[]}
         />
+        </div>
       </div>
 
       {contextMenu && (

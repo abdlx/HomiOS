@@ -36,6 +36,7 @@ interface FileAreaProps {
   onAddNewFolder?: (name: string, color?: 'blue' | 'orange' | 'green') => void;
   onShare?: (file: FileItem) => void;
   onPasteClipboard?: () => void;
+  onMoveFileToFolder?: (file: FileItem, targetFolder: FileItem) => void;
 }
 
 export default function FileArea({
@@ -54,7 +55,8 @@ export default function FileArea({
   onAddNewFile,
   onAddNewFolder,
   onShare,
-  onPasteClipboard
+  onPasteClipboard,
+  onMoveFileToFolder
 }: FileAreaProps) {
   const PAGE_SIZE = 120;
   const [isDragging, setIsDragging] = useState(false);
@@ -68,6 +70,8 @@ export default function FileArea({
 
   // Right-click context menu
   const [contextMenu, setContextMenu] = useState<{ file: FileItem | null; x: number; y: number } | null>(null);
+  const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
+  const [dropFolderId, setDropFolderId] = useState<string | null>(null);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -198,6 +202,34 @@ export default function FileArea({
     }
   };
 
+  const handleFileDragStart = (e: React.DragEvent, file: FileItem) => {
+    setDraggingFileId(file.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/openfinder-file-id', file.id);
+  };
+
+  const handleFolderDragOver = (e: React.DragEvent, folder: FileItem) => {
+    if (folder.type !== 'folder') return;
+    const draggedId = draggingFileId || e.dataTransfer.getData('application/openfinder-file-id');
+    if (!draggedId || draggedId === folder.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDropFolderId(folder.id);
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, folder: FileItem) => {
+    if (folder.type !== 'folder') return;
+    const draggedId = draggingFileId || e.dataTransfer.getData('application/openfinder-file-id');
+    const draggedFile = files.find((item) => item.id === draggedId);
+    if (!draggedFile || draggedFile.id === folder.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDropFolderId(null);
+    setDraggingFileId(null);
+    onMoveFileToFolder?.(draggedFile, folder);
+  };
+
   // Custom folder rendering with gradients representing the Nextcloud mock styling
   const renderFolderIcon = (color?: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const dimensions = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16';
@@ -284,8 +316,16 @@ export default function FileArea({
               }}
               onDoubleClick={() => onFileDoubleClick(file)}
               onContextMenu={(e) => handleContextMenu(e, file)}
+              draggable
+              onDragStart={(e) => handleFileDragStart(e, file)}
+              onDragEnd={() => { setDraggingFileId(null); setDropFolderId(null); }}
+              onDragOver={(e) => handleFolderDragOver(e, file)}
+              onDragLeave={() => { if (dropFolderId === file.id) setDropFolderId(null); }}
+              onDrop={(e) => handleFolderDrop(e, file)}
               className={`group relative flex flex-col items-center text-center cursor-pointer select-none px-2 py-3 rounded-2xl transition-all duration-200 border ${
-                isSelected
+                dropFolderId === file.id
+                  ? 'bg-emerald-500/12 border-emerald-400/50 ring-2 ring-emerald-400/20'
+                  : isSelected
                   ? 'bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/15 dark:border-blue-400/20 shadow-[0_4px_12px_rgba(59,130,246,0.06)]'
                   : 'border-transparent hover:bg-neutral-50/80 dark:hover:bg-white/5 hover:border-neutral-200/40 dark:hover:border-white/10'
               }`}

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Terminal, Folder, Image, Activity, Settings, Code, RefreshCw, HardDrive, FileText } from 'lucide-react';
+import { Search, Terminal, Folder, Image, Activity, Settings, Code, RefreshCw, HardDrive, FileText, Globe } from 'lucide-react';
 import { SearchResult } from '../types';
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'photos' | 'vscode' | 'notes') => void;
+  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'photos' | 'vscode' | 'notes' | 'browser') => void;
 }
 
 const ACTIONS = [
@@ -15,6 +15,7 @@ const ACTIONS = [
   { id: 'terminal', label: 'Open Terminal', icon: Terminal, view: 'terminal' as const },
   { id: 'vscode', label: 'Open VS Code', icon: Code, view: 'vscode' as const },
   { id: 'notes', label: 'Open Notes', icon: FileText, view: 'notes' as const },
+  { id: 'browser', label: 'Open Browser', icon: Globe, view: 'browser' as const },
   { id: 'settings', label: 'Open Settings', icon: Settings, view: 'settings' as const },
 ];
 

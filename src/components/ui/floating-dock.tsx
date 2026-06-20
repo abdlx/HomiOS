@@ -11,7 +11,16 @@ export const FloatingDock = ({
   glassSurfaces = true,
   reduceMotion = false,
 }: {
-  items: { title: string; icon: React.ReactNode; href?: string; id?: string, onClick?: () => void }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href?: string;
+    id?: string;
+    onClick?: () => void;
+    onDragStart?: (event: React.DragEvent) => void;
+    onDragOver?: (event: React.DragEvent) => void;
+    onDrop?: (event: React.DragEvent) => void;
+  }[];
   desktopClassName?: string;
   mobileClassName?: string;
   glassSurfaces?: boolean;
@@ -30,7 +39,16 @@ const FloatingDockDesktop = ({
   glassSurfaces,
   reduceMotion,
 }: {
-  items: { title: string; icon: React.ReactNode; href?: string; id?: string, onClick?: () => void }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href?: string;
+    id?: string;
+    onClick?: () => void;
+    onDragStart?: (event: React.DragEvent) => void;
+    onDragOver?: (event: React.DragEvent) => void;
+    onDrop?: (event: React.DragEvent) => void;
+  }[];
   className?: string;
   glassSurfaces: boolean;
   reduceMotion: boolean;
@@ -71,6 +89,9 @@ function IconContainer({
   icon,
   href,
   onClick,
+  onDragStart,
+  onDragOver,
+  onDrop,
   reduceMotion,
 }: {
   mouseX: any;
@@ -78,6 +99,9 @@ function IconContainer({
   icon: React.ReactNode;
   href?: string;
   onClick?: () => void;
+  onDragStart?: (event: React.DragEvent) => void;
+  onDragOver?: (event: React.DragEvent) => void;
+  onDrop?: (event: React.DragEvent) => void;
   reduceMotion: boolean;
 }) {
   let ref = useRef<HTMLDivElement>(null);
@@ -118,7 +142,7 @@ function IconContainer({
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div onClick={onClick}>
+    <div onClick={onClick} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
       <motion.div
         ref={ref}
         style={{ width, height }}

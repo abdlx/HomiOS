@@ -10,9 +10,10 @@ import FileArea from './components/FileArea';
 import QuickLookModal from './components/QuickLookModal';
 import StorageDashboard from './components/StorageDashboard';
 import SambaPanel from './components/SambaPanel';
-import { FileItem, ViewMode, SidebarItem, TransferTask, DriveItem } from './types';
+import TransferCenter from './components/TransferCenter';
+import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
 import { confirmDialog, toast } from './components/SystemUI';
-import { Loader2, CheckCircle, XCircle, PauseCircle, Menu, Home, Folder, Star, HardDrive, ChevronRight, Share2 } from 'lucide-react';
+import { Menu } from 'lucide-react';
 interface AppProps {
   onClose?: () => void;
 }
@@ -23,8 +24,6 @@ export default function App({ onClose }: AppProps = {}) {
   const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
   const currentPath = pathHistory[historyIndex];
-  const [loading, setLoading] = useState(false);
-
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortOption, setSortOption] = useState<string>('name');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -39,13 +38,9 @@ export default function App({ onClose }: AppProps = {}) {
   const transferFlushRef = useRef<number | null>(null);
   const pendingTransferUpdatesRef = useRef<Record<string, Partial<TransferTask>>>({});
   const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
-  const [sharedPaths, setSharedPaths] = useState<string[]>([]);
 
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [shortcuts, setShortcuts] = useState<SidebarItem[]>([]);
-  const [drives, setDrives] = useState<DriveItem[]>([]);
-  const [serverIp, setServerIp] = useState<string>('Connecting...');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -60,24 +55,6 @@ export default function App({ onClose }: AppProps = {}) {
 
     const saved = localStorage.getItem('fileMetadata');
     if (saved) setFileMetadata(JSON.parse(saved));
-
-    if (typeof window !== 'undefined') {
-      setServerIp(window.location.hostname);
-    }
-
-    fetch('/api/system/shortcuts')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setShortcuts(data);
-      })
-      .catch(err => console.error('Error fetching shortcuts:', err));
-
-    fetch('/api/drives/available')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setDrives(data);
-      })
-      .catch(err => console.error('Error fetching drives:', err));
 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -107,7 +84,6 @@ export default function App({ onClose }: AppProps = {}) {
   };
 
   const loadFiles = async () => {
-    setLoading(true);
     const apiPath = getApiPath();
     try {
       // Parallel fetch files and shared paths
@@ -119,7 +95,6 @@ export default function App({ onClose }: AppProps = {}) {
       let shares: any[] = [];
       if (sharesRes.ok) {
         shares = await sharesRes.json();
-        setSharedPaths(shares.map((s: any) => s.path));
       }
 
       if (res.status === 401) {
@@ -163,7 +138,6 @@ export default function App({ onClose }: AppProps = {}) {
       console.error(e);
       setCurrentFiles([]);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -262,7 +236,7 @@ export default function App({ onClose }: AppProps = {}) {
   const handleDeleteFile = async (id: string) => {
     const name = id.split('/').pop() || 'this item';
     const ok = await confirmDialog({
-      title: `Delete “${name}”?`,
+      title: `Delete "${name}"?`,
       message: 'This item will be permanently removed. This action cannot be undone.',
       tone: 'danger',
       confirmLabel: 'Delete',
@@ -430,71 +404,6 @@ export default function App({ onClose }: AppProps = {}) {
     });
 
     loadFiles();
-    return;
-
-    let tusAvailable = false;
-    try {
-      const { Upload } = await import('tus-js-client');
-      tusAvailable = true;
-      await Promise.all(fileArray.map((file, i) =>
-        new Promise<void>(resolve => {
-          const taskId = newTransfers[i].id;
-          const upload = new Upload(file, {
-            endpoint: '/api/upload',
-            retryDelays: [0, 1000, 3000, 5000],
-            removeFingerprintOnSuccess: true,
-            chunkSize: 5 * 1024 * 1024, // 5 MB chunks
-            metadata: { filename: file.name, filetype: file.type },
-            headers: { 'x-target-path': `${apiPath}/${uploadTargets[i] || file.name}` },
-            onProgress(bytesUploaded, bytesTotal) {
-              const pct = Math.round((bytesUploaded / bytesTotal) * 100);
-              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: pct, bytesUploaded, bytesTotal } : t));
-            },
-            onSuccess() {
-              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: 'completed' } : t));
-              resolve();
-            },
-            onError() {
-              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t));
-              resolve();
-            },
-          });
-          setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, tusUpload: upload } : t));
-          upload.start();
-        })
-      ));
-    } catch {
-      // tus-js-client not installed — use plain XHR
-    }
-
-    if (!tusAvailable) {
-      await Promise.all(fileArray.map((file, i) =>
-        new Promise<void>(resolve => {
-          const taskId = newTransfers[i].id;
-          const uploadPath = `/${apiPath}/${uploadTargets[i] || file.name}`;
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const pct = Math.round((event.loaded / event.total) * 100);
-              setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: pct } : t));
-            }
-          };
-          xhr.onload = () => {
-            const ok = xhr.status >= 200 && xhr.status < 300;
-            setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, progress: 100, status: ok ? 'completed' : 'error' } : t));
-            resolve();
-          };
-          xhr.onerror = () => { setTransfers(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' } : t)); resolve(); };
-          xhr.send(file);
-        })
-      ));
-    }
-    loadFiles();
-  };
-
-  const handleUploadSimulate = async (payload: { name: string; type: 'document' | 'image' }) => {
-    handleAddNewFile(payload.name, payload.type);
   };
 
   const updateTransferThrottled = (id: string, update: Partial<TransferTask>, immediate = false) => {
@@ -561,13 +470,82 @@ export default function App({ onClose }: AppProps = {}) {
     }
   };
 
+  const notifyTransfer = async (title: string, message: string, tone: 'success' | 'danger' | 'info' = 'info', sourceId?: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message, tone, sourceType: 'transfer', sourceId }),
+      });
+    } catch {
+      // Notification center updates must not block file work.
+    }
+  };
+
+  const runFileOperation = async (options: {
+    action: 'move' | 'copy';
+    file: FileItem;
+    sourcePath: string;
+    destinationPath: string;
+  }) => {
+    const taskId = `${options.action}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const controller = new AbortController();
+    const task: TransferTask = {
+      id: taskId,
+      name: options.file.name,
+      progress: 0,
+      status: 'uploading',
+      type: options.action,
+      description: `${options.action === 'copy' ? 'Copying' : 'Moving'} item`,
+      sourcePath: options.sourcePath,
+      destinationPath: options.destinationPath,
+      cancellable: true,
+      retryable: true,
+      controller,
+      retry: () => runFileOperation(options),
+    };
+
+    setTransfers(prev => [...prev, task]);
+
+    try {
+      const res = await fetch(`/api/files/${options.action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourcePath: options.sourcePath, destinationPath: options.destinationPath }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`${options.action} failed with status ${res.status}`);
+
+      await readMoveProgress(res, taskId);
+      await notifyTransfer(
+        options.action === 'copy' ? 'Copy completed' : 'Move completed',
+        options.file.name,
+        'success',
+        taskId
+      );
+      toast({ message: `${options.action === 'copy' ? 'Copied' : 'Moved'} ${options.file.name}`, tone: 'success' });
+      return true;
+    } catch (err: any) {
+      const aborted = err?.name === 'AbortError';
+      updateTransferThrottled(taskId, {
+        status: 'error',
+        error: aborted ? 'Cancelled' : err.message || `${options.action} failed`,
+        description: aborted ? 'Cancelled' : `${options.action} failed`,
+      }, true);
+      await notifyTransfer(
+        aborted ? 'Transfer cancelled' : `${options.action === 'copy' ? 'Copy' : 'Move'} failed`,
+        `${options.file.name}${aborted ? '' : `: ${err.message || 'Unknown error'}`}`,
+        'danger',
+        taskId
+      );
+      toast({ message: aborted ? 'Transfer cancelled' : `${options.action === 'copy' ? 'Copy' : 'Move'} failed`, description: aborted ? undefined : err.message, tone: 'danger' });
+      return false;
+    }
+  };
+
   const handlePasteClipboard = async () => {
     if (!clipboard) return;
-
-    if (clipboard.action !== 'cut') {
-      toast({ message: `Pasted copy of ${clipboard.file.name}`, tone: 'info' });
-      return;
-    }
 
     const apiPath = getApiPath();
     const destinationPath = `/${apiPath}/${clipboard.file.name}`.replace(/\/+/g, '/');
@@ -578,36 +556,27 @@ export default function App({ onClose }: AppProps = {}) {
       return;
     }
 
-    const taskId = `move-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const task: TransferTask = {
-      id: taskId,
-      name: clipboard.file.name,
-      progress: 0,
-      status: 'uploading',
-      type: 'move',
-      description: 'Moving item',
-    };
-    setTransfers(prev => [...prev, task]);
-
-    try {
-      const res = await fetch('/api/files/move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourcePath, destinationPath }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Move failed with status ${res.status}`);
-      }
-
-      await readMoveProgress(res, taskId);
+    const ok = await runFileOperation({
+      action: clipboard.action === 'cut' ? 'move' : 'copy',
+      file: clipboard.file,
+      sourcePath,
+      destinationPath,
+    });
+    if (ok) {
       setClipboard(null);
       if (selectedFileId === clipboard.file.id) setSelectedFileId(null);
       loadFiles();
-      toast({ message: `Moved ${clipboard.file.name}`, tone: 'success' });
-    } catch (err: any) {
-      updateTransferThrottled(taskId, { status: 'error', description: err.message || 'Move failed' }, true);
-      toast({ message: 'Move failed', description: err.message || 'Could not move item', tone: 'danger' });
+    }
+  };
+
+  const handleMoveFileToFolder = async (file: FileItem, targetFolder: FileItem) => {
+    if (file.id === targetFolder.id || targetFolder.type !== 'folder') return;
+    const sourcePath = `/${file.id}`.replace(/\/+/g, '/');
+    const destinationPath = `/${targetFolder.id}/${file.name}`.replace(/\/+/g, '/');
+    const ok = await runFileOperation({ action: 'move', file, sourcePath, destinationPath });
+    if (ok) {
+      if (selectedFileId === file.id) setSelectedFileId(null);
+      loadFiles();
     }
   };
 
@@ -785,6 +754,7 @@ export default function App({ onClose }: AppProps = {}) {
                     onAddNewFolder={handleAddNewFolder}
                     onShare={handleShare}
                     onPasteClipboard={handlePasteClipboard}
+                    onMoveFileToFolder={handleMoveFileToFolder}
                   />
                 </>
               )}
@@ -801,73 +771,27 @@ export default function App({ onClose }: AppProps = {}) {
           onDelete={handleDeleteFile}
         />
       )}
-
-      {/* Floating Transfers Panel */}
-      {transfers.length > 0 && (
-        <div className={`fixed right-6 w-80 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-neutral-200 dark:border-white/10 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[400px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'
-          }`}>
-          <div className="bg-neutral-50 dark:bg-white/5 px-4 py-2 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center">
-            <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Transfers ({transfers.filter(t => t.status === 'uploading' || t.status === 'pending').length} active)</span>
-            <button
-              onClick={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused'))}
-              className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
-            >
-              Clear Finished
-            </button>
-          </div>
-          <div className="overflow-y-auto p-2 space-y-2 flex-1">
-            {transfers.map(task => (
-              <div key={task.id} className="bg-neutral-50 dark:bg-white/5 border border-neutral-100 dark:border-white/10 p-3 rounded-xl flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  {task.status === 'pending' && <Loader2 size={16} className="text-neutral-400" />}
-                  {task.status === 'uploading' && <Loader2 size={16} className="text-blue-500 animate-spin" />}
-                  {task.status === 'paused' && <PauseCircle size={16} className="text-amber-500" />}
-                  {task.status === 'completed' && <CheckCircle size={16} className="text-green-500" />}
-                  {task.status === 'error' && <XCircle size={16} className="text-red-500" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 truncate block">{task.name}</span>
-                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 ml-2 flex-shrink-0">{task.progress}%</span>
-                  </div>
-                  <div className="w-full bg-neutral-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${task.status === 'error' ? 'bg-red-500' : task.status === 'paused' ? 'bg-amber-400' : task.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
-                        }`}
-                      style={{ width: `${task.progress}%` }}
-                    />
-                  </div>
-                  {task.bytesTotal && (
-                    <p className="text-[9px] text-neutral-400 mt-0.5 font-mono">
-                      {((task.bytesUploaded ?? 0) / 1024 / 1024).toFixed(1)} / {(task.bytesTotal / 1024 / 1024).toFixed(1)} MB
-                    </p>
-                  )}
-                  {task.description && (
-                    <p className="text-[9px] text-neutral-400 mt-0.5 truncate">{task.description}</p>
-                  )}
-                </div>
-                {/* Pause / Resume for TUS uploads */}
-                {task.tusUpload && (task.status === 'uploading' || task.status === 'paused') && (
-                  <button
-                    onClick={() => {
-                      if (task.status === 'uploading') {
-                        task.tusUpload.abort();
-                        setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'paused' } : t));
-                      } else {
-                        task.tusUpload.start();
-                        setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' } : t));
-                      }
-                    }}
-                    className="text-[10px] flex-shrink-0 px-2 py-1 rounded-lg border border-neutral-200 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                  >
-                    {task.status === 'uploading' ? '⏸' : '▶'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <TransferCenter
+        transfers={transfers}
+        isMobile={isMobile}
+        onClearFinished={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused' || t.status === 'pending'))}
+        onCancel={(id) => {
+          const task = transfers.find((item) => item.id === id);
+          task?.controller?.abort();
+          task?.tusUpload?.abort?.();
+          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: 'Cancelled', description: 'Cancelled' } : t));
+        }}
+        onRetry={(task) => task.retry?.()}
+        onTogglePause={(task) => {
+          if (task.status === 'uploading') {
+            task.tusUpload?.abort?.();
+            setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'paused' } : t));
+          } else {
+            task.tusUpload?.start?.();
+            setTransfers(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' } : t));
+          }
+        }}
+      />
     </div>
   );
 }

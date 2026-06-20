@@ -26,7 +26,19 @@ export function createNotification(input: {
   return result.lastInsertRowid;
 }
 
-export function listNotifications(userId: number, teamId: string, limit = 50) {
+export type NotificationFilter = 'all' | 'unread' | 'activity' | 'transfers' | 'system';
+
+export function listNotifications(userId: number, teamId: string, limit = 50, filter: NotificationFilter = 'all') {
+  const where = ['(user_id = ? OR team_id = ? OR (user_id IS NULL AND team_id IS NULL))'];
+  const values: any[] = [userId, teamId];
+
+  if (filter === 'unread') where.push('read_at IS NULL');
+  if (filter === 'activity') where.push("(source_type = 'job' OR source_type = 'activity')");
+  if (filter === 'transfers') where.push("source_type = 'transfer'");
+  if (filter === 'system') where.push("(source_type = 'system' OR source_type IS NULL)");
+
+  values.push(Math.min(Math.max(1, limit), 100));
+
   return getDb().prepare(`
     SELECT
       id,
@@ -40,10 +52,10 @@ export function listNotifications(userId: number, teamId: string, limit = 50) {
       read_at as readAt,
       created_at as createdAt
     FROM notifications
-    WHERE (user_id = ? OR team_id = ? OR (user_id IS NULL AND team_id IS NULL))
+    WHERE ${where.join(' AND ')}
     ORDER BY created_at DESC
     LIMIT ?
-  `).all(userId, teamId, Math.min(Math.max(1, limit), 100));
+  `).all(...values);
 }
 
 export function markNotificationRead(id: number, userId: number, read = true) {
@@ -52,4 +64,34 @@ export function markNotificationRead(id: number, userId: number, read = true) {
     SET read_at = ${read ? 'CURRENT_TIMESTAMP' : 'NULL'}
     WHERE id = ? AND (user_id = ? OR user_id IS NULL)
   `).run(id, userId);
+}
+
+export function markAllNotificationsRead(userId: number, teamId: string, filter: NotificationFilter = 'all') {
+  const where = ['(user_id = ? OR team_id = ? OR (user_id IS NULL AND team_id IS NULL))'];
+  const values: any[] = [userId, teamId];
+
+  if (filter === 'unread') where.push('read_at IS NULL');
+  if (filter === 'activity') where.push("(source_type = 'job' OR source_type = 'activity')");
+  if (filter === 'transfers') where.push("source_type = 'transfer'");
+  if (filter === 'system') where.push("(source_type = 'system' OR source_type IS NULL)");
+
+  return getDb().prepare(`
+    UPDATE notifications
+    SET read_at = CURRENT_TIMESTAMP
+    WHERE ${where.join(' AND ')}
+  `).run(...values);
+}
+
+export function deleteNotification(id: number, userId: number) {
+  return getDb().prepare(`
+    DELETE FROM notifications
+    WHERE id = ? AND (user_id = ? OR user_id IS NULL)
+  `).run(id, userId);
+}
+
+export function clearReadNotifications(userId: number, teamId: string) {
+  return getDb().prepare(`
+    DELETE FROM notifications
+    WHERE read_at IS NOT NULL AND (user_id = ? OR team_id = ? OR (user_id IS NULL AND team_id IS NULL))
+  `).run(userId, teamId);
 }

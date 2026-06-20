@@ -56,6 +56,13 @@ export interface TransferTask {
   status: 'pending' | 'uploading' | 'paused' | 'completed' | 'error';
   type: 'upload' | 'download' | 'move' | 'copy';
   description?: string;
+  sourcePath?: string;
+  destinationPath?: string;
+  cancellable?: boolean;
+  retryable?: boolean;
+  error?: string;
+  controller?: AbortController;
+  retry?: () => Promise<unknown> | unknown;
   /** TUS upload instance for pause/resume support */
   tusUpload?: any;
   /** Bytes transferred so far */
