@@ -330,7 +330,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                       <div className="flex flex-col gap-1.5 mb-1.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 select-all">
-                            {`\\${host}\${share.name}`}
+                            `\\${host}\${share.name}`
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Windows</span>
                         </div>
