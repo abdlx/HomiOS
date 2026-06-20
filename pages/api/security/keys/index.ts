@@ -9,6 +9,7 @@ import { getDb } from '../../../../lib/db.ts';
 import { withAuth } from '../../../../lib/api-auth.ts';
 import { encryptSecret } from '../../../../lib/crypto.ts';
 import { logAudit } from '../../../../lib/audit.ts';
+import { withTransaction } from '../../../../lib/db.ts';
 
 export default withAuth(async (req, res, session) => {
   const db = getDb();
@@ -45,8 +46,10 @@ export default withAuth(async (req, res, session) => {
     }
 
     const id = crypto.randomUUID();
-    db.prepare('INSERT INTO private_keys (id, team_id, name, description, private_key_enc) VALUES (?, ?, ?, ?, ?)')
-      .run(id, session.teamId, String(name), String(description), encryptSecret(String(material)));
+    withTransaction((tx) => {
+      tx.prepare('INSERT INTO private_keys (id, team_id, name, description, private_key_enc) VALUES (?, ?, ?, ?, ?)')
+        .run(id, session.teamId, String(name), String(description), encryptSecret(String(material)));
+    });
     logAudit({ teamId: session.teamId, userId: session.userId, action: 'ssh_key.created', resourceId: id, meta: { name } });
     return res.status(201).json({ ok: true, id, publicKey });
   }
@@ -55,7 +58,7 @@ export default withAuth(async (req, res, session) => {
     const { id } = req.body || {};
     const inUse = db.prepare('SELECT COUNT(*) AS c FROM servers WHERE private_key_id = ?').get(String(id)) as any;
     if (inUse.c > 0) return res.status(400).json({ error: `Key is used by ${inUse.c} server(s)` });
-    const r = db.prepare('DELETE FROM private_keys WHERE id = ? AND team_id = ?').run(String(id), session.teamId);
+    const r = withTransaction((tx) => tx.prepare('DELETE FROM private_keys WHERE id = ? AND team_id = ?').run(String(id), session.teamId));
     if (!r.changes) return res.status(404).json({ error: 'Key not found' });
     logAudit({ teamId: session.teamId, userId: session.userId, action: 'ssh_key.deleted', resourceId: String(id) });
     return res.json({ ok: true });

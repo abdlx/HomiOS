@@ -2,11 +2,12 @@ import * as otplib from 'otplib';
 const authenticator = (otplib as any).authenticator ?? (otplib as any).default?.authenticator ?? otplib;
 import { getDb } from '../../../lib/db.ts';
 import {
-  findUserByEmail, verifyPassword, hashPassword, createSession, ensurePersonalTeam,
+  findUserByEmail, verifyPassword, hashPassword, createSession, ensurePersonalTeam, createUserWithPasswordHash,
 } from '../../../lib/auth.ts';
-import { buildSessionCookie } from '../../../lib/api-auth.ts';
+import { buildAuthCookies } from '../../../lib/api-auth.ts';
 import { decryptSecret, sha256 } from '../../../lib/crypto.ts';
 import { logAudit } from '../../../lib/audit.ts';
+import { withTransaction } from '../../../lib/db.ts';
 
 // Simple in-memory rate limit: 10 attempts / 5 min per IP.
 const attempts = new Map<string, { count: number; resetAt: number }>();
@@ -35,12 +36,11 @@ export default async function handler(req: any, res: any) {
       let admin = db.prepare('SELECT id FROM users WHERE email = ?').get(envUser) as any;
       if (!admin) {
         const hash = await hashPassword(envPass);
-        const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(envUser, hash);
-        admin = { id: Number(r.lastInsertRowid) };
+        admin = { id: withTransaction((tx) => createUserWithPasswordHash(tx, envUser, hash)) };
       }
       ensurePersonalTeam(admin.id, envUser);
       const sessionId = createSession(admin.id);
-      res.setHeader('Set-Cookie', buildSessionCookie(sessionId));
+      res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
       return res.json({ ok: true });
     }
 
@@ -65,7 +65,9 @@ export default async function handler(req: any, res: any) {
         const idx = codes.indexOf(sha256(code));
         if (idx >= 0) {
           codes.splice(idx, 1); // recovery codes are single-use
-          db.prepare('UPDATE users SET recovery_codes = ? WHERE id = ?').run(JSON.stringify(codes), user.id);
+          withTransaction((tx) => {
+            tx.prepare('UPDATE users SET recovery_codes = ? WHERE id = ?').run(JSON.stringify(codes), user.id);
+          });
           valid = true;
         }
       }
@@ -75,9 +77,10 @@ export default async function handler(req: any, res: any) {
     ensurePersonalTeam(user.id, user.email);
     const sessionId = createSession(user.id);
     logAudit({ userId: user.id, action: 'auth.login', meta: { ip } });
-    res.setHeader('Set-Cookie', buildSessionCookie(sessionId));
+    res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
     return res.json({ ok: true });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    console.error('[/api/auth/login]', err);
+    return res.status(500).json({ error: 'Login failed' });
   }
 }

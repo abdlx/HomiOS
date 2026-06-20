@@ -10,6 +10,7 @@ import { getDb } from '../../../../lib/db.ts';
 import { withAuth, roleAtLeast } from '../../../../lib/api-auth.ts';
 import { roleInTeam } from '../../../../lib/auth.ts';
 import { logAudit } from '../../../../lib/audit.ts';
+import { withTransaction } from '../../../../lib/db.ts';
 
 const VALID_ROLES = ['member', 'admin', 'owner'];
 
@@ -40,16 +41,20 @@ export default withAuth(async (req, res, session) => {
 
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(String(email)) as any;
     if (existing) {
-      db.prepare('INSERT OR IGNORE INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)')
-        .run(teamId, existing.id, role);
+      withTransaction((tx) => {
+        tx.prepare('INSERT OR IGNORE INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)')
+          .run(teamId, existing.id, role);
+      });
       logAudit({ teamId, userId: session.userId, action: 'team.member_added', meta: { email, role } });
       return res.status(201).json({ ok: true, added: true });
     }
 
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-    db.prepare('INSERT INTO team_invitations (id, team_id, email, role, token, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(crypto.randomUUID(), teamId, String(email), role, token, expiresAt);
+    withTransaction((tx) => {
+      tx.prepare('INSERT INTO team_invitations (id, team_id, email, role, token, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(crypto.randomUUID(), teamId, String(email), role, token, expiresAt);
+    });
     logAudit({ teamId, userId: session.userId, action: 'team.invited', meta: { email, role } });
     return res.status(201).json({ ok: true, invited: true, inviteLink: `/register?invite=${token}` });
   }
@@ -58,7 +63,9 @@ export default withAuth(async (req, res, session) => {
     if (myRole !== 'owner') return res.status(403).json({ error: 'Requires owner role' });
     const { userId, role } = req.body || {};
     if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' });
-    db.prepare('UPDATE team_users SET role = ? WHERE team_id = ? AND user_id = ?').run(role, teamId, userId);
+    withTransaction((tx) => {
+      tx.prepare('UPDATE team_users SET role = ? WHERE team_id = ? AND user_id = ?').run(role, teamId, userId);
+    });
     logAudit({ teamId, userId: session.userId, action: 'team.role_changed', meta: { targetUserId: userId, role } });
     return res.json({ ok: true });
   }
@@ -67,14 +74,18 @@ export default withAuth(async (req, res, session) => {
     if (!roleAtLeast(myRole, 'admin')) return res.status(403).json({ error: 'Requires admin role' });
     const { userId, invitationId } = req.body || {};
     if (invitationId) {
-      db.prepare('DELETE FROM team_invitations WHERE id = ? AND team_id = ?').run(invitationId, teamId);
+      withTransaction((tx) => {
+        tx.prepare('DELETE FROM team_invitations WHERE id = ? AND team_id = ?').run(invitationId, teamId);
+      });
       return res.json({ ok: true });
     }
     const targetRole = roleInTeam(Number(userId), teamId);
     if (targetRole === 'owner' && myRole !== 'owner') {
       return res.status(403).json({ error: 'Only an owner can remove an owner' });
     }
-    db.prepare('DELETE FROM team_users WHERE team_id = ? AND user_id = ?').run(teamId, userId);
+    withTransaction((tx) => {
+      tx.prepare('DELETE FROM team_users WHERE team_id = ? AND user_id = ?').run(teamId, userId);
+    });
     logAudit({ teamId, userId: session.userId, action: 'team.member_removed', meta: { targetUserId: userId } });
     return res.json({ ok: true });
   }

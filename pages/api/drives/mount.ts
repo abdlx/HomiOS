@@ -1,11 +1,15 @@
 import os from 'os';
-import { exec } from 'child_process';
-import { getSession } from '../../../lib/auth';
+import { execFile } from 'child_process';
+import { withAuth } from '../../../lib/api-auth.ts';
 import { mkdir } from 'fs/promises';
 
-const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
+const execFileAsync = (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
-    exec(cmd, (error, stdout, stderr) => {
+    execFile(file, args, (error: any, stdout, stderr) => {
+      if (error) {
+        error.stderr = stderr;
+        error.stdout = stdout;
+      }
       if (error) reject(error);
       else resolve({ stdout, stderr });
     });
@@ -15,7 +19,7 @@ const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => 
 /** Use blkid to detect the filesystem type of a block device */
 async function detectFsType(devPath: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`blkid -o value -s TYPE ${devPath}`);
+    const { stdout } = await execFileAsync('blkid', ['-o', 'value', '-s', 'TYPE', devPath]);
     return stdout.trim() || null;
   } catch {
     return null;
@@ -23,36 +27,31 @@ async function detectFsType(devPath: string): Promise<string | null> {
 }
 
 /** Map filesystem types to the correct mount command flags */
-function buildMountCommand(devPath: string, mountPoint: string, fsType: string | null): string {
+function buildMountCommand(fsType: string | null): string {
   switch (fsType) {
     case 'ntfs':
     case 'ntfs-3g':
-      // Use ntfs-3g explicitly for full read/write support on NTFS
-      return `mount -t ntfs-3g -o uid=0,gid=0,umask=000 ${devPath} ${mountPoint}`;
+      return `ntfs-3g|uid=0,gid=0,umask=000`;
     case 'exfat':
-      return `mount -t exfat -o uid=0,gid=0,umask=000 ${devPath} ${mountPoint}`;
+      return `exfat|uid=0,gid=0,umask=000`;
     case 'vfat':
     case 'fat32':
     case 'msdos':
-      return `mount -t vfat -o uid=0,gid=0,umask=000 ${devPath} ${mountPoint}`;
+      return `vfat|uid=0,gid=0,umask=000`;
     case 'ext4':
     case 'ext3':
     case 'ext2':
-      return `mount -t ${fsType} ${devPath} ${mountPoint}`;
+      return `${fsType}|`;
     case 'btrfs':
-      return `mount -t btrfs ${devPath} ${mountPoint}`;
+      return `btrfs|`;
     case 'xfs':
-      return `mount -t xfs ${devPath} ${mountPoint}`;
+      return `xfs|`;
     default:
-      // Let the kernel auto-detect as a last resort
-      return `mount ${devPath} ${mountPoint}`;
+      return '|';
   }
 }
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) return res.status(401).end();
-
+export default withAuth(async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
 
   if (os.platform() !== 'linux') {
@@ -63,7 +62,10 @@ export default async function handler(req: any, res: any) {
   if (!device) return res.status(400).json({ error: 'Device name is required' });
 
   // Sanitize — only allow alphanumeric, dash, underscore
-  const safeDevice = device.replace(/[^a-zA-Z0-9_-]/g, '');
+  const safeDevice = String(device);
+  if (!/^[a-zA-Z0-9_-]+$/.test(safeDevice)) {
+    return res.status(400).json({ error: 'Invalid device name' });
+  }
   const mountPoint = `/mnt/${safeDevice}`;
   const devPath = `/dev/${safeDevice}`;
 
@@ -75,10 +77,14 @@ export default async function handler(req: any, res: any) {
     const fsType = await detectFsType(devPath);
 
     // Step 3: Build the correct mount command for this filesystem
-    const mountCmd = buildMountCommand(devPath, mountPoint, fsType);
+    const [mountType, mountOptions] = buildMountCommand(fsType).split('|');
 
     // Step 4: Execute the mount
-    await execAsync(mountCmd);
+    const args = [];
+    if (mountType) args.push('-t', mountType);
+    if (mountOptions) args.push('-o', mountOptions);
+    args.push(devPath, mountPoint);
+    await execFileAsync('mount', args);
 
     return res.json({
       ok: true,
@@ -114,6 +120,6 @@ export default async function handler(req: any, res: any) {
     }
 
     console.error(`Mount failed for ${device}:`, err);
-    return res.status(500).json({ error: `Mount failed: ${msg}` });
+    return res.status(500).json({ error: 'Mount failed' });
   }
-}
+}, { ability: 'write', minRole: 'admin' });

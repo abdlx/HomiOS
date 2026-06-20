@@ -19,7 +19,7 @@ export default withAuth(async (req: any, res: any) => {
     try {
       return res.json(updateJobAction(id, action));
     } catch (err: any) {
-      return res.status(404).json({ error: err.message });
+      return res.status(404).json({ error: 'Job action failed' });
     }
   }
 

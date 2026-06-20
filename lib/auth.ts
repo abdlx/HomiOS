@@ -8,10 +8,12 @@
  */
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { getDb } from './db.ts';
+import { getDb, withTransaction } from './db.ts';
 import { sha256 } from './crypto.ts';
+import { parseCookies, validateCsrf } from './request-security.ts';
 
 export type Session = {
+  sessionId?: string;
   userId: number;
   email: string;
   teamId: string;
@@ -80,15 +82,16 @@ export async function getSession(req: any): Promise<Session | null> {
     // 2. Session cookie
     const cookieHeader = req.headers?.cookie;
     if (!cookieHeader) return null;
-    const m = cookieHeader.match(/session=([^;]+)/);
-    if (!m) return null;
+    const sessionId = parseCookies(cookieHeader).session;
+    if (!sessionId) return null;
 
     const row = db.prepare(`
       SELECT s.id, s.user_id, s.expires_at, u.email
       FROM sessions s JOIN users u ON s.user_id = u.id
       WHERE s.id = ?
-    `).get(m[1]) as any;
+    `).get(sessionId) as any;
     if (!row) return null;
+    if (!validateCsrf(req, row.id)) return null;
     if (new Date(row.expires_at) < new Date()) {
       db.prepare('DELETE FROM sessions WHERE id = ?').run(row.id);
       return null;
@@ -114,6 +117,7 @@ export async function getSession(req: any): Promise<Session | null> {
 
     return {
       userId: row.user_id, email: row.email, teamId, role: role || 'member',
+      sessionId: row.id,
       via: 'session', abilities: ['read', 'write', 'deploy'],
     };
   } catch {
@@ -137,16 +141,24 @@ export function findUserByEmail(email: string): any {
 
 /** Create a user plus their personal team. Returns the user id. */
 export async function createUser(email: string, password: string): Promise<number> {
-  const db = getDb();
   const hash = await hashPassword(password);
-  const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, hash);
+  return withTransaction((db) => {
+    return createUserWithPasswordHash(db, email, hash);
+  });
+}
+
+export function createUserWithPasswordHash(db: any, email: string, passwordHash: string): number {
+  const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, passwordHash);
   const userId = Number(r.lastInsertRowid);
-  ensurePersonalTeam(userId, email);
+  ensurePersonalTeamInDb(db, userId, email);
   return userId;
 }
 
 export function ensurePersonalTeam(userId: number, email: string): string {
-  const db = getDb();
+  return withTransaction((db) => ensurePersonalTeamInDb(db, userId, email));
+}
+
+function ensurePersonalTeamInDb(db: any, userId: number, email: string): string {
   const existing = db.prepare(`
     SELECT t.id FROM teams t JOIN team_users tu ON tu.team_id = t.id
     WHERE tu.user_id = ? AND t.personal_team = 1

@@ -15,6 +15,7 @@ import { withAuth } from '../../../lib/api-auth.ts';
 import { verifyPassword } from '../../../lib/auth.ts';
 import { encryptSecret, decryptSecret, sha256 } from '../../../lib/crypto.ts';
 import { logAudit } from '../../../lib/audit.ts';
+import { withTransaction } from '../../../lib/db.ts';
 
 export default withAuth(async (req, res, session) => {
   const db = getDb();
@@ -29,8 +30,10 @@ export default withAuth(async (req, res, session) => {
 
   if (action === 'init') {
     const secret = authenticator.generateSecret();
-    db.prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
-      .run(encryptSecret(secret), session.userId);
+    withTransaction((tx) => {
+      tx.prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
+        .run(encryptSecret(secret), session.userId);
+    });
     const otpauthUrl = authenticator.keyuri(user.email, 'OpenFinder', secret);
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
     return res.json({ secret, otpauthUrl, qrDataUrl });
@@ -43,8 +46,10 @@ export default withAuth(async (req, res, session) => {
       return res.status(400).json({ error: 'Invalid code' });
     }
     const plainCodes = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex'));
-    db.prepare('UPDATE users SET totp_enabled = 1, recovery_codes = ? WHERE id = ?')
-      .run(JSON.stringify(plainCodes.map(sha256)), session.userId);
+    withTransaction((tx) => {
+      tx.prepare('UPDATE users SET totp_enabled = 1, recovery_codes = ? WHERE id = ?')
+        .run(JSON.stringify(plainCodes.map(sha256)), session.userId);
+    });
     logAudit({ teamId: session.teamId, userId: session.userId, action: '2fa.enabled' });
     return res.json({ ok: true, recoveryCodes: plainCodes });
   }
@@ -52,8 +57,10 @@ export default withAuth(async (req, res, session) => {
   if (action === 'disable') {
     const match = await verifyPassword(String(password || ''), user.password_hash);
     if (!match) return res.status(401).json({ error: 'Invalid password' });
-    db.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL, recovery_codes = NULL WHERE id = ?')
-      .run(session.userId);
+    withTransaction((tx) => {
+      tx.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL, recovery_codes = NULL WHERE id = ?')
+        .run(session.userId);
+    });
     logAudit({ teamId: session.teamId, userId: session.userId, action: '2fa.disabled' });
     return res.json({ ok: true });
   }

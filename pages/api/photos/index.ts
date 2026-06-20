@@ -338,6 +338,7 @@ export default async function handler(req: any, res: any) {
       limit: maxResults,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('[/api/photos]', err);
+    res.status(500).json({ error: 'Failed to load photos' });
   }
 }

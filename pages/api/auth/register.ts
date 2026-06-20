@@ -3,9 +3,10 @@
  * registration stays closed (Coolify default for self-hosted instances).
  */
 import { getDb } from '../../../lib/db.ts';
-import { createUser, createSession } from '../../../lib/auth.ts';
-import { buildSessionCookie } from '../../../lib/api-auth.ts';
+import { createSession, createUserWithPasswordHash, hashPassword } from '../../../lib/auth.ts';
+import { buildAuthCookies } from '../../../lib/api-auth.ts';
 import { logAudit } from '../../../lib/audit.ts';
+import { withTransaction } from '../../../lib/db.ts';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -31,16 +32,21 @@ export default async function handler(req: any, res: any) {
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(String(email));
     if (existing) return res.status(400).json({ error: 'User already exists — log in instead' });
 
-    const userId = await createUser(String(email), String(password));
-    db.prepare('INSERT INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)')
-      .run(inv.team_id, userId, inv.role);
-    db.prepare('DELETE FROM team_invitations WHERE id = ?').run(inv.id);
+    const passwordHash = await hashPassword(String(password));
+    const userId = withTransaction((tx) => {
+      const newUserId = createUserWithPasswordHash(tx, String(email), passwordHash);
+      tx.prepare('INSERT INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)')
+        .run(inv.team_id, newUserId, inv.role);
+      tx.prepare('DELETE FROM team_invitations WHERE id = ?').run(inv.id);
+      return newUserId;
+    });
 
     const sessionId = createSession(userId);
     logAudit({ teamId: inv.team_id, userId, action: 'auth.registered_via_invite' });
-    res.setHeader('Set-Cookie', buildSessionCookie(sessionId));
+    res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
     return res.json({ ok: true });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    console.error('[/api/auth/register]', err);
+    return res.status(500).json({ error: 'Registration failed' });
   }
 }

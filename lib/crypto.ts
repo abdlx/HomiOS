@@ -63,6 +63,11 @@ export function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+/** HMAC-SHA256 hex digest — used for double-submit CSRF tokens. */
+export function hmacSha256(value: string): string {
+  return crypto.createHmac('sha256', getKey()).update(value).digest('hex');
+}
+
 /** Constant-time string comparison for secrets/webhooks. */
 export function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);

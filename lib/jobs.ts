@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { getDb } from './db.ts';
+import { getDb, buildAllowedUpdate, withTransaction } from './db.ts';
 import { getResourceProfileConfig } from './resource-profile.ts';
 import { createNotification } from './notifications.ts';
 import { rebuildFileIndex } from './indexer.ts';
@@ -76,15 +76,22 @@ function updateProgress(jobId: string, progress: number, message?: string) {
 }
 
 function setJobStatus(jobId: string, status: JobStatus, patch: Record<string, any> = {}) {
-  const fields = ['status = ?'];
-  const values: any[] = [status];
-  if (patch.progress !== undefined) { fields.push('progress = ?'); values.push(patch.progress); }
-  if (patch.result !== undefined) { fields.push('result = ?'); values.push(JSON.stringify(patch.result || {})); }
-  if (patch.error !== undefined) { fields.push('error = ?'); values.push(patch.error); }
-  if (status === 'running') fields.push('started_at = COALESCE(started_at, CURRENT_TIMESTAMP)');
-  if (status === 'completed' || status === 'failed' || status === 'cancelled') fields.push('finished_at = CURRENT_TIMESTAMP');
-  values.push(jobId);
-  getDb().prepare(`UPDATE jobs SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const normalized = {
+    status,
+    progress: patch.progress,
+    result: patch.result !== undefined ? JSON.stringify(patch.result || {}) : undefined,
+    error: patch.error,
+  };
+  const { setSql, values } = buildAllowedUpdate(normalized, {
+    status: 'status',
+    progress: 'progress',
+    result: 'result',
+    error: 'error',
+  });
+  const extra: string[] = [];
+  if (status === 'running') extra.push('started_at = COALESCE(started_at, CURRENT_TIMESTAMP)');
+  if (status === 'completed' || status === 'failed' || status === 'cancelled') extra.push('finished_at = CURRENT_TIMESTAMP');
+  getDb().prepare(`UPDATE jobs SET ${[setSql, ...extra].filter(Boolean).join(', ')} WHERE id = ?`).run(...values, jobId);
 }
 
 export function enqueueJob(input: {
@@ -98,11 +105,14 @@ export function enqueueJob(input: {
   const id = randomUUID();
   const resourceClass = JOB_RESOURCE_CLASS[input.type] || 'io';
   const name = input.name || input.type;
-  getDb().prepare(`
-    INSERT INTO jobs (id, team_id, user_id, type, status, resource_class, priority, progress, name, payload)
-    VALUES (?, ?, ?, ?, 'queued', ?, ?, 0, ?, ?)
-  `).run(id, input.teamId || null, input.userId || null, input.type, resourceClass, input.priority || 0, name, JSON.stringify(input.payload || {}));
-  addEvent(id, 'queued', `${name} queued`);
+  withTransaction((db) => {
+    db.prepare(`
+      INSERT INTO jobs (id, team_id, user_id, type, status, resource_class, priority, progress, name, payload)
+      VALUES (?, ?, ?, ?, 'queued', ?, ?, 0, ?, ?)
+    `).run(id, input.teamId || null, input.userId || null, input.type, resourceClass, input.priority || 0, name, JSON.stringify(input.payload || {}));
+    db.prepare('INSERT INTO job_events (job_id, type, message, data) VALUES (?, ?, ?, ?)')
+      .run(id, 'queued', `${name} queued`, '{}');
+  });
   startJobWorker();
   return id;
 }

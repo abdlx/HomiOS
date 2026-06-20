@@ -2,8 +2,9 @@
  * Samba (SMB/CIFS) integration — smb.conf generation + smbpasswd management.
  * Schema lives in lib/db.ts; callers pass the shared connection in.
  */
-import { writeFileSync } from 'fs';
+import { renameSync, unlinkSync, writeFileSync } from 'fs';
 import { execSync, spawnSync } from 'child_process';
+import { resolveWithinRoot, sanitizeSambaText, validateSambaShareName } from './safe-paths.ts';
 
 // ─── smb.conf regeneration ────────────────────────────────────────────────────
 
@@ -30,6 +31,15 @@ export function regenerateSmbConf(db: any) {
 `;
 
     for (const share of shares) {
+      let shareName = '';
+      let sharePath = '';
+      try {
+        shareName = validateSambaShareName(share.name);
+        sharePath = resolveWithinRoot(share.path);
+      } catch (e) {
+        console.warn(`[samba] skipping invalid share ${share.id}:`, e);
+        continue;
+      }
       // Resolve the valid users for this share from share_users join
       const rows = db.prepare(`
         SELECT su.username, COALESCE(shu.access, 'write') as access FROM samba_users su
@@ -41,9 +51,9 @@ export function regenerateSmbConf(db: any) {
       const readUsers = rows.filter(r => r.access === 'read').map(r => r.username).join(', ');
       const writeUsers = rows.filter(r => r.access !== 'read').map(r => r.username).join(', ');
 
-      config += `[${share.name}]
-  path = ${share.path}
-  comment = ${share.comment || share.name}
+      config += `[${shareName}]
+  path = ${sharePath}
+  comment = ${sanitizeSambaText(share.comment, shareName)}
   browsable = yes
   writable = ${share.read_only ? 'no' : 'yes'}
   guest ok = no
@@ -52,12 +62,19 @@ export function regenerateSmbConf(db: any) {
   write list = ${share.read_only ? '' : writeUsers}
   create mask = 0664
   directory mask = 0775
-  force user = root
 
 `;
     }
 
-    writeFileSync('/etc/samba/smb.conf', config);
+    const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
+    const tmp = `${target}.openfinder.tmp`;
+    writeFileSync(tmp, config, { mode: 0o644 });
+    const test = spawnSync('testparm', ['-s', tmp], { timeout: 5000, encoding: 'utf8' });
+    if (test.status !== 0) {
+      try { unlinkSync(tmp); } catch {}
+      throw new Error(test.stderr || test.stdout || 'Generated Samba config failed validation');
+    }
+    renameSync(tmp, target);
 
     // Graceful reload, fall back to restart
     const reload = spawnSync('smbcontrol', ['smbd', 'reload-config'], { timeout: 3000 });

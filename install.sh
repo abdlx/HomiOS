@@ -138,6 +138,7 @@ User=root
 WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=HOST=127.0.0.1
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
@@ -223,13 +224,65 @@ log "code-server configured on port 8080."
 # use 'output: export'. Nginx proxies ALL traffic to the Node.js process.
 log "Configuring Nginx reverse proxy..."
 cat > /etc/nginx/sites-available/openfinder <<'NGINXEOF'
+limit_req_zone $binary_remote_addr zone=openfinder_api:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=openfinder_auth:10m rate=2r/m;
+limit_req_zone $binary_remote_addr zone=openfinder_upload:10m rate=2r/s;
+limit_req_zone $binary_remote_addr zone=openfinder_socket:10m rate=30r/m;
+
 server {
     listen 80;
     server_name _;
 
-    # Increase upload buffer for large file uploads via TUS
-    client_max_body_size 0;
-    proxy_request_buffering off;
+    client_max_body_size 32m;
+
+    location = /api/auth/login {
+        limit_req zone=openfinder_auth burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/upload {
+        limit_req zone=openfinder_upload burst=20 nodelay;
+        client_max_body_size 5g;
+        proxy_request_buffering off;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 36000s;
+        proxy_send_timeout 36000s;
+        send_timeout 36000s;
+    }
+
+    location /socket.io/ {
+        limit_req zone=openfinder_socket burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /api/ {
+        limit_req zone=openfinder_api burst=60 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     # All traffic (SSR pages + API) goes to the Node.js process
     location / {

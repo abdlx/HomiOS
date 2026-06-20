@@ -21,6 +21,7 @@ export function getDb(): any {
 
   db = new DatabaseSync(DB_PATH);
   db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA synchronous = NORMAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec('PRAGMA busy_timeout = 5000');
 
@@ -356,6 +357,51 @@ export function getDb(): any {
   ensureColumn('share_users', 'access', "TEXT DEFAULT 'write'");
 
   return db;
+}
+
+export function runStartupIntegrityChecks(): void {
+  const db = getDb();
+  const quick = db.prepare('PRAGMA quick_check').get() as { quick_check?: string } | undefined;
+  if (quick?.quick_check !== 'ok') {
+    throw new Error(`SQLite quick_check failed: ${quick?.quick_check || 'unknown failure'}`);
+  }
+
+  for (const table of ['users', 'sessions', 'teams', 'team_users', 'api_tokens', 'shares']) {
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+    if (!row) throw new Error(`SQLite schema missing required table: ${table}`);
+  }
+}
+
+export function checkpointWal(): void {
+  getDb().exec('PRAGMA wal_checkpoint(PASSIVE)');
+}
+
+export function withTransaction<T>(fn: (db: any) => T): T {
+  const db = getDb();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = fn(db);
+    db.exec('COMMIT');
+    return result;
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch {}
+    throw err;
+  }
+}
+
+export function buildAllowedUpdate(
+  input: Record<string, any>,
+  allowed: Record<string, string>
+): { setSql: string; values: any[] } {
+  const sets: string[] = [];
+  const values: any[] = [];
+  for (const [key, column] of Object.entries(allowed)) {
+    if (Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined) {
+      sets.push(`${column} = ?`);
+      values.push(input[key]);
+    }
+  }
+  return { setSql: sets.join(', '), values };
 }
 
 function ensureColumn(table: string, column: string, type: string): void {

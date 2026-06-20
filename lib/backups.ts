@@ -4,7 +4,7 @@ import path from 'path';
 import { createWriteStream } from 'fs';
 import { randomUUID } from 'crypto';
 import { ZipArchive } from 'archiver';
-import { getDb } from './db.ts';
+import { getDb, withTransaction } from './db.ts';
 import { uploadBackupToS3 } from './s3.ts';
 
 const BACKUP_ROOT = process.env.BACKUP_WORK_DIR || path.join(process.cwd(), 'data', '.cache', 'backups');
@@ -95,10 +95,12 @@ export function createBackupPlan(input: {
   schedule?: string;
 }) {
   const id = randomUUID();
-  getDb().prepare(`
-    INSERT INTO backup_plans (id, team_id, user_id, name, source_path, destination_type, destination, schedule)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, input.teamId, input.userId, input.name, input.sourcePath, input.destinationType, input.destination, input.schedule || null);
+  withTransaction((db) => {
+    db.prepare(`
+      INSERT INTO backup_plans (id, team_id, user_id, name, source_path, destination_type, destination, schedule)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, input.teamId, input.userId, input.name, input.sourcePath, input.destinationType, input.destination, input.schedule || null);
+  });
   return id;
 }
 

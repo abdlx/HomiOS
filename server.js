@@ -12,11 +12,57 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 const MAX_TERMINAL_SESSIONS = Number(process.env.MAX_TERMINAL_SESSIONS || 8);
 const TERMINAL_IDLE_TIMEOUT_MS = Number(process.env.TERMINAL_IDLE_TIMEOUT_MS || 30 * 60 * 1000);
 
 app.prepare().then(async () => {
   const server = express();
+  const {
+    hitRateLimit,
+    rateLimitKey,
+  } = await import('./lib/request-security.ts');
+
+  server.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
+
+  const rateLimitPresets = [
+    { prefix: '/api/auth/login', bucket: 'auth-login', windowMs: 5 * 60_000, max: 10 },
+    { prefix: '/api/auth/setup', bucket: 'auth-setup', windowMs: 10 * 60_000, max: 5 },
+    { prefix: '/api/auth/register', bucket: 'auth-register', windowMs: 10 * 60_000, max: 10 },
+    { prefix: '/api/upload', bucket: 'upload', windowMs: 60_000, max: 30 },
+    { prefix: '/api/search', bucket: 'search', windowMs: 60_000, max: 120 },
+    { prefix: '/api/thumbnails', bucket: 'thumbnails', windowMs: 60_000, max: 180 },
+    { prefix: '/api/jobs', bucket: 'jobs', windowMs: 60_000, max: 120 },
+    { prefix: '/api', bucket: 'api', windowMs: 60_000, max: 600 },
+  ];
+
+  server.use((req, res, nextMiddleware) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
+
+    if (req.path.startsWith('/api/')) {
+      const maxBodyBytes = req.path.startsWith('/api/upload')
+        ? Number(process.env.OPENFINDER_MAX_UPLOAD_BYTES || 5 * 1024 * 1024 * 1024)
+        : Number(process.env.OPENFINDER_MAX_API_BODY_BYTES || 2 * 1024 * 1024);
+      const contentLength = Number(req.headers['content-length'] || 0);
+      if (contentLength > maxBodyBytes) {
+        return res.status(413).json({ error: 'Request body too large' });
+      }
+
+      const preset = rateLimitPresets.find((entry) => req.path.startsWith(entry.prefix));
+      if (preset) {
+        const hit = hitRateLimit(rateLimitKey(req, preset.bucket), preset);
+        if (hit.limited) {
+          res.setHeader('Retry-After', String(Math.ceil(hit.retryAfter / 1000)));
+          return res.status(429).json({ error: 'Too many requests' });
+        }
+      }
+    }
+
+    return nextMiddleware();
+  });
 
   try {
     const { Server: TusServer } = await import('@tus/server');
@@ -129,6 +175,8 @@ app.prepare().then(async () => {
 
     io.on('connection', async (socket) => {
       const { validateSessionCookie } = await import('./lib/api-auth.ts');
+      const hit = hitRateLimit(`socket:${socket.handshake.address}`, { windowMs: 60_000, max: 30 });
+      if (hit.limited) { socket.disconnect(); return; }
       const session = await validateSessionCookie(socket.request.headers.cookie);
       if (!session) { socket.disconnect(); return; }
 
@@ -226,6 +274,12 @@ app.prepare().then(async () => {
   });
 
   try {
+    const { runStartupIntegrityChecks, checkpointWal } = await import('./lib/db.ts');
+    runStartupIntegrityChecks();
+    setInterval(() => {
+      try { checkpointWal(); } catch (e) { console.warn('[db] WAL checkpoint failed:', e); }
+    }, Number(process.env.OPENFINDER_WAL_CHECKPOINT_MS || 5 * 60 * 1000));
+
     const { startJobWorker } = await import('./lib/jobs.ts');
     startJobWorker();
     console.log('OpenFinder job worker started');
@@ -233,8 +287,8 @@ app.prepare().then(async () => {
     console.warn('OpenFinder job worker failed to start:', e);
   }
 
-  httpServer.listen(PORT, (err) => {
+  httpServer.listen(PORT, HOST, (err) => {
     if (err) throw err;
-    console.log(`> Ready on http://localhost:${PORT}`);
+    console.log(`> Ready on http://${HOST}:${PORT}`);
   });
 });

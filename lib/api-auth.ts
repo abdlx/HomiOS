@@ -7,6 +7,7 @@
  * - validateSessionCookie(header)  — raw Cookie header check (websocket path)
  */
 import { getSession, type Session } from './auth.ts';
+import { buildCsrfCookie, isMutatingMethod } from './request-security.ts';
 
 export type { Session };
 
@@ -35,6 +36,9 @@ export function withAuth(
   return async (req: any, res: any) => {
     const session = await getSession(req);
     if (!session) return res.status(401).json({ error: 'Unauthorized' });
+    if (session.via === 'session' && session.sessionId && !isMutatingMethod(req.method)) {
+      res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId));
+    }
 
     if (opts.ability && session.via === 'token' && !session.abilities.includes(opts.ability)) {
       return res.status(403).json({ error: `Token missing '${opts.ability}' ability` });
@@ -52,6 +56,17 @@ export function buildSessionCookie(sessionId: string): string {
   return `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
 }
 
+export function buildAuthCookies(sessionId: string): string[] {
+  return [buildSessionCookie(sessionId), buildCsrfCookie(sessionId)];
+}
+
 export function clearSessionCookie(): string {
   return 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+}
+
+export function clearAuthCookies(): string[] {
+  return [
+    clearSessionCookie(),
+    'openfinder_csrf=; Path=/; SameSite=Lax; Max-Age=0',
+  ];
 }

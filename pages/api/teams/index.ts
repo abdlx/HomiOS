@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { getDb } from '../../../lib/db.ts';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { logAudit } from '../../../lib/audit.ts';
+import { withTransaction } from '../../../lib/db.ts';
 
 export default withAuth(async (req, res, session) => {
   const db = getDb();
@@ -26,12 +27,14 @@ export default withAuth(async (req, res, session) => {
     const { name } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     const teamId = crypto.randomUUID();
-    db.prepare('INSERT INTO teams (id, name, personal_team) VALUES (?, ?, 0)').run(teamId, String(name).trim());
-    db.prepare('INSERT INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)').run(teamId, session.userId, 'owner');
-    for (const ch of ['email', 'discord', 'slack', 'telegram', 'pushover', 'webhook']) {
-      db.prepare('INSERT OR IGNORE INTO notification_settings (team_id, channel, enabled, config) VALUES (?, ?, 0, ?)')
-        .run(teamId, ch, '{}');
-    }
+    withTransaction((tx) => {
+      tx.prepare('INSERT INTO teams (id, name, personal_team) VALUES (?, ?, 0)').run(teamId, String(name).trim());
+      tx.prepare('INSERT INTO team_users (team_id, user_id, role) VALUES (?, ?, ?)').run(teamId, session.userId, 'owner');
+      for (const ch of ['email', 'discord', 'slack', 'telegram', 'pushover', 'webhook']) {
+        tx.prepare('INSERT OR IGNORE INTO notification_settings (team_id, channel, enabled, config) VALUES (?, ?, 0, ?)')
+          .run(teamId, ch, '{}');
+      }
+    });
     logAudit({ teamId, userId: session.userId, action: 'team.created', meta: { name } });
     return res.status(201).json({ ok: true, id: teamId });
   }

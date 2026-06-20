@@ -4,7 +4,7 @@
  * PATCH { channel, enabled?, config? }
  * POST  { channel }         — send a test notification through one channel
  */
-import { getDb } from '../../../../lib/db.ts';
+import { getDb, withTransaction } from '../../../../lib/db.ts';
 import { withAuth } from '../../../../lib/api-auth.ts';
 import { roleInTeam } from '../../../../lib/auth.ts';
 import { notifyTeam } from '../../../../lib/notify.ts';
@@ -27,12 +27,14 @@ export default withAuth(async (req, res, session) => {
     if (!CHANNELS.includes(channel)) return res.status(400).json({ error: 'Unknown channel' });
     const existing = db.prepare('SELECT config FROM notification_settings WHERE team_id = ? AND channel = ?').get(teamId, channel) as any;
     const mergedConfig = config !== undefined ? JSON.stringify(config) : (existing?.config ?? '{}');
-    db.prepare(`
-      INSERT INTO notification_settings (team_id, channel, enabled, config) VALUES (?, ?, ?, ?)
-      ON CONFLICT(team_id, channel) DO UPDATE SET
-        enabled = COALESCE(?, enabled), config = ?
-    `).run(teamId, channel, enabled === undefined ? 0 : (enabled ? 1 : 0), mergedConfig,
-           enabled === undefined ? null : (enabled ? 1 : 0), mergedConfig);
+    withTransaction((tx) => {
+      tx.prepare(`
+        INSERT INTO notification_settings (team_id, channel, enabled, config) VALUES (?, ?, ?, ?)
+        ON CONFLICT(team_id, channel) DO UPDATE SET
+          enabled = COALESCE(?, enabled), config = ?
+      `).run(teamId, channel, enabled === undefined ? 0 : (enabled ? 1 : 0), mergedConfig,
+             enabled === undefined ? null : (enabled ? 1 : 0), mergedConfig);
+    });
     logAudit({ teamId, userId: session.userId, action: 'notifications.updated', meta: { channel } });
     return res.json({ ok: true });
   }

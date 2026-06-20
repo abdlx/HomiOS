@@ -22,4 +22,4 @@ export default withAuth(async (req: any, res: any) => {
 
   res.setHeader('Allow', ['GET', 'DELETE']);
   return res.status(405).end();
-});
+}, { ability: 'write', minRole: 'admin' });
