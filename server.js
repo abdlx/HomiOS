@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import next from 'next';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -42,24 +42,7 @@ app.prepare().then(async () => {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.setHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
 
-    if (req.path.startsWith('/api/')) {
-      const maxBodyBytes = req.path.startsWith('/api/upload')
-        ? Number(process.env.OPENFINDER_MAX_UPLOAD_BYTES || 5 * 1024 * 1024 * 1024)
-        : Number(process.env.OPENFINDER_MAX_API_BODY_BYTES || 2 * 1024 * 1024);
-      const contentLength = Number(req.headers['content-length'] || 0);
-      if (contentLength > maxBodyBytes) {
-        return res.status(413).json({ error: 'Request body too large' });
-      }
-
-      const preset = rateLimitPresets.find((entry) => req.path.startsWith(entry.prefix));
-      if (preset) {
-        const hit = hitRateLimit(rateLimitKey(req, preset.bucket), preset);
-        if (hit.limited) {
-          res.setHeader('Retry-After', String(Math.ceil(hit.retryAfter / 1000)));
-          return res.status(429).json({ error: 'Too many requests' });
-        }
-      }
-    }
+    // No rate limits or size limits enforced
 
     return nextMiddleware();
   });

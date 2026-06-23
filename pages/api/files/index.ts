@@ -46,9 +46,7 @@ async function mapWithConcurrency<T, R>(
 
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: '1000mb', // allow large uploads
-    },
+    bodyParser: false,
     responseLimit: false, // Prevent Next.js from throwing error on large zip streams
   },
 };
@@ -58,6 +56,20 @@ export default async function handler(req: any, res: any) {
   if (!session) return res.status(401).end();
 
   try {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      if (rawBody) {
+        req.body = JSON.parse(rawBody);
+      } else {
+        req.body = {};
+      }
+    }
+
     const { path: filePath } = req.query;
     const fullPath = securePath((filePath as string) || '/');
 
@@ -187,12 +199,12 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'POST') {
       if (!requireAbility(res, session, 'write')) return;
 
-      const uploadPath = req.body.path || req.query.path;
+      const uploadPath = req.body?.path || req.query.path;
       if (!uploadPath) return res.status(400).json({ error: 'Missing path' });
       
       const uploadFullPath = securePath(uploadPath);
       
-      if (req.body.isDir) {
+      if (req.body?.isDir) {
         const { mkdir } = await import('fs/promises');
         await mkdir(uploadFullPath, { recursive: true });
         return res.json({ ok: true, path: uploadPath });
@@ -201,18 +213,20 @@ export default async function handler(req: any, res: any) {
       const { mkdir } = await import('fs/promises');
       await mkdir(path.dirname(uploadFullPath), { recursive: true });
 
-      // If it's a JSON body with content, write the content string
-      // Otherwise, assume the body IS the raw file buffer (e.g. upload)
-      let contentToWrite: string | Buffer;
-      
-      if (req.body && req.body.content !== undefined) {
-        contentToWrite = req.body.content;
+      if (contentType.includes('application/json')) {
+        let contentToWrite: string | Buffer = '';
+        if (req.body && req.body.content !== undefined) {
+          contentToWrite = req.body.content;
+        }
+        await writeFile(uploadFullPath, contentToWrite);
+        return res.json({ ok: true, path: uploadPath });
       } else {
-        contentToWrite = typeof req.body === 'string' ? req.body : Buffer.from(req.body || '');
+        const { createWriteStream } = await import('fs');
+        const { pipeline } = await import('stream/promises');
+        const writeStream = createWriteStream(uploadFullPath);
+        await pipeline(req, writeStream);
+        return res.json({ ok: true, path: uploadPath });
       }
-
-      await writeFile(uploadFullPath, contentToWrite);
-      return res.json({ ok: true, path: uploadPath });
     }
 
     if (req.method === 'DELETE') {
