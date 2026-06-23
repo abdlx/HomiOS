@@ -35,6 +35,7 @@ interface ToolbarProps {
   onAddNewFolder: (name: string, color?: 'blue' | 'orange' | 'green') => void;
   sortOption: string;
   setSortOption: (opt: string) => void;
+  onUploadFiles?: (files: FileList | File[]) => void;
 }
 
 export default function Toolbar({
@@ -50,7 +51,8 @@ export default function Toolbar({
   onAddNewFile,
   onAddNewFolder,
   sortOption,
-  setSortOption
+  setSortOption,
+  onUploadFiles
 }: ToolbarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -174,6 +176,36 @@ export default function Toolbar({
                   Create
                 </button>
               </form>
+
+              {onUploadFiles && (
+                <div className="flex space-x-1 mt-2 pt-2 border-t border-gray-100 dark:border-white/10">
+                  <label className="flex-1 text-[10px] py-1.5 rounded-lg text-center font-bold bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors cursor-pointer block">
+                    Upload File
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) onUploadFiles(e.target.files);
+                        setIsAddMenuOpen(false);
+                      }}
+                    />
+                  </label>
+                  <label className="flex-1 text-[10px] py-1.5 rounded-lg text-center font-bold bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors cursor-pointer block">
+                    Upload Folder
+                    <input
+                      type="file"
+                      multiple
+                      {...{ webkitdirectory: "" } as any}
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) onUploadFiles(e.target.files);
+                        setIsAddMenuOpen(false);
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           )}
         </div>

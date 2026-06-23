@@ -739,6 +739,7 @@ export default function App({ onClose }: AppProps = {}) {
                     onAddNewFolder={handleAddNewFolder}
                     sortOption={sortOption}
                     setSortOption={setSortOption}
+                    onUploadFiles={handleUploadFiles}
                   />
                   <FileArea
                     files={processedFiles}
