@@ -5,7 +5,7 @@ import MobileLauncher from './MobileLauncher';
 import App from '../App';
 import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
-import CoolifyApp from './CoolifyApp';
+
 import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
 import VSCodeApp from './VSCodeApp';
@@ -19,7 +19,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'coolify' | 'notes' | 'photos' | 'vscode' | 'browser';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'photos' | 'vscode' | 'browser';
   username?: string;
 }
 
@@ -76,6 +76,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
     return () => window.removeEventListener('openfinder:transfers', handleTransfers);
   }, []);
 
+  const handleOpenCoolify = () => {
+    const coolifyUrl = typeof window === 'undefined' ? 'http://localhost:8000' : `http://${window.location.hostname}:8000`;
+    window.open(coolifyUrl, '_blank', 'noopener,noreferrer');
+  };
+
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
     if (view === 'desktop') {
@@ -88,8 +93,6 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/terminal');
     } else if (view === 'activity') {
       window.history.pushState(null, '', '/activity');
-    } else if (view === 'coolify') {
-      window.history.pushState(null, '', '/coolify');
     } else if (view === 'notes') {
       window.history.pushState(null, '', '/notes');
     } else if (view === 'photos') {
@@ -144,7 +147,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
-            onOpenCoolify={() => setView('coolify')}
+            onOpenCoolify={handleOpenCoolify}
             onOpenNotes={() => setView('notes')}
             onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
@@ -158,7 +161,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
-            onOpenCoolify={() => setView('coolify')}
+            onOpenCoolify={handleOpenCoolify}
             onOpenNotes={() => setView('notes')}
             onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
@@ -213,17 +216,6 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
           {view === 'activity' && <ActivityApp onClose={() => setView('desktop')} isActive />}
-        </div>
-      </motion.div>
-      {/* Coolify overlay */}
-      <motion.div
-        initial={false}
-        animate={view === 'coolify' ? "visible" : "hidden"}
-        variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'coolify' ? 'pointer-events-auto' : 'pointer-events-none'}`}
-      >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
-          {view === 'coolify' && <CoolifyApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
 
