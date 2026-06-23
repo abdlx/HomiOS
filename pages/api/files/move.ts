@@ -2,6 +2,7 @@ import { createReadStream, createWriteStream } from 'fs';
 import { mkdir, readdir, rename, rm, stat } from 'fs/promises';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
+import { requireAbility } from '../../../lib/api-auth';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
@@ -13,7 +14,14 @@ export const config = {
 };
 
 function securePath(p: string) {
-  return path.resolve(BASE_PATH, p.replace(/^\/+/, ''));
+  const parts = String(p || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean);
+  if (parts.some((part) => part === '.' || part === '..')) {
+    throw new Error('Invalid path');
+  }
+  return path.resolve(BASE_PATH, parts.join('/'));
 }
 
 function writeEvent(res: any, event: Record<string, unknown>) {
@@ -79,6 +87,7 @@ async function copyFileWithProgress(
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).end();
+  if (!requireAbility(res, session, 'write')) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });

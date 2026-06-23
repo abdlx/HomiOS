@@ -17,6 +17,16 @@ export function roleAtLeast(role: string | undefined, min: string): boolean {
   return (ROLE_RANK[role || ''] || 0) >= (ROLE_RANK[min] || 0);
 }
 
+export function hasAbility(session: Session, ability: 'read' | 'write' | 'deploy'): boolean {
+  return session.via === 'session' || session.abilities.includes(ability);
+}
+
+export function requireAbility(res: any, session: Session, ability: 'read' | 'write' | 'deploy'): boolean {
+  if (hasAbility(session, ability)) return true;
+  res.status(403).json({ error: `Token missing '${ability}' ability` });
+  return false;
+}
+
 /** Validate a raw Cookie header (used by the websocket / express handlers). */
 export async function validateSessionCookie(cookieHeader: string | undefined): Promise<Session | null> {
   if (!cookieHeader) return null;
@@ -40,7 +50,7 @@ export function withAuth(
       res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId));
     }
 
-    if (opts.ability && session.via === 'token' && !session.abilities.includes(opts.ability)) {
+    if (opts.ability && !hasAbility(session, opts.ability)) {
       return res.status(403).json({ error: `Token missing '${opts.ability}' ability` });
     }
     if (opts.minRole && !roleAtLeast(session.role, opts.minRole)) {

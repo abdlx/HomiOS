@@ -2,6 +2,7 @@ import { createReadStream, createWriteStream } from 'fs';
 import { mkdir, readdir, stat } from 'fs/promises';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
+import { requireAbility } from '../../../lib/api-auth';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
@@ -74,6 +75,7 @@ async function copyFileWithProgress(source: string, destination: string, onProgr
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session) return res.status(401).end();
+  if (!requireAbility(res, session, 'write')) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });

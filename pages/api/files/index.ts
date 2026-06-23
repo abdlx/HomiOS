@@ -1,6 +1,7 @@
 import { readdir, stat, writeFile, unlink, rename as fsRename } from 'fs/promises';
 import path from 'path';
 import { getSession } from '../../../lib/auth';
+import { requireAbility } from '../../../lib/api-auth';
 import { ZipArchive } from 'archiver';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -61,6 +62,8 @@ export default async function handler(req: any, res: any) {
     const fullPath = securePath((filePath as string) || '/');
 
     if (req.method === 'GET') {
+      if (!requireAbility(res, session, 'read')) return;
+
       if (req.query.downloadZip === 'true') {
         const s = await stat(fullPath);
         if (!s.isDirectory()) {
@@ -171,10 +174,10 @@ export default async function handler(req: any, res: any) {
             };
           }
         );
-        res.json(detailed.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name)));
+        return res.json(detailed.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name)));
       } catch (err) {
         if ((err as any).code === 'ENOENT') {
-          res.json([]);
+          return res.json([]);
         } else {
           throw err;
         }
@@ -182,6 +185,8 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
+      if (!requireAbility(res, session, 'write')) return;
+
       const uploadPath = req.body.path || req.query.path;
       if (!uploadPath) return res.status(400).json({ error: 'Missing path' });
       
@@ -207,10 +212,12 @@ export default async function handler(req: any, res: any) {
       }
 
       await writeFile(uploadFullPath, contentToWrite);
-      res.json({ ok: true, path: uploadPath });
+      return res.json({ ok: true, path: uploadPath });
     }
 
     if (req.method === 'DELETE') {
+      if (!requireAbility(res, session, 'write')) return;
+
       const deletePath = req.body.path;
       const deleteFullPath = securePath(deletePath);
       const s = await stat(deleteFullPath);
@@ -221,16 +228,21 @@ export default async function handler(req: any, res: any) {
       } else {
         await unlink(deleteFullPath);
       }
-      res.json({ ok: true });
+      return res.json({ ok: true });
     }
 
     if (req.method === 'PATCH') {
+      if (!requireAbility(res, session, 'write')) return;
+
       const { path: oldPath, newPath } = req.body;
       const oldFull = securePath(oldPath);
       const newFull = securePath(newPath);
       await fsRename(oldFull, newFull);
-      res.json({ ok: true });
+      return res.json({ ok: true });
     }
+
+    res.setHeader('Allow', ['GET', 'POST', 'DELETE', 'PATCH']);
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
