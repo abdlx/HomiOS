@@ -4,7 +4,7 @@ set -euo pipefail
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
-COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-true}"
+COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-false}"
 if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
   COOLIFY_IMAGE="${COOLIFY_IMAGE:-openfinder/coolify:local}"
 else
