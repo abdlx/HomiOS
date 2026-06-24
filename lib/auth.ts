@@ -91,7 +91,10 @@ export async function getSession(req: any): Promise<Session | null> {
       WHERE s.id = ?
     `).get(sessionId) as any;
     if (!row) return null;
-    if (!validateCsrf(req, row.id)) return null;
+    if (!validateCsrf(req, row.id)) {
+      (req as any).authFailure = 'csrf';
+      return null;
+    }
     if (new Date(row.expires_at) < new Date()) {
       db.prepare('DELETE FROM sessions WHERE id = ?').run(row.id);
       return null;

@@ -53,7 +53,12 @@ export const config = {
 
 export default async function handler(req: any, res: any) {
   const session = await getSession(req);
-  if (!session) return res.status(401).end();
+  if (!session) {
+    if (req.authFailure === 'csrf') {
+      return res.status(403).json({ error: 'Invalid or missing CSRF token' });
+    }
+    return res.status(401).end();
+  }
 
   try {
     const contentType = req.headers['content-type'] || '';

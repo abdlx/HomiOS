@@ -45,12 +45,12 @@ function originMatches(req: any): boolean {
   const origin = req.headers?.origin;
   const referer = req.headers?.referer;
   if (!origin && !referer) return true;
-  const host = String(req.headers?.host || '');
-  const proto = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0] || 'http';
+  const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '').split(',')[0].trim();
+  const proto = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim() || 'http';
   const expected = `${proto}://${host}`;
   try {
-    const value = new URL(String(origin || referer)).origin;
-    return value === expected;
+    const value = new URL(String(origin || referer));
+    return value.origin === expected || value.host === host;
   } catch {
     return false;
   }
