@@ -56,15 +56,22 @@ app.prepare().then(async () => {
     const tusUploadDir = process.env.TUS_UPLOAD_DIR || path.join(process.cwd(), 'data_mock', '.tus_uploads');
     await fsp.mkdir(tusUploadDir, { recursive: true });
 
-    const { validateSessionCookie } = await import('./lib/api-auth.ts');
+    const { getSession } = await import('./lib/auth.ts');
+    const { hasAbility } = await import('./lib/api-auth.ts');
     const getTusHeader = (req, name) => {
       if (typeof req.headers?.get === 'function') return req.headers.get(name);
       const value = req.headers?.[name.toLowerCase()] ?? req.headers?.[name];
       return Array.isArray(value) ? value[0] : value;
     };
     const requireTusSession = async (req) => {
-      const session = await validateSessionCookie(getTusHeader(req, 'cookie'));
+      const session = await getSession({
+        headers: {
+          authorization: getTusHeader(req, 'authorization'),
+          cookie: getTusHeader(req, 'cookie'),
+        },
+      });
       if (!session) throw { status_code: 401, body: 'Unauthorized' };
+      if (!hasAbility(session, 'write')) throw { status_code: 403, body: "Token missing 'write' ability" };
       return session;
     };
     const normalizeUploadPath = (value) => {

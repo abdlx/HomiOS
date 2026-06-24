@@ -110,8 +110,9 @@ export class OpenFinderClient {
   }
 
   async upload(uri: string, targetPath: string, onProgress?: (progress: number) => void) {
+    const uploadUrl = `${this.baseUrl}/api/files?path=${encodeURIComponent(normalizeRemotePath(targetPath))}`;
     const result = await FileSystem.uploadAsync(
-      `${this.baseUrl}/api/files?path=${encodeURIComponent(normalizeRemotePath(targetPath))}`,
+      uploadUrl,
       uri,
       {
         httpMethod: 'POST',
@@ -120,7 +121,7 @@ export class OpenFinderClient {
           Authorization: `Bearer ${this.token}`,
           'Content-Type': 'application/octet-stream',
         },
-        sessionType: FileSystem.FileSystemSessionType.BACKGROUND,
+        sessionType: FileSystem.FileSystemSessionType.FOREGROUND,
       }
     );
 
