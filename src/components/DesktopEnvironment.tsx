@@ -32,6 +32,8 @@ type DesktopAppConfig = {
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   color: string;
+  subtitle?: string;
+  url?: string;
 };
 
 const ALL_APPS: Record<string, DesktopAppConfig> = {
@@ -102,7 +104,12 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
         <Icon size={iconSize} strokeWidth={1.5} className="drop-shadow-md z-10" />
       </div>
-      {source === 'grid' && <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md">{app.label}</span>}
+      {source === 'grid' && (
+        <div className="flex flex-col items-center">
+          <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md text-center">{app.label}</span>
+          {app.subtitle && <span className="text-white/60 text-[10px] font-medium tracking-wide drop-shadow-md truncate max-w-[80px] mt-0.5">{app.subtitle}</span>}
+        </div>
+      )}
     </motion.div>
   );
 });
@@ -124,6 +131,52 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000 * 30);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const fetchCoolifyApps = async () => {
+      try {
+        const res = await fetch('/api/coolify/applications');
+        if (res.ok) {
+          const apps = await res.json();
+          const newAppIds: string[] = [];
+          
+          apps.forEach((app: any) => {
+            const appId = app.id;
+            ALL_APPS[appId] = {
+              id: appId,
+              label: app.name,
+              subtitle: app.projectName,
+              icon: Globe,
+              color: 'from-[#14B8A6] to-[#0F766E]',
+              url: app.url
+            };
+            newAppIds.push(appId);
+          });
+          
+          if (newAppIds.length > 0) {
+            let dockIds: string[] = [];
+            setDockAppIds(prev => {
+              dockIds = prev;
+              return [...prev];
+            });
+            setGridAppIds(prev => {
+              const missingNew = newAppIds.filter(id => !prev.includes(id) && !dockIds.includes(id));
+              if (missingNew.length > 0) {
+                const newGrid = [...prev, ...missingNew];
+                localStorage.setItem('openfinder_grid_apps', JSON.stringify(newGrid));
+                return newGrid;
+              }
+              return [...prev];
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch coolify applications', err);
+      }
+    };
+    
+    fetchCoolifyApps();
   }, []);
 
   useEffect(() => {
@@ -165,8 +218,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const activeAppIds = Object.keys(ALL_APPS);
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
-    let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id)) : ['files'];
-    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder', 'photos'];
+    let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['files'];
+    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder', 'photos'];
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     currentGrid = [...currentGrid, ...missingApps];
     setGridAppIds(currentGrid);
@@ -190,6 +243,15 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   };
 
   const getOnClick = (id: string) => {
+    if (ALL_APPS[id]?.url) {
+      return () => {
+        let url = ALL_APPS[id].url as string;
+        if (!url.startsWith('http')) {
+          url = `https://${url}`;
+        }
+        window.open(url, '_blank');
+      };
+    }
     if (id === 'finder' || id === 'files') return onOpenFinder;
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;

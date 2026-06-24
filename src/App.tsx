@@ -316,6 +316,7 @@ export default function App({ onClose }: AppProps = {}) {
     const directUploadOnce = (file: File, taskId: string, uploadPath: string) => (
       new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
         xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
         const csrf = getCsrfToken();
         if (csrf) xhr.setRequestHeader('X-OpenFinder-CSRF', csrf);
@@ -358,6 +359,7 @@ export default function App({ onClose }: AppProps = {}) {
       new Promise<void>((resolve, reject) => {
         const upload = new TusUpload(file, {
           endpoint: '/api/upload',
+          withCredentials: true,
           retryDelays: [0, 1000, 3000, 5000, 10000],
           removeFingerprintOnSuccess: true,
           chunkSize: TUS_CHUNK_BYTES,
