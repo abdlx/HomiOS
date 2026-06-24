@@ -8,8 +8,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const apiUrl = process.env.COOLIFY_API_URL;
   const apiToken = process.env.COOLIFY_API_TOKEN;
 
-  if (!apiUrl || !apiToken) {
-    return res.status(500).json({ error: 'Coolify API configuration is missing.' });
+  if (!apiUrl || !apiToken || apiToken === 'your_coolify_bearer_token') {
+    return res.status(200).json([]);
   }
 
   try {
@@ -22,7 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(response.status).json({ error: `Coolify API error: ${errorText}` });
+      console.warn(`Coolify API error (${response.status}): ${errorText}`);
+      return res.status(200).json([]);
     }
 
     const data = await response.json();
@@ -42,6 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(formattedApps);
   } catch (error: any) {
     console.error('Error fetching Coolify applications:', error);
-    return res.status(500).json({ error: 'Failed to fetch Coolify applications', details: error.message });
+    return res.status(200).json([]);
   }
 }

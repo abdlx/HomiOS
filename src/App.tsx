@@ -14,7 +14,7 @@ import TransferCenter from './components/TransferCenter';
 import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
 import { confirmDialog, toast } from './components/SystemUI';
 import { Menu } from 'lucide-react';
-import { getCsrfToken } from './csrf';
+import { ensureCsrfToken, getCsrfToken } from './csrf';
 interface AppProps {
   onClose?: () => void;
 }
@@ -301,6 +301,7 @@ export default function App({ onClose }: AppProps = {}) {
     }
 
     const sleep = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms));
+    const csrfToken = await ensureCsrfToken();
 
     const runWithConcurrency = async (count: number, worker: (index: number) => Promise<void>) => {
       let nextIndex = 0;
@@ -318,7 +319,7 @@ export default function App({ onClose }: AppProps = {}) {
         const xhr = new XMLHttpRequest();
         xhr.withCredentials = true;
         xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
-        const csrf = getCsrfToken();
+        const csrf = getCsrfToken() || csrfToken;
         if (csrf) xhr.setRequestHeader('X-OpenFinder-CSRF', csrf);
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
@@ -364,7 +365,7 @@ export default function App({ onClose }: AppProps = {}) {
           removeFingerprintOnSuccess: true,
           chunkSize: TUS_CHUNK_BYTES,
           metadata: { filename: file.name, filetype: file.type },
-          headers: { 'x-target-path': uploadPath.replace(/^\/+/, ''), 'X-OpenFinder-CSRF': getCsrfToken() },
+          headers: { 'x-target-path': uploadPath.replace(/^\/+/, ''), 'X-OpenFinder-CSRF': getCsrfToken() || csrfToken },
           onProgress(bytesUploaded: number, bytesTotal: number) {
             const pct = Math.round((bytesUploaded / bytesTotal) * 100);
             updateTransferThrottled(taskId, { progress: pct, bytesUploaded, bytesTotal });

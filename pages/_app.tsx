@@ -3,7 +3,7 @@ import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import { installCsrfFetch } from '../src/csrf';
+import { ensureCsrfToken, installCsrfFetch } from '../src/csrf';
 
 // Mounted on the client only — renders into document.body via portal.
 const SystemUIHost = dynamic(() => import('../src/components/SystemUI'), { ssr: false });
@@ -11,7 +11,7 @@ const SystemUIHost = dynamic(() => import('../src/components/SystemUI'), { ssr: 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     installCsrfFetch();
-    fetch('/api/auth/csrf').catch(() => {});
+    ensureCsrfToken().catch(() => {});
   }, []);
 
   return (

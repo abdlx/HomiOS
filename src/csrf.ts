@@ -1,4 +1,6 @@
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+let cachedCsrfToken = '';
+let csrfRequest: Promise<string> | null = null;
 
 function readCookie(name: string): string {
   if (typeof document === 'undefined') return '';
@@ -11,7 +13,29 @@ function readCookie(name: string): string {
 }
 
 export function getCsrfToken(): string {
-  return readCookie('openfinder_csrf');
+  return readCookie('openfinder_csrf') || cachedCsrfToken;
+}
+
+export async function ensureCsrfToken(): Promise<string> {
+  const existing = getCsrfToken();
+  if (existing) return existing;
+  if (typeof window === 'undefined') return '';
+
+  if (!csrfRequest) {
+    csrfRequest = fetch('/api/auth/csrf', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok) return '';
+        const data = await res.json().catch(() => null);
+        cachedCsrfToken = String(data?.csrfToken || '');
+        return getCsrfToken();
+      })
+      .catch(() => '')
+      .finally(() => {
+        csrfRequest = null;
+      });
+  }
+
+  return csrfRequest;
 }
 
 export function installCsrfFetch(): void {
@@ -27,7 +51,7 @@ export function installCsrfFetch(): void {
     const sameOrigin = url.startsWith('/') || new URL(url, window.location.href).origin === window.location.origin;
 
     if (sameOrigin && MUTATING.has(method)) {
-      const token = readCookie('openfinder_csrf');
+      const token = getCsrfToken();
       if (token) {
         const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
         headers.set('X-OpenFinder-CSRF', token);
