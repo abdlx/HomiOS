@@ -92,6 +92,29 @@ Once the script finishes, your dashboard will be instantly available at `http://
 
 ---
 
+## 🔧 Troubleshooting Coolify
+
+### "Server OS type is not supported" on Linux Mint, Pop!_OS, or Zorin OS
+While the OpenFinder auto-installer fully supports these Ubuntu-based distributions, Coolify's web UI (when validating the "Localhost" server) strictly checks for `ubuntu` or `debian` in your system's `/etc/os-release` file and will throw an error if it sees `linuxmint`, `pop`, or `zorin`.
+
+**The Fix:** Temporarily spoof your OS to Ubuntu just for the validation step:
+
+1. Connect to your server terminal and backup your current OS release file:
+   ```bash
+   sudo cp /etc/os-release /etc/os-release.bak
+   ```
+2. Change the ID to Ubuntu:
+   ```bash
+   sudo sed -i 's/^ID=.*/ID=ubuntu/' /etc/os-release
+   ```
+3. Go back to the Coolify Dashboard and click **Validate & Save**. It should now succeed.
+4. Restore your original OS file so your system updates don't break:
+   ```bash
+   sudo mv /etc/os-release.bak /etc/os-release
+   ```
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Framework:** Next.js & React
