@@ -13,26 +13,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const response = await fetch(`${apiUrl}/applications`, {
+    const fetchOptions = {
       headers: {
         'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
       },
-    });
+    };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn(`Coolify API error (${response.status}): ${errorText}`);
-      return res.status(200).json([]);
+    const [appsRes, servicesRes] = await Promise.all([
+      fetch(`${apiUrl}/applications`, fetchOptions),
+      fetch(`${apiUrl}/services`, fetchOptions)
+    ]);
+
+    let combinedItems: any[] = [];
+
+    if (appsRes.ok) {
+      const data = await appsRes.json();
+      combinedItems = combinedItems.concat(Array.isArray(data) ? data : (data.data || []));
+    } else {
+      console.warn(`Coolify API applications error (${appsRes.status}): ${await appsRes.text()}`);
     }
 
-    const data = await response.json();
+    if (servicesRes.ok) {
+      const data = await servicesRes.json();
+      combinedItems = combinedItems.concat(Array.isArray(data) ? data : (data.data || []));
+    } else {
+      console.warn(`Coolify API services error (${servicesRes.status}): ${await servicesRes.text()}`);
+    }
     
     // Transform the response to match the required format for Desktop Environment
-    // Coolify applications response usually contains items with name, status, project, environment, etc.
-    const applications = Array.isArray(data) ? data : (data.data || []);
-    
-    const formattedApps = applications.map((app: any) => ({
+    const formattedApps = combinedItems.map((app: any) => ({
       id: `coolify_app_${app.uuid || app.id}`,
       name: app.name,
       status: app.status,
