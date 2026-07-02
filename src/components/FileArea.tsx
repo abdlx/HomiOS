@@ -230,6 +230,18 @@ export default function FileArea({
     onMoveFileToFolder?.(draggedFile, folder);
   };
 
+  const getFolderItemCount = (file: FileItem) => {
+    if (typeof file.itemCount === 'number') return file.itemCount;
+    const parsed = parseInt(file.size, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const getFolderItemLabel = (file: FileItem) => {
+    const count = getFolderItemCount(file);
+    if (count === null) return file.size && file.size !== '--' ? file.size : 'Unknown';
+    return `${count} item${count === 1 ? '' : 's'}`;
+  };
+
   // Custom folder rendering with gradients representing the Nextcloud mock styling
   const renderFolderIcon = (color?: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const dimensions = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16';
@@ -352,7 +364,7 @@ export default function FileArea({
                     mediaClassName="w-full h-full object-cover pointer-events-none"
                   >
                     <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-black/55 text-white text-[10px] font-bold text-left truncate">
-                      {file.size}
+                      {getFolderItemLabel(file)}
                     </div>
                   </LazyMediaThumbnail>
                 ) : (file.type === 'image' || file.type === 'video') && file.thumbnailUrl ? (
@@ -383,8 +395,11 @@ export default function FileArea({
 
                 {/* Sub-items count badge */}
                 {file.type === 'folder' && (
-                  <span className="absolute -top-1.5 -right-1 text-[8px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.5 rounded-full border border-sky-200 scale-90 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {file.size}
+                  <span
+                    className="absolute -top-1.5 -right-1 min-w-5 text-center text-[8px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.5 rounded-full border border-sky-200 shadow-sm scale-90 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title={getFolderItemLabel(file)}
+                  >
+                    {getFolderItemCount(file) ?? '--'}
                   </span>
                 )}
 
@@ -466,7 +481,7 @@ export default function FileArea({
             <tr>
               <th className="py-2.5 px-4 w-full sm:w-1/2">Name</th>
               <th className="py-2.5 px-3 hidden sm:table-cell">Kind</th>
-              <th className="py-2.5 px-3 hidden sm:table-cell">Size</th>
+              <th className="py-2.5 px-3 hidden sm:table-cell">Size / Items</th>
               <th className="py-2.5 px-3 hidden md:table-cell">Last Modified</th>
               <th className="py-2.5 px-3 hidden lg:table-cell">Tags</th>
               <th className="py-2.5 px-4 text-right">Actions</th>
@@ -504,7 +519,9 @@ export default function FileArea({
                     )}
                   </td>
                   <td className="py-2.5 px-3 capitalize text-neutral-500 dark:text-neutral-400 hidden sm:table-cell">{file.type}</td>
-                  <td className="py-2.5 px-3 text-neutral-500 dark:text-neutral-400 font-mono text-[11px] hidden sm:table-cell">{file.size}</td>
+                  <td className="py-2.5 px-3 text-neutral-500 dark:text-neutral-400 font-mono text-[11px] hidden sm:table-cell">
+                    {file.type === 'folder' ? getFolderItemLabel(file) : file.size}
+                  </td>
                   <td className="py-2.5 px-3 text-neutral-500 dark:text-neutral-400 hidden md:table-cell">{file.updatedAt || 'Recent'}</td>
                   <td className="py-2.5 px-3 hidden lg:table-cell">
                     <div className="flex space-x-1.5">
@@ -567,7 +584,10 @@ export default function FileArea({
                 <Folder size={14} className={fol.folderColor === 'orange' ? 'text-amber-500' : 'text-sky-400'} />
                 <span>{fol.name}</span>
               </span>
-              <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
+              <span className="flex items-center space-x-1.5">
+                <span className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500">{getFolderItemCount(fol) ?? '--'}</span>
+                <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
+              </span>
             </button>
           ))}
         </div>
@@ -632,7 +652,12 @@ export default function FileArea({
             </div>
 
             <div className="w-full bg-white dark:bg-white/5 border border-neutral-200/60 dark:border-white/10 rounded-lg p-2.5 text-left text-[10px] space-y-1 text-neutral-500 dark:text-neutral-400 font-mono shadow-sm">
-              <p><span className="text-neutral-400 dark:text-neutral-500 font-sans font-semibold">Size:</span> {activeFile.size}</p>
+              <p>
+                <span className="text-neutral-400 dark:text-neutral-500 font-sans font-semibold">
+                  {activeFile.type === 'folder' ? 'Items:' : 'Size:'}
+                </span>{' '}
+                {activeFile.type === 'folder' ? getFolderItemLabel(activeFile) : activeFile.size}
+              </p>
               <p><span className="text-neutral-400 dark:text-neutral-500 font-sans font-semibold">Updated:</span> {activeFile.updatedAt}</p>
               {activeFile.tags && activeFile.tags.length > 0 && (
                 <p className="flex items-center space-x-1 font-sans">

@@ -17,6 +17,7 @@ export interface FileItem {
   isShared?: boolean;
   folderPath?: string;
   folderName?: string;
+  itemCount?: number | null;
   mediaCount?: number;
   imageCount?: number;
   videoCount?: number;

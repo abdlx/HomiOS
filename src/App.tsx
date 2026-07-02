@@ -126,9 +126,12 @@ export default function App({ onClose }: AppProps = {}) {
           })(),
           id: file.path || file.name,
           name: file.name,
-          size: file.isDir ? '--' : `${(file.size / 1024).toFixed(1)} KB`,
+          size: file.isDir
+            ? (typeof file.itemCount === 'number' ? `${file.itemCount} item${file.itemCount === 1 ? '' : 's'}` : '--')
+            : `${(file.size / 1024).toFixed(1)} KB`,
           updatedAt: file.modified ? file.modified.split('T')[0] : new Date().toISOString().split('T')[0],
           folderColor: 'blue',
+          itemCount: file.isDir ? file.itemCount : undefined,
           isShared: file.isDir && shares.some((s: any) => s.path === `/${apiPath}/${file.name}`.replace(/\/\//g, '/')),
         }));
         setCurrentFiles(formatted);

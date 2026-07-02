@@ -159,15 +159,25 @@ export default async function handler(req: any, res: any) {
           async (f) => {
             const fullPath_ = path.join(fullPath, f.name);
             let size = 0;
+            let itemCount: number | null = null;
             let modified = new Date().toISOString();
             let isDir = f.isDirectory();
             
             try {
+              if (isDir) {
+                try {
+                  itemCount = (await readdir(fullPath_)).length;
+                } catch {
+                  itemCount = null;
+                }
+              }
+
               if (!shouldStatEntries) {
                 return {
                   name: f.name,
                   isDir,
                   size,
+                  itemCount,
                   modified,
                   path: path.relative(BASE_PATH, fullPath_)
                 };
@@ -186,6 +196,7 @@ export default async function handler(req: any, res: any) {
               name: f.name,
               isDir,
               size,
+              itemCount,
               modified,
               path: path.relative(BASE_PATH, fullPath_)
             };

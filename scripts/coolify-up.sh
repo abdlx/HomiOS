@@ -113,3 +113,59 @@ log "Starting Coolify on port $COOLIFY_APP_PORT..."
   up -d
 
 log "Coolify is available at http://$(default_host):$COOLIFY_APP_PORT"
+
+# ── SSH: Ensure openssh-server is installed and running ──────────────────────
+# Coolify connects to "This Machine" via SSH on localhost.
+# Without sshd running, the localhost validation always fails.
+log "Ensuring openssh-server is installed and active..."
+if ! command -v sshd >/dev/null 2>&1; then
+  apt-get install -y openssh-server >/dev/null 2>&1
+fi
+systemctl enable ssh  >/dev/null 2>&1 || true
+systemctl start  ssh  >/dev/null 2>&1 || true
+
+# Allow root login via key (required for Coolify's localhost validation).
+# We only touch PermitRootLogin if it is currently set to 'no'.
+SSHD_CFG="/etc/ssh/sshd_config"
+if grep -qE '^PermitRootLogin\s+no' "$SSHD_CFG" 2>/dev/null; then
+  sed -i 's/^PermitRootLogin.*/PermitRootLogin prohibit-password/' "$SSHD_CFG"
+  systemctl reload ssh 2>/dev/null || true
+elif ! grep -qE '^PermitRootLogin' "$SSHD_CFG" 2>/dev/null; then
+  echo 'PermitRootLogin prohibit-password' >> "$SSHD_CFG"
+  systemctl reload ssh 2>/dev/null || true
+fi
+
+# ── SSH: Authorize Coolify's auto-generated key on the host ──────────────────
+# Coolify generates an SSH key pair at startup and uses it to talk to
+# "This Machine" (localhost). We wait up to 30 s for the key to appear,
+# then append it to root's authorized_keys so validation succeeds.
+COOLIFY_SSH_DIR="$COOLIFY_DATA_DIR/ssh/keys"
+COOLIFY_PUBKEY_GLOB="$COOLIFY_SSH_DIR/id.root@host.docker.internal.pub"
+AUTH_KEYS="/root/.ssh/authorized_keys"
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+touch "$AUTH_KEYS"
+chmod 600 "$AUTH_KEYS"
+
+log "Waiting for Coolify to generate its SSH key (up to 30 s)..."
+for i in $(seq 1 30); do
+  if ls $COOLIFY_PUBKEY_GLOB >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+if ls $COOLIFY_PUBKEY_GLOB >/dev/null 2>&1; then
+  for pubkey_file in $COOLIFY_PUBKEY_GLOB; do
+    pubkey=$(cat "$pubkey_file")
+    if ! grep -qF "$pubkey" "$AUTH_KEYS"; then
+      echo "$pubkey" >> "$AUTH_KEYS"
+      log "Authorized Coolify SSH key: $(basename $pubkey_file)"
+    else
+      log "Coolify SSH key already authorized: $(basename $pubkey_file)"
+    fi
+  done
+else
+  log "WARNING: Coolify SSH key not found after 30 s. Run this script again after Coolify has fully started."
+fi
