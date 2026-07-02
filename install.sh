@@ -73,6 +73,8 @@ COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."
   cd "$INSTALL_DIR"
+  git reset --hard HEAD --quiet
+  git clean -fd --quiet
   git pull --quiet
 else
   log "Cloning OpenFinder to $INSTALL_DIR..."
@@ -328,6 +330,8 @@ cat > /usr/local/bin/openfinder-update <<UPDATEEOF
 set -e
 
 cd $INSTALL_DIR
+git reset --hard HEAD --quiet
+git clean -fd --quiet
 git pull
 apt-get update -qq
 apt-get install -y ffmpeg tesseract-ocr tesseract-ocr-eng poppler-utils > /dev/null 2>&1
