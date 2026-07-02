@@ -13,11 +13,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const fetchOptions = {
+    const fetchOptions: RequestInit = {
       headers: {
         'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
       },
+      cache: 'no-store',
     };
 
     const [appsRes, servicesRes] = await Promise.all([

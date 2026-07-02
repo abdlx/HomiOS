@@ -136,7 +136,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   useEffect(() => {
     const fetchCoolifyApps = async () => {
       try {
-        const res = await fetch('/api/coolify/applications');
+        const res = await fetch('/api/coolify/applications', { cache: 'no-store' });
         if (res.ok) {
           const apps = await res.json();
           const newAppIds: string[] = [];
