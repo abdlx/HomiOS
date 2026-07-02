@@ -160,32 +160,6 @@ else
   log "Coolify SSH key is already authorized."
 fi
 
-# ── SSH: Spoof OS for Coolify Validation (Linux Mint/PopOS/Zorin Fix) ────────
-OS_ID=$(grep -w "ID" /etc/os-release | cut -d "=" -f 2 | tr -d '"' || true)
-if [[ "$OS_ID" == "linuxmint" || "$OS_ID" == "pop" || "$OS_ID" == "zorin" || "$OS_ID" == "elementary" ]]; then
-  log "Detected unsupported OS ($OS_ID). Spoofing Ubuntu for SSH sessions..."
-  FAKE_OS_DIR="$COOLIFY_DATA_DIR/systemd-spoof"
-  FAKE_OS_FILE="$FAKE_OS_DIR/os-release"
-  
-  mkdir -p "$FAKE_OS_DIR"
-  cat /etc/os-release | sed "s/^ID=$OS_ID/ID=ubuntu/" > "$FAKE_OS_FILE"
-  
-  # Create a systemd drop-in to bind-mount the fake os-release ONLY for SSH
-  for svc in ssh sshd; do
-    if systemctl list-unit-files | grep -q "^${svc}.service"; then
-      mkdir -p "/etc/systemd/system/${svc}.service.d"
-      cat > "/etc/systemd/system/${svc}.service.d/coolify-os-spoof.conf" <<EOF
-[Service]
-BindReadOnlyPaths=$FAKE_OS_FILE:/etc/os-release
-EOF
-    fi
-  done
-  
-  systemctl daemon-reload
-  systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
-  log "Applied systemd SSH override to spoof OS as Ubuntu."
-fi
-
 log "Starting Coolify on port $COOLIFY_APP_PORT..."
 "${COMPOSE[@]}" \
   --env-file "$ENV_FILE" \

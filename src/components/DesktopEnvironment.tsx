@@ -140,9 +140,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         if (res.ok) {
           const apps = await res.json();
           const newAppIds: string[] = [];
+          let hasChanges = false;
           
           apps.forEach((app: any) => {
             const appId = app.id;
+            const existing = ALL_APPS[appId];
+            if (!existing || existing.label !== app.name || existing.subtitle !== app.projectName || existing.url !== app.url) {
+              hasChanges = true;
+            }
             ALL_APPS[appId] = {
               id: appId,
               label: app.name,
@@ -154,11 +159,11 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             newAppIds.push(appId);
           });
           
-          if (newAppIds.length > 0) {
+          if (hasChanges && newAppIds.length > 0) {
             let dockIds: string[] = [];
             setDockAppIds(prev => {
               dockIds = prev;
-              return [...prev];
+              return prev; // We just need to read prev dockIds
             });
             setGridAppIds(prev => {
               const missingNew = newAppIds.filter(id => !prev.includes(id) && !dockIds.includes(id));
@@ -167,7 +172,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
                 localStorage.setItem('openfinder_grid_apps', JSON.stringify(newGrid));
                 return newGrid;
               }
-              return [...prev];
+              return [...prev]; // Force re-render to reflect ALL_APPS mutation
             });
           }
         }
@@ -177,6 +182,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     };
     
     fetchCoolifyApps();
+    const timer = setInterval(fetchCoolifyApps, 15000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {

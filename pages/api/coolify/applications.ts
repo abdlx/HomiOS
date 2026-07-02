@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: `coolify_app_${app.uuid || app.id}`,
       name: app.name,
       status: app.status,
-      projectName: app.project?.name || 'Coolify Project',
+      projectName: app.environment?.project?.name || app.project?.name || 'Coolify Project',
       url: app.fqdn || '',
     }));
 
