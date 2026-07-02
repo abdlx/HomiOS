@@ -43,13 +43,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     // Transform the response to match the required format for Desktop Environment
-    const formattedApps = combinedItems.map((app: any) => ({
-      id: `coolify_app_${app.uuid || app.id}`,
-      name: app.name,
-      status: app.status,
+    const formattedApps = combinedItems.map((app: any, index: number) => ({
+      id: `coolify_app_${app.uuid || app.id || index}`,
+      name: app.name || `Unnamed App ${index}`,
+      status: app.status || 'unknown',
       projectName: app.environment?.project?.name || app.project?.name || 'Coolify Project',
       url: app.fqdn || '',
     }));
+
+    formattedApps.push({
+      id: `coolify_app_debug_test_1`,
+      name: `Debug: items=${combinedItems.length}`,
+      status: `running`,
+      projectName: appsRes.ok ? 'AppsOK' : 'AppsFail',
+      url: servicesRes.ok ? 'ServicesOK' : 'ServicesFail',
+    });
 
     return res.status(200).json(formattedApps);
   } catch (error: any) {
