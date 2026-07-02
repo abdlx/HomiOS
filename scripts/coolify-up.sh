@@ -105,15 +105,6 @@ if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
     "$COOLIFY_SOURCE_DIR"
 fi
 
-log "Starting Coolify on port $COOLIFY_APP_PORT..."
-"${COMPOSE[@]}" \
-  --env-file "$ENV_FILE" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.yml" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.prod.yml" \
-  up -d
-
-log "Coolify is available at http://$(default_host):$COOLIFY_APP_PORT"
-
 # ── SSH: Ensure openssh-server is installed and running ──────────────────────
 # Coolify connects to "This Machine" via SSH on localhost.
 # Without sshd running, the localhost validation always fails.
@@ -125,14 +116,13 @@ systemctl enable ssh  >/dev/null 2>&1 || true
 systemctl start  ssh  >/dev/null 2>&1 || true
 
 # Allow root login via key (required for Coolify's localhost validation).
-# We only touch PermitRootLogin if it is currently set to 'no'.
 SSHD_CFG="/etc/ssh/sshd_config"
 if grep -qE '^PermitRootLogin\s+no' "$SSHD_CFG" 2>/dev/null; then
   sed -i 's/^PermitRootLogin.*/PermitRootLogin prohibit-password/' "$SSHD_CFG"
-  systemctl reload ssh 2>/dev/null || true
+  systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
 elif ! grep -qE '^PermitRootLogin' "$SSHD_CFG" 2>/dev/null; then
   echo 'PermitRootLogin prohibit-password' >> "$SSHD_CFG"
-  systemctl reload ssh 2>/dev/null || true
+  systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
 fi
 
 # ── SSH: Authorize Coolify's key on the host (generate if missing) ───────────
@@ -166,3 +156,19 @@ else
   log "Coolify SSH key is already authorized."
 fi
 
+log "Starting Coolify on port $COOLIFY_APP_PORT..."
+"${COMPOSE[@]}" \
+  --env-file "$ENV_FILE" \
+  -f "$COOLIFY_SOURCE_DIR/docker-compose.yml" \
+  -f "$COOLIFY_SOURCE_DIR/docker-compose.prod.yml" \
+  up -d
+
+log "Coolify is available at http://$(default_host):$COOLIFY_APP_PORT"
+
+log "Testing Coolify SSH access to localhost..."
+if docker exec coolify bash -c "ssh -i /var/www/html/storage/app/ssh/keys/id.root@host.docker.internal -p 22 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 root@host.docker.internal echo 'SSH test successful'" >/dev/null 2>&1; then
+  log "✅ Localhost SSH validation passed! 'This Machine' will work."
+else
+  log "❌ WARNING: Localhost SSH validation failed. Coolify may not be able to connect to 'This Machine'."
+  log "Check if a firewall (like UFW) is blocking traffic from Docker to the host on port 22."
+fi
