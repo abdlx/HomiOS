@@ -47,11 +47,15 @@ fi
 
 mkdir -p \
   "$ENV_DIR" \
-  "$COOLIFY_DATA_DIR/ssh" \
+  "$COOLIFY_DATA_DIR/ssh/keys" \
+  "$COOLIFY_DATA_DIR/ssh/mux" \
   "$COOLIFY_DATA_DIR/applications" \
   "$COOLIFY_DATA_DIR/databases" \
   "$COOLIFY_DATA_DIR/services" \
   "$COOLIFY_DATA_DIR/backups"
+
+chown -R 9999:root "$COOLIFY_DATA_DIR"
+chmod -R 700 "$COOLIFY_DATA_DIR"
 
 if [ ! -f "$ENV_FILE" ]; then
   if [ -f "$ENV_TEMPLATE" ]; then
