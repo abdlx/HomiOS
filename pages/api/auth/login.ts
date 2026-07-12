@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
       }
       ensurePersonalTeam(admin.id, envUser);
       const sessionId = createSession(admin.id);
-      res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
+      res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
       return res.json({ ok: true });
     }
 
@@ -77,7 +77,7 @@ export default async function handler(req: any, res: any) {
     ensurePersonalTeam(user.id, user.email);
     const sessionId = createSession(user.id);
     logAudit({ userId: user.id, action: 'auth.login', meta: { ip } });
-    res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
+    res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
     return res.json({ ok: true });
   } catch (err: any) {
     console.error('[/api/auth/login]', err);

@@ -43,7 +43,7 @@ export default async function handler(req: any, res: any) {
 
     const sessionId = createSession(userId);
     logAudit({ teamId: inv.team_id, userId, action: 'auth.registered_via_invite' });
-    res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
+    res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
     return res.json({ ok: true });
   } catch (err: any) {
     console.error('[/api/auth/register]', err);

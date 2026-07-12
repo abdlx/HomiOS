@@ -7,7 +7,7 @@
  * - validateSessionCookie(header)  — raw Cookie header check (websocket path)
  */
 import { getSession, type Session } from './auth.ts';
-import { buildCsrfCookie, isMutatingMethod } from './request-security.ts';
+import { buildCsrfCookie, isMutatingMethod, shouldUseSecureCookies } from './request-security.ts';
 
 export type { Session };
 
@@ -47,7 +47,7 @@ export function withAuth(
     const session = await getSession(req);
     if (!session) return res.status(401).json({ error: 'Unauthorized' });
     if (session.via === 'session' && session.sessionId && !isMutatingMethod(req.method)) {
-      res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId));
+      res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId, req));
     }
 
     if (opts.ability && !hasAbility(session, opts.ability)) {
@@ -60,14 +60,14 @@ export function withAuth(
   };
 }
 
-/** Build a hardened session cookie. Secure is enabled outside development. */
-export function buildSessionCookie(sessionId: string): string {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+/** Build a hardened session cookie. Secure is enabled when the request is HTTPS. */
+export function buildSessionCookie(sessionId: string, req?: any): string {
+  const secure = shouldUseSecureCookies(req) ? '; Secure' : '';
   return `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
 }
 
-export function buildAuthCookies(sessionId: string): string[] {
-  return [buildSessionCookie(sessionId), buildCsrfCookie(sessionId)];
+export function buildAuthCookies(sessionId: string, req?: any): string[] {
+  return [buildSessionCookie(sessionId, req), buildCsrfCookie(sessionId, req)];
 }
 
 export function clearSessionCookie(): string {

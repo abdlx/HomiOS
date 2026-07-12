@@ -28,8 +28,22 @@ export function csrfTokenForSession(sessionId: string): string {
   return hmacSha256(`csrf:${sessionId}`);
 }
 
-export function buildCsrfCookie(sessionId: string): string {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+export function shouldUseSecureCookies(req?: any): boolean {
+  const override = String(process.env.OPENFINDER_SECURE_COOKIES || '').toLowerCase();
+  if (override === 'true') return true;
+  if (override === 'false') return false;
+
+  const proto = String(req?.headers?.['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase();
+  if (proto) return proto === 'https';
+
+  return Boolean(req?.socket?.encrypted || req?.connection?.encrypted);
+}
+
+export function buildCsrfCookie(sessionId: string, req?: any): string {
+  const secure = shouldUseSecureCookies(req) ? '; Secure' : '';
   return `${CSRF_COOKIE}=${csrfTokenForSession(sessionId)}; Path=/; SameSite=Lax; Max-Age=2592000${secure}`;
 }
 

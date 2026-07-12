@@ -28,7 +28,7 @@ export default async function handler(req: any, res: any) {
     const sessionId = createSession(userId);
     logAudit({ userId, action: 'setup.admin_created', meta: { email } });
 
-    res.setHeader('Set-Cookie', buildAuthCookies(sessionId));
+    res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
     res.json({ ok: true, userId });
   } catch (err: any) {
     console.error('[/api/auth/setup]', err);

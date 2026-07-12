@@ -6,6 +6,6 @@ export default async function handler(req: any, res: any) {
   const session = await getSession(req);
   if (!session?.sessionId) return res.json({ csrfToken: '' });
 
-  res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId));
+  res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId, req));
   return res.json({ csrfToken: csrfTokenForSession(session.sessionId) });
 }
