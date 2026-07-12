@@ -227,7 +227,7 @@ log "code-server configured on port 8080."
 log "Configuring Nginx reverse proxy..."
 cat > /etc/nginx/sites-available/openfinder <<'NGINXEOF'
 limit_req_zone $binary_remote_addr zone=openfinder_api:10m rate=10r/s;
-limit_req_zone $binary_remote_addr zone=openfinder_auth:10m rate=2r/m;
+limit_req_zone $binary_remote_addr zone=openfinder_auth:10m rate=30r/m;
 limit_req_zone $binary_remote_addr zone=openfinder_upload:10m rate=2r/s;
 limit_req_zone $binary_remote_addr zone=openfinder_socket:10m rate=30r/m;
 
@@ -236,9 +236,10 @@ server {
     server_name _;
 
     client_max_body_size 32m;
+    limit_req_status 429;
 
     location = /api/auth/login {
-        limit_req zone=openfinder_auth burst=5 nodelay;
+        limit_req zone=openfinder_auth burst=10 nodelay;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
