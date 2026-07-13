@@ -8,6 +8,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
+import { AppIcon } from './icons/AppIcons';
 import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
@@ -78,9 +79,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   onDrop: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
   reduceMotion: boolean;
 }) {
-  const size = source === 'dock' ? 'w-[54px] h-[54px] rounded-[16px]' : 'w-[64px] h-[64px] rounded-[19px]';
-  const iconSize = source === 'dock' ? 27 : 31;
-  const Icon = app.icon;
+  const sizeClass = source === 'dock' ? 'w-[54px] h-[54px]' : 'w-[64px] h-[64px]';
 
   return (
     <motion.div
@@ -100,11 +99,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
           {app.label}
         </span>
       )}
-      <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-white/15 mb-2 relative overflow-hidden`}>
-        {/* single soft top highlight instead of the old heavy diagonal sheen */}
-        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
-        <Icon size={iconSize} strokeWidth={1.6} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative z-10" />
-      </div>
+      <AppIcon id={app.id} colorClass={app.color} className={`${sizeClass} mb-2 drop-shadow-[0_6px_14px_rgba(0,0,0,0.4)]`} />
       {source === 'grid' && (
         <div className="flex flex-col items-center min-h-[30px]">
           <span className="text-white/95 text-[12px] font-medium tracking-tight drop-shadow-md text-center leading-tight truncate max-w-[84px]">{app.label}</span>
@@ -453,11 +448,10 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
               onDrop: (e: React.DragEvent) => handleAppDrop(e, app.id, 'dock'),
               icon: (
                 <div
-                  className={`w-full h-full rounded-[22%] bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-white/15 relative overflow-hidden`}
+                  className="w-full h-full"
                   onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
                 >
-                  <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
-                  <app.icon size={27} strokeWidth={1.6} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative z-10" />
+                  <AppIcon id={app.id} colorClass={app.color} className="w-full h-full drop-shadow-[0_5px_12px_rgba(0,0,0,0.45)]" />
                 </div>
               ),
               href: "#",

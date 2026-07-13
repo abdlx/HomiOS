@@ -259,36 +259,38 @@ export default function FileArea({
   const renderFolderIcon = (color?: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const px = ICON_PX[size];
     const c = FOLDER_COLORS[color || 'blue'] || FOLDER_COLORS.blue;
-    const gid = `fld-${color || 'blue'}-${size}`;
+    const u = `fld-${color || 'blue'}-${size}`;
+    // Two overlapping layers — a lighter back panel + tab behind a gradient front
+    // pocket — give the folder real depth instead of a single flat shape.
     return (
-      <svg width={px} height={px} viewBox="0 0 64 64" fill="none" className="drop-shadow-[0_3px_6px_rgba(0,0,0,0.14)]">
+      <svg width={px} height={px} viewBox="0 0 64 64" fill="none" className="drop-shadow-[0_4px_7px_rgba(0,0,0,0.2)]">
         <defs>
-          <linearGradient id={gid} x1="32" y1="16" x2="32" y2="54" gradientUnits="userSpaceOnUse">
+          <linearGradient id={`${u}-b`} x1="32" y1="25" x2="32" y2="49" gradientUnits="userSpaceOnUse">
             <stop stopColor={c.from} />
             <stop offset="1" stopColor={c.to} />
           </linearGradient>
         </defs>
-        {/* back tab, peeking above the body */}
-        <path d="M6 15a6 6 0 0 1 6-6h11.3a4 4 0 0 1 2.83 1.17L29 13a4 4 0 0 0 2.83 1.17H52a6 6 0 0 1 6 6v6H6z" fill={c.tab} />
-        {/* body */}
-        <rect x="6" y="18" width="52" height="34" rx="7" fill={`url(#${gid})`} />
-        {/* soft top sheen */}
-        <rect x="6" y="18" width="52" height="16" rx="7" fill="#ffffff" fillOpacity="0.14" />
+        {/* back panel + tab (lighter tone, peeks above) */}
+        <path d="M7 17a5 5 0 0 1 5-5h9.4a4 4 0 0 1 2.83 1.17L26.8 16a4 4 0 0 0 2.83 1.17H52a5 5 0 0 1 5 5v20a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5z" fill={c.tab} />
+        {/* front pocket (main gradient) */}
+        <path d="M6 26a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v15a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z" fill={`url(#${u}-b)`} />
+        {/* front top-edge highlight */}
+        <path d="M10.5 24.5h43" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     );
   };
 
   // Rounded document chip, tinted by file category — no skeuomorphic folded corner,
   // and theme-aware (the old card was hardcoded bg-white and vanished in dark mode).
-  type FileKind = { Icon: typeof FileText; cls: string };
+  type FileKind = { Icon: typeof FileText; grad: string; fg: string; pill: string };
   const FILE_KINDS: Record<string, FileKind> = {
-    video:   { Icon: Video, cls: 'bg-purple-50 text-purple-500 dark:bg-purple-500/15 dark:text-purple-300' },
-    pdf:     { Icon: FileText, cls: 'bg-red-50 text-red-500 dark:bg-red-500/15 dark:text-red-300' },
-    archive: { Icon: Archive, cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300' },
-    code:    { Icon: Code, cls: 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-300' },
-    audio:   { Icon: Music, cls: 'bg-pink-50 text-pink-500 dark:bg-pink-500/15 dark:text-pink-300' },
-    image:   { Icon: ImageIcon, cls: 'bg-sky-50 text-sky-500 dark:bg-sky-500/15 dark:text-sky-300' },
-    doc:     { Icon: FileText, cls: 'bg-slate-100 text-slate-400 dark:bg-white/10 dark:text-slate-300' },
+    video:   { Icon: Video, grad: 'from-purple-50 to-purple-100 dark:from-purple-500/25 dark:to-purple-500/10', fg: 'text-purple-500 dark:text-purple-300', pill: 'bg-purple-500/15 text-purple-600 dark:text-purple-200' },
+    pdf:     { Icon: FileText, grad: 'from-red-50 to-red-100 dark:from-red-500/25 dark:to-red-500/10', fg: 'text-red-500 dark:text-red-300', pill: 'bg-red-500/15 text-red-600 dark:text-red-200' },
+    archive: { Icon: Archive, grad: 'from-amber-50 to-amber-100 dark:from-amber-500/25 dark:to-amber-500/10', fg: 'text-amber-600 dark:text-amber-300', pill: 'bg-amber-500/15 text-amber-700 dark:text-amber-200' },
+    code:    { Icon: Code, grad: 'from-emerald-50 to-emerald-100 dark:from-emerald-500/25 dark:to-emerald-500/10', fg: 'text-emerald-500 dark:text-emerald-300', pill: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-200' },
+    audio:   { Icon: Music, grad: 'from-pink-50 to-pink-100 dark:from-pink-500/25 dark:to-pink-500/10', fg: 'text-pink-500 dark:text-pink-300', pill: 'bg-pink-500/15 text-pink-600 dark:text-pink-200' },
+    image:   { Icon: ImageIcon, grad: 'from-sky-50 to-sky-100 dark:from-sky-500/25 dark:to-sky-500/10', fg: 'text-sky-500 dark:text-sky-300', pill: 'bg-sky-500/15 text-sky-600 dark:text-sky-200' },
+    doc:     { Icon: FileText, grad: 'from-slate-50 to-slate-100 dark:from-white/15 dark:to-white/5', fg: 'text-slate-400 dark:text-slate-300', pill: 'bg-slate-400/15 text-slate-500 dark:text-slate-300' },
   };
 
   const classifyFile = (ext: string): keyof typeof FILE_KINDS => {
@@ -303,18 +305,24 @@ export default function FileArea({
 
   const renderFileIcon = (file: FileItem, size: 'sm' | 'md' | 'lg' = 'md') => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    const { Icon, cls } = FILE_KINDS[classifyFile(ext)];
+    const { Icon, grad, fg, pill } = FILE_KINDS[classifyFile(ext)];
     const label = ext ? ext.toUpperCase().slice(0, 4) : '';
 
     const box = size === 'sm' ? 'w-[18px] h-[18px] rounded-md' : size === 'lg' ? 'w-[74px] h-[90px] rounded-2xl' : 'w-[54px] h-[66px] rounded-xl';
-    const iconSize = size === 'sm' ? 12 : size === 'lg' ? 34 : 26;
+    const iconSize = size === 'sm' ? 12 : size === 'lg' ? 33 : 25;
 
     return (
-      <div className={`relative ${box} ${cls} flex items-center justify-center border border-black/[0.04] dark:border-white/10 shadow-sm`}>
-        <Icon size={iconSize} strokeWidth={1.75} className={size === 'lg' ? '-mt-2' : ''} />
+      <div className={`relative ${box} bg-gradient-to-b ${grad} ${fg} flex items-center justify-center border border-black/[0.05] dark:border-white/10 shadow-[0_2px_6px_rgba(15,23,42,0.1)] overflow-hidden`}>
+        {/* top gloss adds depth to the flat chip */}
+        <div className="absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/60 to-transparent dark:from-white/10 pointer-events-none" />
+        <Icon
+          size={iconSize}
+          strokeWidth={1.75}
+          className={`relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] ${size === 'lg' ? '-mt-3' : size === 'md' ? '-mt-1.5' : ''}`}
+        />
         {size !== 'sm' && label && (
-          <span className="absolute inset-x-0 bottom-1.5 text-center text-[8px] font-bold tracking-[0.12em] opacity-70">
-            {label}
+          <span className="absolute inset-x-0 bottom-0 pb-1.5 flex justify-center">
+            <span className={`px-1.5 rounded-full text-[7.5px] font-bold tracking-wider ${pill}`}>{label}</span>
           </span>
         )}
       </div>
