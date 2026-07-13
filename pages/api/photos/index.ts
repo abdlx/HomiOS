@@ -1,7 +1,7 @@
 import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
-import { getSession } from '../../../lib/auth';
+import { withAuth } from '../../../lib/api-auth.ts';
 import { getDb } from '../../../lib/db.ts';
 
 const runtimeImport = new Function('specifier', 'return import(specifier)') as <T = any>(specifier: string) => Promise<T>;
@@ -237,21 +237,51 @@ async function getScanRoots() {
   return ['Pictures', 'Movies', 'Downloads'].map((folder) => path.join(home, folder));
 }
 
+/** Roots an admin has explicitly configured in setup (app_settings['photos.sources']). */
+function allowedSources(): string[] {
+  try {
+    const row = getDb()
+      .prepare("SELECT value FROM app_settings WHERE key = 'photos.sources'")
+      .get() as { value?: string } | undefined;
+    const parsed = row?.value ? JSON.parse(row.value) : [];
+    return Array.isArray(parsed) ? parsed.filter((s) => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function isWithin(root: string, candidate: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(candidate));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * `sources` used to be taken verbatim, so any caller could point the recursive scanner
+ * at an arbitrary host directory and enumerate its filenames. Requested sources must now
+ * sit inside a root the admin configured during setup.
+ */
 function getRequestedSources(req: any): string[] | null {
   const raw = req.query.sources;
   if (!raw || Array.isArray(raw)) return null;
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    const sources = parsed
-      .filter((source): source is string => typeof source === 'string')
-      .map((source) => source.trim())
-      .filter(Boolean);
-    return sources.length > 0 ? Array.from(new Set(sources)) : null;
+    parsed = JSON.parse(raw);
   } catch {
     return null;
   }
+  if (!Array.isArray(parsed)) return null;
+
+  const roots = allowedSources();
+  if (roots.length === 0) return null; // nothing approved → fall back to default roots
+
+  const sources = parsed
+    .filter((source): source is string => typeof source === 'string')
+    .map((source) => source.trim())
+    .filter(Boolean)
+    .filter((source) => roots.some((root) => isWithin(root, source)));
+
+  return sources.length > 0 ? Array.from(new Set(sources)) : null;
 }
 
 function getRequestedLimit(req: any) {
@@ -261,10 +291,7 @@ function getRequestedLimit(req: any) {
   return Math.min(HARD_MAX_MEDIA_RESULTS, Math.max(100, Math.floor(parsed)));
 }
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) return res.status(401).end();
-
+export default withAuth(async function handler(req: any, res: any) {
   try {
     const requestedSources = getRequestedSources(req);
     const maxResults = getRequestedLimit(req);
@@ -341,4 +368,4 @@ export default async function handler(req: any, res: any) {
     console.error('[/api/photos]', err);
     res.status(500).json({ error: 'Failed to load photos' });
   }
-}
+}, { adminOnly: true });

@@ -66,4 +66,4 @@ export default withAuth(async (req, res, session) => {
 
   res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
   return res.status(405).end();
-}, { ability: 'write', minRole: 'admin' });
+}, { adminOnly: true, ability: 'write' });

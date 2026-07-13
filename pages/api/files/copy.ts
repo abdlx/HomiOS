@@ -1,8 +1,7 @@
 import { createReadStream, createWriteStream } from 'fs';
 import { mkdir, readdir, stat } from 'fs/promises';
 import path from 'path';
-import { getSession } from '../../../lib/auth';
-import { requireAbility } from '../../../lib/api-auth';
+import { withAuth } from '../../../lib/api-auth.ts';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
@@ -72,10 +71,7 @@ async function copyFileWithProgress(source: string, destination: string, onProgr
   });
 }
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) return res.status(401).end();
-  if (!requireAbility(res, session, 'write')) return;
+export default withAuth(async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });
@@ -136,7 +132,8 @@ export default async function handler(req: any, res: any) {
     writeEvent(res, { type: 'done' });
     res.end();
   } catch (err: any) {
-    writeEvent(res, { type: 'error', error: err.message || 'Copy failed' });
+    console.error('[/api/files/copy]', err);
+    writeEvent(res, { type: 'error', error: 'Copy failed' });
     res.end();
   }
-}
+}, { adminOnly: true, ability: 'write' });

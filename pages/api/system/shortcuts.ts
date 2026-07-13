@@ -1,12 +1,10 @@
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
-import { getSession } from '../../../lib/auth';
+import { withAuth } from '../../../lib/api-auth.ts';
 import os from 'os';
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) return res.status(401).end();
-
+// Enumerates every home directory on the host — admin-level information.
+export default withAuth(async function handler(req: any, res: any) {
   const isDev = process.env.NODE_ENV !== 'production';
   const shortcuts: { id: string; label: string; icon: string; path: string }[] = [];
 
@@ -72,4 +70,4 @@ export default async function handler(req: any, res: any) {
     console.error('Failed to get shortcuts:', err);
     res.json([]);
   }
-}
+}, { adminOnly: true });

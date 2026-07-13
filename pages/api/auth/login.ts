@@ -1,77 +1,124 @@
+/**
+ * Password + TOTP login.
+ *
+ * The ADMIN_USERNAME/ADMIN_PASSWORD env login that used to sit in front of this was
+ * removed. It bypassed 2FA entirely, compared secrets non-constant-time, shipped as
+ * admin/password in .env.example, and — because it created the first user without
+ * marking the instance initialized — left /api/auth/setup open to anonymous account
+ * creation. Bootstrap now goes through /api/auth/setup only.
+ *
+ * Per-IP rate limiting is applied globally in server.js. The per-ACCOUNT lockout below
+ * is the complement: it stops a distributed/rotating-IP attack against one account, and
+ * it is what makes the 6-digit TOTP space non-brute-forceable.
+ */
 import * as otplib from 'otplib';
 const authenticator = (otplib as any).authenticator ?? (otplib as any).default?.authenticator ?? otplib;
-import { getDb } from '../../../lib/db.ts';
-import {
-  findUserByEmail, verifyPassword, hashPassword, createSession, ensurePersonalTeam, createUserWithPasswordHash,
-} from '../../../lib/auth.ts';
+import { getDb, withTransaction } from '../../../lib/db.ts';
+import { findUserByEmail, verifyPassword, createSession, ensurePersonalTeam } from '../../../lib/auth.ts';
 import { buildAuthCookies } from '../../../lib/api-auth.ts';
-import { decryptSecret, sha256 } from '../../../lib/crypto.ts';
+import { decryptSecret, sha256, safeEqual } from '../../../lib/crypto.ts';
 import { logAudit } from '../../../lib/audit.ts';
-import { withTransaction } from '../../../lib/db.ts';
+import { clientIp, hitRateLimit } from '../../../lib/request-security.ts';
 
-// Simple in-memory rate limit: 10 attempts / 5 min per IP.
-const attempts = new Map<string, { count: number; resetAt: number }>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const a = attempts.get(ip);
-  if (!a || now > a.resetAt) { attempts.set(ip, { count: 1, resetAt: now + 300_000 }); return false; }
-  a.count += 1;
-  return a.count > 10;
+const ACCOUNT_LOCKOUT = { windowMs: 15 * 60_000, max: 10 };
+
+/**
+ * A bcrypt hash of a random string. Verifying against it when the account does not
+ * exist keeps the response time indistinguishable from a wrong-password response,
+ * so login cannot be used to enumerate valid emails.
+ */
+const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO.7Vv0Ck9wQY4WQ0kXWl0PXo8pJ3lVvW';
+
+/** Lockout semantics: once ACCOUNT_LOCKOUT.max failures are on record, stop. */
+function accountLocked(email: string): boolean {
+  const { count } = hitRateLimit(`login-account:${email}`, { ...ACCOUNT_LOCKOUT, peek: true });
+  return count >= ACCOUNT_LOCKOUT.max;
+}
+
+function recordFailure(email: string): void {
+  hitRateLimit(`login-account:${email}`, ACCOUNT_LOCKOUT);
+}
+
+/** Single-use recovery codes, compared in constant time. */
+function consumeRecoveryCode(user: any, code: string): boolean {
+  if (!user.recovery_codes) return false;
+  let codes: string[];
+  try {
+    codes = JSON.parse(user.recovery_codes);
+  } catch {
+    return false;
+  }
+  const hashed = sha256(code);
+  const idx = codes.findIndex((stored) => safeEqual(stored, hashed));
+  if (idx < 0) return false;
+
+  codes.splice(idx, 1);
+  withTransaction((tx) => {
+    tx.prepare('UPDATE users SET recovery_codes = ? WHERE id = ?').run(JSON.stringify(codes), user.id);
+  });
+  return true;
+}
+
+/**
+ * Verify a TOTP and burn its time step.
+ *
+ * Without the last_totp_step check a valid code stays replayable for its whole
+ * window, so an attacker who observes one (shoulder-surf, phishing proxy, log leak)
+ * can reuse it. Recording the accepted step makes each code strictly single-use.
+ */
+function verifyTotp(db: any, user: any, code: string): boolean {
+  const secret = decryptSecret(user.totp_secret);
+  if (!secret) return false;
+
+  const delta = authenticator.checkDelta(code, secret);
+  if (delta === null || delta === undefined) return false;
+
+  const step = Math.floor(Date.now() / 1000 / 30) + Number(delta);
+  if (Number(user.last_totp_step || 0) >= step) return false; // already used
+
+  db.prepare('UPDATE users SET last_totp_step = ? WHERE id = ?').run(step, user.id);
+  return true;
 }
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown');
-  if (rateLimited(ip)) return res.status(429).json({ error: 'Too many attempts. Try again later.' });
+  const ip = clientIp(req);
 
   try {
     const { email, password, totp } = req.body || {};
+    const cleanEmail = String(email || '').trim().toLowerCase();
     const db = getDb();
 
-    // 1. ENV admin login — backed by a real, revocable DB session.
-    const envUser = process.env.ADMIN_USERNAME;
-    const envPass = process.env.ADMIN_PASSWORD;
-    if (envUser && envPass && email === envUser && password === envPass) {
-      let admin = db.prepare('SELECT id FROM users WHERE email = ?').get(envUser) as any;
-      if (!admin) {
-        const hash = await hashPassword(envPass);
-        admin = { id: withTransaction((tx) => createUserWithPasswordHash(tx, envUser, hash)) };
-      }
-      ensurePersonalTeam(admin.id, envUser);
-      const sessionId = createSession(admin.id);
-      res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
-      return res.json({ ok: true });
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ error: 'email and password are required' });
     }
 
-    // 2. DB user login
-    const user = findUserByEmail(String(email || ''));
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (accountLocked(cleanEmail)) {
+      logAudit({ action: 'auth.login_locked', meta: { email: cleanEmail, ip } });
+      return res.status(429).json({ error: 'Too many attempts. Try again later.' });
+    }
 
-    const match = await verifyPassword(String(password || ''), user.password_hash);
-    if (!match) {
-      logAudit({ userId: user.id, action: 'auth.login_failed', meta: { ip } });
+    const user = findUserByEmail(cleanEmail);
+
+    // Always run a bcrypt compare, even for unknown accounts — constant-ish timing.
+    const match = await verifyPassword(String(password), user?.password_hash || DUMMY_HASH);
+    if (!user || !match) {
+      recordFailure(cleanEmail);
+      logAudit({ userId: user?.id ?? null, action: 'auth.login_failed', meta: { email: cleanEmail, ip } });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 3. Two-factor (TOTP or recovery code) when enabled.
     if (user.totp_enabled) {
       if (!totp) return res.status(200).json({ ok: false, totpRequired: true });
-      const secret = decryptSecret(user.totp_secret);
       const code = String(totp).replace(/\s/g, '');
-      let valid = authenticator.verify({ token: code, secret });
-      if (!valid && user.recovery_codes) {
-        const codes: string[] = JSON.parse(user.recovery_codes);
-        const idx = codes.indexOf(sha256(code));
-        if (idx >= 0) {
-          codes.splice(idx, 1); // recovery codes are single-use
-          withTransaction((tx) => {
-            tx.prepare('UPDATE users SET recovery_codes = ? WHERE id = ?').run(JSON.stringify(codes), user.id);
-          });
-          valid = true;
-        }
+
+      const valid = verifyTotp(db, user, code) || consumeRecoveryCode(user, code);
+      if (!valid) {
+        recordFailure(cleanEmail);
+        logAudit({ userId: user.id, action: 'auth.totp_failed', meta: { ip } });
+        return res.status(401).json({ error: 'Invalid two-factor code' });
       }
-      if (!valid) return res.status(401).json({ error: 'Invalid two-factor code' });
     }
 
     ensurePersonalTeam(user.id, user.email);

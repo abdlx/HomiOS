@@ -66,4 +66,4 @@ export default withAuth(async (req, res, session) => {
     console.error('[/api/setup/complete]', err);
     res.status(500).json({ error: 'Setup completion failed' });
   }
-}, { ability: 'write', minRole: 'admin' });
+}, { adminOnly: true, ability: 'write' });

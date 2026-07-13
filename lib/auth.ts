@@ -17,7 +17,8 @@ export type Session = {
   userId: number;
   email: string;
   teamId: string;
-  role: string;            // owner | admin | member
+  role: string;            // owner | admin | member — TEAM scope only
+  isAdmin: boolean;        // INSTANCE scope: host-level power (filesystem, terminal, mounts)
   via: 'session' | 'token';
   abilities: string[];     // token-based requests only carry granted abilities
 };
@@ -67,14 +68,19 @@ export async function getSession(req: any): Promise<Session | null> {
       const raw = authHeader.slice(7).trim();
       if (!raw) return null;
       const tok = db.prepare(`
-        SELECT t.*, u.email FROM api_tokens t JOIN users u ON u.id = t.user_id
+        SELECT t.*, u.email, u.is_admin FROM api_tokens t JOIN users u ON u.id = t.user_id
         WHERE t.token_hash = ?
       `).get(sha256(raw)) as any;
       if (!tok) return null;
+      if (tok.expires_at && new Date(tok.expires_at) < new Date()) {
+        db.prepare('DELETE FROM api_tokens WHERE id = ?').run(tok.id);
+        return null;
+      }
       db.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), tok.id);
       const role = roleInTeam(tok.user_id, tok.team_id) || 'member';
       return {
         userId: tok.user_id, email: tok.email, teamId: tok.team_id, role,
+        isAdmin: tok.is_admin === 1,
         via: 'token', abilities: String(tok.abilities || 'read').split(',').map((s: string) => s.trim()),
       };
     }
@@ -86,7 +92,7 @@ export async function getSession(req: any): Promise<Session | null> {
     if (!sessionId) return null;
 
     const row = db.prepare(`
-      SELECT s.id, s.user_id, s.expires_at, u.email
+      SELECT s.id, s.user_id, s.expires_at, u.email, u.is_admin
       FROM sessions s JOIN users u ON s.user_id = u.id
       WHERE s.id = ?
     `).get(sessionId) as any;
@@ -120,6 +126,7 @@ export async function getSession(req: any): Promise<Session | null> {
 
     return {
       userId: row.user_id, email: row.email, teamId, role: role || 'member',
+      isAdmin: row.is_admin === 1,
       sessionId: row.id,
       via: 'session', abilities: ['read', 'write', 'deploy'],
     };
@@ -130,8 +137,11 @@ export async function getSession(req: any): Promise<Session | null> {
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
+/** Cost 12 ≈ 250ms on modern hardware — a meaningful brake on offline cracking. */
+const BCRYPT_COST = Number(process.env.BCRYPT_COST || 12);
+
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+  return bcrypt.hash(password, BCRYPT_COST);
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -150,8 +160,14 @@ export async function createUser(email: string, password: string): Promise<numbe
   });
 }
 
-export function createUserWithPasswordHash(db: any, email: string, passwordHash: string): number {
-  const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, passwordHash);
+export function createUserWithPasswordHash(
+  db: any,
+  email: string,
+  passwordHash: string,
+  opts: { isAdmin?: boolean } = {}
+): number {
+  const r = db.prepare('INSERT INTO users (email, password_hash, is_admin) VALUES (?, ?, ?)')
+    .run(email, passwordHash, opts.isAdmin ? 1 : 0);
   const userId = Number(r.lastInsertRowid);
   ensurePersonalTeamInDb(db, userId, email);
   return userId;
@@ -181,11 +197,24 @@ function ensurePersonalTeamInDb(db: any, userId: number, email: string): string 
   return teamId;
 }
 
+/**
+ * THE single definition of "this instance is set up": one or more users exist.
+ *
+ * There used to be a second, disagreeing definition — an `initialized.setup_complete`
+ * row that only /api/auth/setup ever wrote. Any instance bootstrapped another way
+ * (env-admin login, invite registration) therefore looked initialized to the UI while
+ * leaving /api/auth/setup open to anonymous account creation. Both call sites now
+ * resolve through hasAnyUser(), so they cannot drift apart again.
+ */
+export function hasAnyUser(db: any = getDb()): boolean {
+  return !!db.prepare('SELECT 1 FROM users LIMIT 1').get();
+}
+
 export function isAppInitialized(): boolean {
   try {
-    const result = getDb().prepare('SELECT COUNT(*) as count FROM users').get() as { count: number } | undefined;
-    return (result?.count ?? 0) > 0;
+    return hasAnyUser();
   } catch {
-    return false;
+    // Fail closed: an unreadable DB must not be reported as "needs first-run setup".
+    return true;
   }
 }

@@ -36,6 +36,6 @@ export default withAuth(async (req: any, res: any) => {
       res.setHeader('X-OpenFinder-Thumbnail-Fallback', err.message || 'thumbnail unavailable');
       return res.redirect(307, `/api/files?raw=true&path=${encodeURIComponent(sourcePath)}`);
     }
-    return res.status(404).json({ error: err.message || 'Thumbnail unavailable' });
+    return res.status(404).json({ error: 'Thumbnail unavailable' });
   }
-});
+}, { adminOnly: true });

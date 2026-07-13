@@ -1,19 +1,21 @@
 import { readdir, stat, writeFile, unlink, rename as fsRename } from 'fs/promises';
 import path from 'path';
-import { getSession } from '../../../lib/auth';
-import { requireAbility } from '../../../lib/api-auth';
+import { withAuth, requireAbility } from '../../../lib/api-auth.ts';
+import { logAudit } from '../../../lib/audit.ts';
 import { ZipArchive } from 'archiver';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 const FILE_STAT_CONCURRENCY = Number(process.env.FILE_STAT_CONCURRENCY || 32);
 const DETAILED_STAT_LIMIT = Number(process.env.DETAILED_STAT_LIMIT || 500);
+const MAX_JSON_WRITE_BYTES = Number(process.env.MAX_JSON_WRITE_BYTES || 8 * 1024 * 1024);
 
 function securePath(p: string) {
-  // We strip leading slashes so that path resolves relative to BASE_PATH.
-  // If BASE_PATH is '/' (production), 'mnt/data' resolves to '/mnt/data'.
-  // If BASE_PATH is 'data_mock', 'Projects' resolves to 'data_mock/Projects'.
-  // This allows full system access in production without path jail errors.
+  // Paths resolve relative to BASE_PATH, which is '/' in production: OpenFinder is a
+  // server console, so an admin browsing the whole host is the intended behaviour.
+  // The gate is the ADMIN CHECK on this route (see withAuth below), not a path jail.
+  // '.' and '..' are still rejected so a path can never mean something other than it
+  // reads as.
   const parts = String(p || '')
     .replace(/\\/g, '/')
     .split('/')
@@ -23,6 +25,41 @@ function securePath(p: string) {
   }
   const resolved = path.resolve(BASE_PATH, parts.join('/'));
   return resolved;
+}
+
+/**
+ * File contents are attacker-controlled: anything served from here could be an
+ * uploaded .html or .svg. Serving those inline on our own origin is stored XSS —
+ * the script runs with the victim's session. So: force a download, declare an inert
+ * type, and sandbox the response. Only formats that cannot execute script get to
+ * render inline.
+ */
+const INLINE_SAFE_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.m4v': 'video/x-m4v',
+  '.mkv': 'video/x-matroska',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.log': 'text/plain; charset=utf-8',
+};
+
+/** RFC 5987 — a filename can contain quotes, newlines, or non-ASCII. */
+function contentDisposition(mode: 'inline' | 'attachment', filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `${mode}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -51,20 +88,18 @@ export const config = {
   },
 };
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) {
-    if (req.authFailure === 'csrf') {
-      return res.status(403).json({ error: 'Invalid or missing CSRF token' });
-    }
-    return res.status(401).end();
-  }
-
+export default withAuth(async function handler(req: any, res: any, session: any) {
   try {
     const contentType = req.headers['content-type'] || '';
     if (contentType.includes('application/json')) {
-      const chunks = [];
+      const chunks: Buffer[] = [];
+      let received = 0;
       for await (const chunk of req) {
+        received += chunk.length;
+        // bodyParser is disabled on this route, so nothing else bounds this read.
+        if (received > MAX_JSON_WRITE_BYTES) {
+          return res.status(413).json({ error: 'Request body too large' });
+        }
         chunks.push(chunk);
       }
       const rawBody = Buffer.concat(chunks).toString('utf8');
@@ -107,45 +142,23 @@ export default async function handler(req: any, res: any) {
       if (req.query.raw === 'true') {
         const { createReadStream } = await import('fs');
         const s = await stat(fullPath);
-        
-        // Simple mime-type guessing for standard web formats
+        if (s.isDirectory()) return res.status(400).json({ error: 'Not a file' });
+
         const ext = path.extname(fullPath).toLowerCase();
-        const mimeTypes: Record<string, string> = {
-          '.png': 'image/png',
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.gif': 'image/gif',
-          '.svg': 'image/svg+xml',
-          '.webp': 'image/webp',
-          '.mp4': 'video/mp4',
-          '.webm': 'video/webm',
-          '.mov': 'video/quicktime',
-          '.m4v': 'video/x-m4v',
-          '.mkv': 'video/x-matroska',
-          '.avi': 'video/x-msvideo',
-          '.pdf': 'application/pdf',
-          '.txt': 'text/plain',
-          '.md': 'text/markdown',
-          '.json': 'application/json',
-          '.js': 'text/javascript',
-          '.cjs': 'text/javascript',
-          '.mjs': 'text/javascript',
-          '.jsx': 'text/javascript',
-          '.ts': 'text/typescript',
-          '.tsx': 'text/typescript',
-          '.css': 'text/css',
-          '.scss': 'text/css',
-          '.html': 'text/html'
-        };
-        
-        if (mimeTypes[ext]) {
-          res.setHeader('Content-Type', mimeTypes[ext]);
-        } else {
-          res.setHeader('Content-Type', 'application/octet-stream');
-        }
-        
+        const inlineType = INLINE_SAFE_TYPES[ext];
+        const name = path.basename(fullPath);
+
+        // Anything not on the inline allowlist — .html, .svg, .js, .css, unknown —
+        // is served as an inert download. Previously .html came back as text/html and
+        // .svg as image/svg+xml, both of which execute script on our own origin.
+        res.setHeader('Content-Type', inlineType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', contentDisposition(inlineType ? 'inline' : 'attachment', name));
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
         res.setHeader('Content-Length', s.size);
+
         const stream = createReadStream(fullPath);
+        stream.on('error', () => { if (!res.headersSent) res.status(500).end(); else res.destroy(); });
         stream.pipe(res);
         return;
       }
@@ -248,10 +261,16 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'DELETE') {
       if (!requireAbility(res, session, 'write')) return;
 
-      const deletePath = req.body.path;
+      const deletePath = req.body?.path;
+      if (!deletePath) return res.status(400).json({ error: 'Missing path' });
       const deleteFullPath = securePath(deletePath);
       const s = await stat(deleteFullPath);
-      
+
+      logAudit({
+        teamId: session.teamId, userId: session.userId,
+        action: 'files.delete', resourceType: 'path', resourceId: String(deletePath),
+      });
+
       if (s.isDirectory()) {
         const { rm } = await import('fs/promises');
         await rm(deleteFullPath, { recursive: true });
@@ -264,16 +283,30 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'PATCH') {
       if (!requireAbility(res, session, 'write')) return;
 
-      const { path: oldPath, newPath } = req.body;
+      const { path: oldPath, newPath } = req.body || {};
+      if (!oldPath || !newPath) return res.status(400).json({ error: 'Missing path or newPath' });
       const oldFull = securePath(oldPath);
       const newFull = securePath(newPath);
       await fsRename(oldFull, newFull);
+      logAudit({
+        teamId: session.teamId, userId: session.userId,
+        action: 'files.rename', resourceType: 'path', resourceId: String(oldPath),
+        meta: { to: String(newPath) },
+      });
       return res.json({ ok: true });
     }
 
     res.setHeader('Allow', ['GET', 'POST', 'DELETE', 'PATCH']);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    // Never hand back err.message: fs errors embed absolute host paths
+    // ("ENOENT: ... open '/etc/shadow'"), which map out the filesystem for free.
+    console.error('[/api/files]', req.method, err);
+    if (err?.code === 'ENOENT') return res.status(404).json({ error: 'Not found' });
+    if (err?.code === 'EACCES' || err?.code === 'EPERM') return res.status(403).json({ error: 'Permission denied' });
+    if (err?.code === 'EEXIST') return res.status(409).json({ error: 'Already exists' });
+    if (err?.message === 'Invalid path') return res.status(400).json({ error: 'Invalid path' });
+    if (res.headersSent) return res.destroy();
+    return res.status(500).json({ error: 'File operation failed' });
   }
-}
+}, { adminOnly: true });

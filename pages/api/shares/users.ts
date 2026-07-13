@@ -94,4 +94,4 @@ export default withAuth(async function handler(req: any, res: any) {
     console.error('[/api/shares/users]', err);
     return res.status(500).json({ error: 'Samba user operation failed' });
   }
-}, { ability: 'write', minRole: 'admin' });
+}, { adminOnly: true, ability: 'write' });

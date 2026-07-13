@@ -122,4 +122,4 @@ export default withAuth(async function handler(req: any, res: any) {
     console.error(`Mount failed for ${device}:`, err);
     return res.status(500).json({ error: 'Mount failed' });
   }
-}, { ability: 'write', minRole: 'admin' });
+}, { adminOnly: true, ability: 'write' });

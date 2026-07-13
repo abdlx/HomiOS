@@ -352,11 +352,33 @@ export function getDb(): any {
   ensureColumn('users', 'totp_secret', 'TEXT');
   ensureColumn('users', 'totp_enabled', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'recovery_codes', 'TEXT');
+  ensureColumn('users', 'is_admin', 'INTEGER DEFAULT 0');
+  ensureColumn('users', 'last_totp_step', 'INTEGER DEFAULT 0');
   ensureColumn('shares', 'enabled', 'INTEGER DEFAULT 1');
   ensureColumn('shares', 'expires_at', 'DATETIME');
   ensureColumn('share_users', 'access', "TEXT DEFAULT 'write'");
+  ensureColumn('api_tokens', 'expires_at', 'DATETIME');
+
+  backfillInstanceAdmin();
 
   return db;
+}
+
+/**
+ * Instance admin is NOT the same thing as team role.
+ *
+ * Every user owns a personal team, so `team_users.role` is 'owner' for everyone —
+ * it can never gate host-level power (filesystem, terminal, mounts, SSH keys).
+ * `users.is_admin` is that gate. On upgrade, the oldest account becomes the
+ * instance admin so existing deployments keep exactly one working administrator.
+ */
+function backfillInstanceAdmin(): void {
+  const anyAdmin = db.prepare('SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1').get();
+  if (anyAdmin) return;
+  const first = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get() as { id: number } | undefined;
+  if (!first) return;
+  db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(first.id);
+  console.warn(`[db] No instance admin found; promoted user id=${first.id} (oldest account) to admin.`);
 }
 
 export function runStartupIntegrityChecks(): void {
@@ -374,6 +396,14 @@ export function runStartupIntegrityChecks(): void {
 
 export function checkpointWal(): void {
   getDb().exec('PRAGMA wal_checkpoint(PASSIVE)');
+}
+
+/** Flush and release the connection on shutdown so the WAL is fully folded back in. */
+export function closeDb(): void {
+  if (!db) return;
+  try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
+  try { db.close(); } catch {}
+  db = null;
 }
 
 export function withTransaction<T>(fn: (db: any) => T): T {

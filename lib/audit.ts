@@ -29,11 +29,27 @@ export function logAudit(entry: {
   }
 }
 
+/**
+ * Team-scoped audit trail.
+ *
+ * The `OR a.team_id IS NULL` clause that used to be here leaked every instance-wide
+ * event (setup, failed logins, and their emails/IPs) into *every* team's audit view.
+ * Instance-wide entries are admin-only — see listInstanceAudit.
+ */
 export function listAudit(teamId: string, limit = 200): any[] {
   return getDb().prepare(`
     SELECT a.*, u.email AS user_email
     FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
-    WHERE a.team_id = ? OR a.team_id IS NULL
+    WHERE a.team_id = ?
     ORDER BY a.created_at DESC LIMIT ?
-  `).all(teamId, limit);
+  `).all(teamId, Math.min(1000, Math.max(1, limit)));
+}
+
+/** Full audit trail including instance-wide (team_id IS NULL) events. Admins only. */
+export function listInstanceAudit(limit = 200): any[] {
+  return getDb().prepare(`
+    SELECT a.*, u.email AS user_email
+    FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+    ORDER BY a.created_at DESC LIMIT ?
+  `).all(Math.min(1000, Math.max(1, limit)));
 }

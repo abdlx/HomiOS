@@ -116,6 +116,7 @@ log "Creating systemd service (openfinder.service)..."
 # This key protects SSH private keys, S3 credentials, and env var values.
 # Persisted here so it survives data/ wipes — losing it = losing all secrets.
 APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
+ENV_FILE="$INSTALL_DIR/data/openfinder.env"
 mkdir -p "$INSTALL_DIR/data"
 if [ ! -f "$APP_KEY_FILE" ]; then
   APP_KEY=$(openssl rand -hex 32)
@@ -126,6 +127,17 @@ else
   APP_KEY=$(cat "$APP_KEY_FILE")
   log "Using existing APP_KEY from $APP_KEY_FILE"
 fi
+
+# APP_KEY goes in an EnvironmentFile (0600), never in the unit's Environment= lines.
+# Unit files are world-readable and `systemctl show openfinder` prints Environment=
+# to any local user — which would hand over the key that decrypts every stored SSH
+# private key and S3 credential.
+umask 077
+cat > "$ENV_FILE" <<EOF
+APP_KEY=$APP_KEY
+EOF
+chmod 600 "$ENV_FILE"
+umask 022
 
 cat > /etc/systemd/system/openfinder.service <<EOF
 [Unit]
@@ -144,11 +156,14 @@ Environment=HOST=127.0.0.1
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
-Environment=APP_KEY=$APP_KEY
+EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/npm start
 # Auto-restart on crash with 5s delay
 Restart=on-failure
 RestartSec=5
+# Give in-flight uploads and the WAL checkpoint time to drain on stop.
+KillSignal=SIGTERM
+TimeoutStopSec=20
 # Logging to systemd journal
 StandardOutput=journal
 StandardError=journal
@@ -157,6 +172,7 @@ SyslogIdentifier=openfinder
 [Install]
 WantedBy=multi-user.target
 EOF
+chmod 644 /etc/systemd/system/openfinder.service
 
 systemctl daemon-reload
 systemctl enable openfinder --quiet
@@ -350,13 +366,21 @@ if command -v code-server &>/dev/null; then
   systemctl restart code-server
 fi
 
-# Re-inject APP_KEY from the persisted key file into the systemd unit
-# so it's never lost after a git pull overwrites nothing (service file is
-# written outside the repo, but this guards against manual resets).
+# Re-sync APP_KEY from the persisted key file into the 0600 EnvironmentFile.
+# It must never be written into the unit itself — unit files are world-readable
+# and `systemctl show` exposes Environment= to any local user.
 APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
+ENV_FILE="$INSTALL_DIR/data/openfinder.env"
 if [ -f "\$APP_KEY_FILE" ]; then
   CURRENT_KEY=\$(cat "\$APP_KEY_FILE")
-  sed -i "s|^Environment=APP_KEY=.*|Environment=APP_KEY=\$CURRENT_KEY|" /etc/systemd/system/openfinder.service
+  umask 077
+  printf 'APP_KEY=%s\n' "\$CURRENT_KEY" > "\$ENV_FILE"
+  chmod 600 "\$ENV_FILE"
+  umask 022
+  # Scrub any APP_KEY left in the unit by a pre-hardening install.
+  sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/openfinder.service
+  grep -q '^EnvironmentFile=' /etc/systemd/system/openfinder.service || \
+    sed -i "/^Environment=ROOT_DIR=/a EnvironmentFile=\$ENV_FILE" /etc/systemd/system/openfinder.service
   systemctl daemon-reload
 fi
 

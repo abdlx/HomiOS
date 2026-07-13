@@ -124,4 +124,4 @@ export default withAuth(async function handler(req: any, res: any, session: any)
     console.error('[/api/shares]', err);
     return res.status(500).json({ error: 'Share operation failed' });
   }
-}, { ability: 'write', minRole: 'admin' });
+}, { adminOnly: true, ability: 'write' });

@@ -33,10 +33,40 @@ export async function validateSessionCookie(cookieHeader: string | undefined): P
   return getSession({ headers: { cookie: cookieHeader } } as any);
 }
 
+export function isInstanceAdmin(session: Session | null | undefined): boolean {
+  return !!session?.isAdmin;
+}
+
+/** Instance-admin gate for non-Next surfaces (Socket.IO, Express, TUS). */
+export function requireAdmin(res: any, session: Session): boolean {
+  if (session.isAdmin) return true;
+  res.status(403).json({ error: 'Requires administrator privileges' });
+  return false;
+}
+
 type AuthOpts = {
   ability?: 'read' | 'write' | 'deploy';
-  minRole?: 'member' | 'admin' | 'owner';
+  /**
+   * Instance-administrator gate — required for host-level power: filesystem,
+   * terminal, drive mounts, SSH keys, Samba, system profile.
+   */
+  adminOnly?: boolean;
 };
+
+/*
+ * There is deliberately NO `minRole` option here.
+ *
+ * It used to exist and was load-bearing on ~10 routes, but it compared against
+ * session.role — the role in the *active* team. Every user owns a personal team and
+ * primaryTeamFor() prefers owned teams, so session.role is 'owner' for literally every
+ * account: `minRole: 'admin'` admitted everyone and gated nothing.
+ *
+ * Use instead:
+ *   - host-level power        → { adminOnly: true }  (users.is_admin)
+ *   - team-scoped power       → roleAtLeast(roleInTeam(session.userId, targetTeamId), 'admin')
+ *     i.e. resolve the role in the team you are about to act on, not the ambient one.
+ *     See pages/api/teams/[id]/members.ts and .../notifications.ts.
+ */
 
 /** Wrap a Next API handler so it only runs for an authenticated session. */
 export function withAuth(
@@ -45,16 +75,22 @@ export function withAuth(
 ) {
   return async (req: any, res: any) => {
     const session = await getSession(req);
-    if (!session) return res.status(401).json({ error: 'Unauthorized' });
+    if (!session) {
+      // getSession() marks CSRF rejections so they don't masquerade as "logged out".
+      if (req.authFailure === 'csrf') {
+        return res.status(403).json({ error: 'Invalid or missing CSRF token' });
+      }
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     if (session.via === 'session' && session.sessionId && !isMutatingMethod(req.method)) {
       res.setHeader('Set-Cookie', buildCsrfCookie(session.sessionId, req));
     }
 
+    if (opts.adminOnly && !session.isAdmin) {
+      return res.status(403).json({ error: 'Requires administrator privileges' });
+    }
     if (opts.ability && !hasAbility(session, opts.ability)) {
       return res.status(403).json({ error: `Token missing '${opts.ability}' ability` });
-    }
-    if (opts.minRole && !roleAtLeast(session.role, opts.minRole)) {
-      return res.status(403).json({ error: `Requires ${opts.minRole} role` });
     }
     return handler(req, res, session);
   };

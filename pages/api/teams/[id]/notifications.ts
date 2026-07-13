@@ -5,7 +5,7 @@
  * POST  { channel }         — send a test notification through one channel
  */
 import { getDb, withTransaction } from '../../../../lib/db.ts';
-import { withAuth } from '../../../../lib/api-auth.ts';
+import { withAuth, roleAtLeast } from '../../../../lib/api-auth.ts';
 import { roleInTeam } from '../../../../lib/auth.ts';
 import { notifyTeam } from '../../../../lib/notify.ts';
 import { logAudit } from '../../../../lib/audit.ts';
@@ -14,7 +14,15 @@ const CHANNELS = ['email', 'discord', 'slack', 'telegram', 'pushover', 'webhook'
 
 export default withAuth(async (req, res, session) => {
   const teamId = String(req.query.id);
-  if (!roleInTeam(session.userId, teamId)) return res.status(404).json({ error: 'Team not found' });
+
+  // Authorize against the TARGET team, not session.role. session.role describes the
+  // *active* team — and since everyone owns a personal team, it is 'owner' for every
+  // user. A `minRole` gate here would let any member of this team rewrite its webhook
+  // config (an SSRF / exfiltration primitive). Same pattern as teams/[id]/members.ts.
+  const myRole = roleInTeam(session.userId, teamId);
+  if (!myRole) return res.status(404).json({ error: 'Team not found' });
+  if (!roleAtLeast(myRole, 'admin')) return res.status(403).json({ error: 'Requires admin role' });
+
   const db = getDb();
 
   if (req.method === 'GET') {
@@ -51,4 +59,4 @@ export default withAuth(async (req, res, session) => {
 
   res.setHeader('Allow', ['GET', 'PATCH', 'POST']);
   return res.status(405).end();
-}, { minRole: 'admin' });
+});

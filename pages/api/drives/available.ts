@@ -2,7 +2,7 @@ import { readdir } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
-import { getSession } from '../../../lib/auth';
+import { withAuth } from '../../../lib/api-auth.ts';
 
 const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -16,10 +16,7 @@ const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => 
   });
 };
 
-export default async function handler(req: any, res: any) {
-  const session = await getSession(req);
-  if (!session) return res.status(401).end();
-
+export default withAuth(async function handler(req: any, res: any) {
   const isDev = process.env.NODE_ENV !== 'production';
 
   if (os.platform() === 'linux') {
@@ -115,4 +112,4 @@ export default async function handler(req: any, res: any) {
     console.error(`Failed to read drives from ${drivesPath}:`, err);
     res.json([]);
   }
-}
+}, { adminOnly: true });

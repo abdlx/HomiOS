@@ -56,17 +56,14 @@ const nextConfig = {
       "node_modules/**/*",
     ],
   },
+  // Type and lint errors fail the build. They used to be ignored, which meant a
+  // broken auth check could ship as long as it parsed. CI runs `tsc --noEmit`
+  // and `next lint` on top of this.
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   webpack(config, { dev, isServer }) {
     if (isServer && !dev) {
