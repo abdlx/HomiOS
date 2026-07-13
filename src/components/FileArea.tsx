@@ -242,56 +242,81 @@ export default function FileArea({
     return `${count} item${count === 1 ? '' : 's'}`;
   };
 
-  // Custom folder rendering with gradients representing the Nextcloud mock styling
+  // ── Icon system ──
+  // Every item type (folder, file, thumbnail) renders into the same fixed-height
+  // stage in grid view, so a row of mixed types keeps its labels on one baseline.
+  const ICON_PX: Record<'sm' | 'md' | 'lg', number> = { sm: 18, md: 68, lg: 92 };
+
+  // Flat, two-tone folder that scales cleanly and reads in both themes.
+  const FOLDER_COLORS: Record<string, { from: string; to: string; tab: string }> = {
+    blue:   { from: '#38bdf8', to: '#2563eb', tab: '#7dd3fc' },
+    orange: { from: '#fbbf24', to: '#f59e0b', tab: '#fcd34d' },
+    green:  { from: '#34d399', to: '#059669', tab: '#6ee7b7' },
+    purple: { from: '#c084fc', to: '#7c3aed', tab: '#d8b4fe' },
+    red:    { from: '#fb7185', to: '#e11d48', tab: '#fda4af' },
+  };
+
   const renderFolderIcon = (color?: string, size: 'sm' | 'md' | 'lg' = 'md') => {
-    const dimensions = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16';
-    if (color === 'orange') {
-      return (
-        <div className={`relative ${dimensions} flex items-center justify-center filter drop-shadow-md`}>
-          <svg viewBox="0 0 64 64" className="w-full h-full text-amber-500 fill-current">
-            <path d="M54,16H32.414l-4.707-4.707C27.012,10.598,26.023,10,25,10H10C6.686,10,4,12.686,4,16v32c0,3.314,2.686,6,6,6h44 c3.314,0,6-2.686,6-6V22C60,18.686,57.314,16,54,16z" />
-            <path d="M54,19H10c-1.657,0-3,1.343-3,3v26c0,1.657,1.343,3,3,3h44c1.657,0,3-1.343,3-3V22C57,20.343,55.657,19,54,19z" className="text-amber-400 fill-current" />
-            <circle cx="26" cy="34" r="2.5" className="text-amber-800/60 fill-current" />
-            <circle cx="38" cy="34" r="2.5" className="text-amber-800/60 fill-current" />
-            <path d="M28 40 Q32 44 36 40" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-amber-800/60" />
-          </svg>
-        </div>
-      );
-    }
+    const px = ICON_PX[size];
+    const c = FOLDER_COLORS[color || 'blue'] || FOLDER_COLORS.blue;
+    const gid = `fld-${color || 'blue'}-${size}`;
     return (
-      <div className={`relative ${dimensions} flex items-center justify-center filter drop-shadow-md`}>
-        <svg viewBox="0 0 64 64" className="w-full h-full text-sky-400 fill-current">
-          <path d="M54,16H32.414l-4.707-4.707C27.012,10.598,26.023,10,25,10H10C6.686,10,4,12.686,4,16v32c0,3.314,2.686,6,6,6h44 c3.314,0,6-2.686,6-6V22C60,18.686,57.314,16,54,16z" />
-          <path d="M54,19H10c-1.657,0-3,1.343-3,3v26c0,1.657,1.343,3,3,3h44c1.657,0,3-1.343,3-3V22C57,20.343,55.657,19,54,19z" className="text-sky-300 fill-current" />
-          <line x1="12" y1="26" x2="52" y2="26" stroke="#0ea5e9" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </div>
+      <svg width={px} height={px} viewBox="0 0 64 64" fill="none" className="drop-shadow-[0_3px_6px_rgba(0,0,0,0.14)]">
+        <defs>
+          <linearGradient id={gid} x1="32" y1="16" x2="32" y2="54" gradientUnits="userSpaceOnUse">
+            <stop stopColor={c.from} />
+            <stop offset="1" stopColor={c.to} />
+          </linearGradient>
+        </defs>
+        {/* back tab, peeking above the body */}
+        <path d="M6 15a6 6 0 0 1 6-6h11.3a4 4 0 0 1 2.83 1.17L29 13a4 4 0 0 0 2.83 1.17H52a6 6 0 0 1 6 6v6H6z" fill={c.tab} />
+        {/* body */}
+        <rect x="6" y="18" width="52" height="34" rx="7" fill={`url(#${gid})`} />
+        {/* soft top sheen */}
+        <rect x="6" y="18" width="52" height="16" rx="7" fill="#ffffff" fillOpacity="0.14" />
+      </svg>
     );
   };
 
-  // Dynamic file type representation
+  // Rounded document chip, tinted by file category — no skeuomorphic folded corner,
+  // and theme-aware (the old card was hardcoded bg-white and vanished in dark mode).
+  type FileKind = { Icon: typeof FileText; cls: string };
+  const FILE_KINDS: Record<string, FileKind> = {
+    video:   { Icon: Video, cls: 'bg-purple-50 text-purple-500 dark:bg-purple-500/15 dark:text-purple-300' },
+    pdf:     { Icon: FileText, cls: 'bg-red-50 text-red-500 dark:bg-red-500/15 dark:text-red-300' },
+    archive: { Icon: Archive, cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300' },
+    code:    { Icon: Code, cls: 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-300' },
+    audio:   { Icon: Music, cls: 'bg-pink-50 text-pink-500 dark:bg-pink-500/15 dark:text-pink-300' },
+    image:   { Icon: ImageIcon, cls: 'bg-sky-50 text-sky-500 dark:bg-sky-500/15 dark:text-sky-300' },
+    doc:     { Icon: FileText, cls: 'bg-slate-100 text-slate-400 dark:bg-white/10 dark:text-slate-300' },
+  };
+
+  const classifyFile = (ext: string): keyof typeof FILE_KINDS => {
+    if (['mp4', 'mkv', 'avi', 'mov', 'webm', 'm4v'].includes(ext)) return 'video';
+    if (ext === 'pdf') return 'pdf';
+    if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return 'archive';
+    if (['js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts', 'py', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'rb', 'html', 'htm', 'css', 'scss', 'json', 'jsonc', 'xml', 'yml', 'yaml', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'sql'].includes(ext)) return 'code';
+    if (['mp3', 'wav', 'flac', 'ogg', 'm4a'].includes(ext)) return 'audio';
+    if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'heic'].includes(ext)) return 'image';
+    return 'doc';
+  };
+
   const renderFileIcon = (file: FileItem, size: 'sm' | 'md' | 'lg' = 'md') => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    const boxClass = size === 'sm' ? 'w-7 h-8 p-0.5 border' : size === 'lg' ? 'w-20 h-24 p-2 border-2' : 'w-14 h-16 p-1 border-2';
-    
-    let Icon = FileText;
-    let color = 'text-neutral-400';
-    let label = ext.substring(0, 3).toUpperCase() || 'DOC';
+    const { Icon, cls } = FILE_KINDS[classifyFile(ext)];
+    const label = ext ? ext.toUpperCase().slice(0, 4) : '';
 
-    if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) { Icon = Video; color = 'text-purple-500'; label = 'VID'; }
-    else if (ext === 'pdf') { Icon = FileText; color = 'text-red-500'; label = 'PDF'; }
-    else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) { Icon = Archive; color = 'text-amber-600'; label = 'ZIP'; }
-    else if (['js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts', 'py', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'rb', 'html', 'htm', 'css', 'scss', 'json', 'jsonc', 'xml', 'yml', 'yaml', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'sql'].includes(ext)) { Icon = Code; color = 'text-emerald-500'; label = 'DEV'; }
-    else if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) { Icon = Music; color = 'text-pink-500'; label = 'AUD'; }
-    else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) { Icon = ImageIcon; color = 'text-blue-500'; label = 'IMG'; }
+    const box = size === 'sm' ? 'w-[18px] h-[18px] rounded-md' : size === 'lg' ? 'w-[74px] h-[90px] rounded-2xl' : 'w-[54px] h-[66px] rounded-xl';
+    const iconSize = size === 'sm' ? 12 : size === 'lg' ? 34 : 26;
 
     return (
-      <div className={`relative ${boxClass} bg-white border-neutral-300 rounded-lg shadow-sm overflow-hidden flex flex-col justify-center items-center hover:border-neutral-400 transition-colors`}>
-        <Icon className={`${color} ${size === 'sm' ? 'w-3 h-3' : size === 'lg' ? 'w-10 h-10 mb-2' : 'w-6 h-6 mb-1'}`} />
-        <div className={`absolute bottom-0 w-full text-center bg-neutral-100 border-t border-neutral-200 text-[8px] font-bold text-neutral-500 tracking-widest py-0.5 ${size === 'sm' ? 'hidden' : ''}`}>
-          {label}
-        </div>
-        <div className="absolute top-0 right-0 w-3 h-3 bg-neutral-200 border-l border-b border-neutral-300 rounded-bl-md" />
+      <div className={`relative ${box} ${cls} flex items-center justify-center border border-black/[0.04] dark:border-white/10 shadow-sm`}>
+        <Icon size={iconSize} strokeWidth={1.75} className={size === 'lg' ? '-mt-2' : ''} />
+        {size !== 'sm' && label && (
+          <span className="absolute inset-x-0 bottom-1.5 text-center text-[8px] font-bold tracking-[0.12em] opacity-70">
+            {label}
+          </span>
+        )}
       </div>
     );
   };
@@ -315,7 +340,7 @@ export default function FileArea({
   // RENDER GRID VIEW (Exactly matching image_cd440d.jpg)
   const renderGrid = () => {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-7">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
         {visibleFiles.map((file) => {
           const isSelected = selectedFileId === file.id;
 
@@ -349,17 +374,17 @@ export default function FileArea({
               >
                 <MoreVertical size={14} />
               </button>
-              <div className={`relative mb-2 flex items-center justify-center transition-transform group-hover:scale-[1.03] ${
+              <div className={`relative mb-2.5 h-[92px] w-full flex items-center justify-center transition-transform group-hover:scale-[1.04] ${
                 isSelected ? 'scale-[1.02]' : ''
               }`}>
-                
+
                 {file.type === 'folder' && file.thumbnailUrl ? (
                   <LazyMediaThumbnail
                     src={file.thumbnailUrl}
                     alt={file.name}
                     type="image"
-                    className={`w-[110px] h-[82px] rounded-xl border shadow-sm ${
-                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
+                    className={`w-[112px] h-[84px] rounded-xl border shadow-sm ${
+                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80 dark:border-white/10'
                   }`}
                     mediaClassName="w-full h-full object-cover pointer-events-none"
                   >
@@ -368,8 +393,8 @@ export default function FileArea({
                     </div>
                   </LazyMediaThumbnail>
                 ) : (file.type === 'image' || file.type === 'video') && file.thumbnailUrl ? (
-                  <div className={`w-[110px] h-[75px] rounded-lg overflow-hidden border bg-neutral-50 flex items-center justify-center shadow-sm ${
-                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80'
+                  <div className={`w-[112px] h-[84px] rounded-xl overflow-hidden border bg-neutral-50 dark:bg-white/5 flex items-center justify-center shadow-sm ${
+                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80 dark:border-white/10'
                   }`}>
                     <LazyMediaThumbnail
                       src={file.thumbnailUrl}
@@ -441,10 +466,10 @@ export default function FileArea({
               </div>
 
               {/* Title wrapper */}
-              <div className="w-full px-1">
+              <div className="w-full px-0.5">
                 <p
-                  className={`text-xs font-bold truncate max-w-full tracking-normal transition-colors ${
-                    isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-200'
+                  className={`text-[12px] leading-snug font-medium truncate max-w-full transition-colors ${
+                    isSelected ? 'text-blue-600 dark:text-blue-300' : 'text-neutral-700 dark:text-neutral-200'
                   }`}
                   title={file.name}
                 >

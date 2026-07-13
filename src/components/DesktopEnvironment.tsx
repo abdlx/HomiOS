@@ -78,8 +78,8 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   onDrop: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
   reduceMotion: boolean;
 }) {
-  const size = source === 'dock' ? 'w-[56px] h-[56px] rounded-[18px]' : 'w-[70px] h-[70px] rounded-[22px]';
-  const iconSize = source === 'dock' ? 28 : 34;
+  const size = source === 'dock' ? 'w-[54px] h-[54px] rounded-[16px]' : 'w-[64px] h-[64px] rounded-[19px]';
+  const iconSize = source === 'dock' ? 27 : 31;
   const Icon = app.icon;
 
   return (
@@ -100,14 +100,15 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
           {app.label}
         </span>
       )}
-      <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] mb-2 border border-white/10 relative overflow-hidden`}>
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
-        <Icon size={iconSize} strokeWidth={1.5} className="drop-shadow-md z-10" />
+      <div className={`${size} bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-white/15 mb-2 relative overflow-hidden`}>
+        {/* single soft top highlight instead of the old heavy diagonal sheen */}
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+        <Icon size={iconSize} strokeWidth={1.6} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative z-10" />
       </div>
       {source === 'grid' && (
-        <div className="flex flex-col items-center">
-          <span className="text-white/90 text-[12px] font-medium tracking-wide drop-shadow-md text-center">{app.label}</span>
-          {app.subtitle && <span className="text-white/60 text-[10px] font-medium tracking-wide drop-shadow-md truncate max-w-[80px] mt-0.5">{app.subtitle}</span>}
+        <div className="flex flex-col items-center min-h-[30px]">
+          <span className="text-white/95 text-[12px] font-medium tracking-tight drop-shadow-md text-center leading-tight truncate max-w-[84px]">{app.label}</span>
+          {app.subtitle && <span className="text-white/60 text-[10px] font-medium tracking-tight drop-shadow-md truncate max-w-[84px] mt-0.5">{app.subtitle}</span>}
         </div>
       )}
     </motion.div>
@@ -408,14 +409,14 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         </div>
 
         <div
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 md:gap-x-[52px] gap-y-6 md:gap-y-8 w-full max-w-[900px] mb-8 px-4 md:px-12"
+          className="flex flex-wrap justify-center gap-x-7 gap-y-7 md:gap-x-9 md:gap-y-8 w-full max-w-[720px] mb-8"
           onDragOver={handleAppDragOver}
           onDrop={(e) => handleAppDrop(e, undefined, 'grid')}
         >
           {gridAppIds.map((id) => {
             const app = ALL_APPS[id];
             return app ? (
-              <div key={app.id} className="flex flex-col items-center">
+              <div key={app.id} className="flex flex-col items-center w-[76px]">
                 <DashboardAppIcon
                   app={app}
                   source="grid"
@@ -451,12 +452,12 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
               onDragOver: (e: React.DragEvent) => handleAppDragOver(e),
               onDrop: (e: React.DragEvent) => handleAppDrop(e, app.id, 'dock'),
               icon: (
-                <div 
-                  className={`w-full h-full rounded-2xl bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.35),inset_0_-2px_4px_rgba(0,0,0,0.2)] border border-white/10 relative overflow-hidden`}
+                <div
+                  className={`w-full h-full rounded-[22%] bg-gradient-to-b ${app.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-white/15 relative overflow-hidden`}
                   onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none" />
-                  <app.icon size={28} strokeWidth={1.5} className="drop-shadow-md z-10" />
+                  <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+                  <app.icon size={27} strokeWidth={1.6} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative z-10" />
                 </div>
               ),
               href: "#",
