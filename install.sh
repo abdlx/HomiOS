@@ -422,19 +422,43 @@ if command -v code-server &>/dev/null; then
   systemctl restart code-server
 fi
 
-# Update the Codex Web UI internal app (loopback service behind /codex)
-if [ -d /opt/codex-web-ui/.git ]; then
-  cd /opt/codex-web-ui
-  git reset --hard HEAD --quiet
-  git clean -fd --quiet
-  git pull
-  sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
-  npm install --no-audit --no-fund --silent
-  npx vite build --base=/codex/
-  npm run build:cli
-  cd $INSTALL_DIR
-  systemctl restart codex-web
+# Install or update the Codex Web UI internal app (loopback service behind /codex)
+if [ ! -d $CODEX_WEB_DIR/.git ]; then
+  git clone --depth 1 $CODEX_WEB_REPO $CODEX_WEB_DIR
 fi
+cd $CODEX_WEB_DIR
+git reset --hard HEAD --quiet
+git clean -fd --quiet
+git pull
+sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+npm install --no-audit --no-fund --silent
+npx vite build --base=/codex/
+npm run build:cli
+cd $INSTALL_DIR
+
+if [ ! -f /etc/systemd/system/codex-web.service ]; then
+  cat > /etc/systemd/system/codex-web.service <<'CODEXUNIT'
+[Unit]
+Description=Codex Web UI (OpenFinder internal app)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$CODEX_WEB_DIR
+Environment=CODEXUI_HOST=127.0.0.1
+ExecStart=/usr/bin/node $CODEX_WEB_DIR/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
+Restart=always
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target
+CODEXUNIT
+  systemctl daemon-reload
+  systemctl enable codex-web --quiet
+fi
+systemctl restart codex-web
 
 # Re-sync APP_KEY from the persisted key file into the 0600 EnvironmentFile.
 # It must never be written into the unit itself — unit files are world-readable
