@@ -45,6 +45,7 @@ app.prepare().then(async () => {
   const { hitRateLimit, rateLimitKey } = await import('./lib/request-security.ts');
   const { getSession } = await import('./lib/auth.ts');
   const { hasAbility } = await import('./lib/api-auth.ts');
+  const { isCodexPath, createCodexProxy, CODEX_UPSTREAM } = await import('./lib/codex-proxy.ts');
 
   // req.ip is only trustworthy once Express knows which proxies to believe. Everything
   // downstream (rate limiting especially) keys off req.ip, never a raw X-Forwarded-For.
@@ -66,8 +67,16 @@ app.prepare().then(async () => {
   server.use((req, res, nextMiddleware) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+    // Proxied Codex responses keep their own policies: OpenFinder's CSP would break the
+    // Vue bundle, and its Permissions-Policy would block Codex dictation (microphone).
+    // The JSON cap is skipped too — codex-web-ui enforces its own body limits.
+    if (isCodexPath(req.path)) {
+      return nextMiddleware();
+    }
+
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
     // Next injects inline bootstrap scripts and Tailwind emits inline styles, so
     // 'unsafe-inline' is unavoidable here without a nonce pipeline. The value that
@@ -117,6 +126,12 @@ app.prepare().then(async () => {
 
     return nextMiddleware();
   });
+
+  // Codex internal app: session-gated reverse proxy to the loopback codex-web-ui
+  // service. Mounted before TUS/Next so /codex* never falls through to the SPA.
+  const codexProxy = createCodexProxy({ originAllowed });
+  server.use(codexProxy.handleRequest);
+  console.log(`Codex Web UI proxy mounted at /codex → ${CODEX_UPSTREAM} (admin session required)`);
 
   try {
     const { Server: TusServer } = await import('@tus/server');
@@ -226,6 +241,15 @@ app.prepare().then(async () => {
   }
 
   const httpServer = (await import('http')).createServer(server);
+
+  // The /codex-api/ws websocket never reaches Express, so gate + proxy it on the raw
+  // upgrade event. Non-codex upgrades are left for Socket.IO's own listener.
+  httpServer.on('upgrade', (req, socket, head) => {
+    let pathname = '';
+    try { pathname = new URL(req.url || '', 'http://localhost').pathname; } catch {}
+    if (!isCodexPath(pathname)) return;
+    codexProxy.handleUpgrade(req, socket, head);
+  });
 
   let io = null;
   try {

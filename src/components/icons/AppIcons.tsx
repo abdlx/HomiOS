@@ -169,6 +169,22 @@ function CodeEditor({ u }: { u: string }) {
   );
 }
 
+function CodexSpark({ u }: { u: string }) {
+  return (
+    <Squircle u={u} from="#17BE92" to="#0A6F55">
+      {/* main four-point AI spark */}
+      <path
+        d="M32 13c1.9 9.9 6.1 14.1 16 16-9.9 1.9-14.1 6.1-16 16-1.9-9.9-6.1-14.1-16-16 9.9-1.9 14.1-6.1 16-16z"
+        fill="#ffffff"
+        fillOpacity="0.96"
+      />
+      {/* companion sparks */}
+      <path d="M46.5 40c.8 4.1 2.5 5.8 6.5 6.5-4 .7-5.7 2.4-6.5 6.5-.8-4.1-2.5-5.8-6.5-6.5 4-.7 5.7-2.4 6.5-6.5z" fill="#ffffff" fillOpacity="0.75" />
+      <circle cx="18.5" cy="45.5" r="2.1" fill="#ffffff" fillOpacity="0.65" />
+    </Squircle>
+  );
+}
+
 function Compass({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#2BD3C7" to="#0E9488">
@@ -210,6 +226,7 @@ const RENDERERS: Record<string, (u: string) => React.ReactNode> = {
   notes: (u) => <Notes u={u} />,
   photos: (u) => <Photos u={u} />,
   vscode: (u) => <CodeEditor u={u} />,
+  codex: (u) => <CodexSpark u={u} />,
   browser: (u) => <Compass u={u} />,
 };
 

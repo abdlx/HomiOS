@@ -237,6 +237,62 @@ systemctl enable code-server --quiet
 systemctl restart code-server
 log "code-server configured on port 8080."
 
+# ── 8.5 Install & configure Codex Web UI (internal app) ──────
+# Runs loopback-only with its own password auth disabled; the OpenFinder Node
+# process proxies /codex to it and gates every request on the OpenFinder
+# session (admin only), so no separate login or password ever exists.
+log "Installing Codex Web UI..."
+CODEX_WEB_DIR="/opt/codex-web-ui"
+CODEX_WEB_REPO="https://github.com/abdlx/codex-web-ui"
+
+if [ ! -d "$CODEX_WEB_DIR/.git" ]; then
+  git clone --depth 1 "$CODEX_WEB_REPO" "$CODEX_WEB_DIR" > /dev/null 2>&1
+else
+  git -C "$CODEX_WEB_DIR" reset --hard HEAD --quiet
+  git -C "$CODEX_WEB_DIR" clean -fd --quiet
+  git -C "$CODEX_WEB_DIR" pull --quiet
+fi
+
+cd "$CODEX_WEB_DIR"
+# The upstream CLI hard-binds 0.0.0.0; patch in an env override so the service
+# stays loopback-only behind the OpenFinder session proxy.
+if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
+  sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+else
+  warn "codex-web-ui bind patch anchor not found — relying on systemd IPAddressAllow=localhost only."
+fi
+npm install --no-audit --no-fund --silent > /dev/null 2>&1
+# Frontend assets must resolve under the /codex/ subpath (vue-tsc typecheck skipped).
+npx vite build --base=/codex/ > /dev/null 2>&1
+npm run build:cli > /dev/null 2>&1
+cd "$INSTALL_DIR"
+
+cat > /etc/systemd/system/codex-web.service <<EOF
+[Unit]
+Description=Codex Web UI (OpenFinder internal app)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$CODEX_WEB_DIR
+Environment=CODEXUI_HOST=127.0.0.1
+ExecStart=/usr/bin/node $CODEX_WEB_DIR/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
+Restart=always
+# Defense in depth: even if the loopback bind patch is ever lost after an
+# upstream update, the kernel refuses non-loopback traffic for this service.
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable codex-web --quiet
+systemctl restart codex-web
+log "Codex Web UI configured on 127.0.0.1:5900 → /codex (OpenFinder admin session required)."
+
 # ── 9. Nginx reverse proxy ───────────────────────────────────
 # NOTE: This app uses Next.js SSR (getServerSideProps), so we CANNOT
 # use 'output: export'. Nginx proxies ALL traffic to the Node.js process.
@@ -366,6 +422,20 @@ if command -v code-server &>/dev/null; then
   systemctl restart code-server
 fi
 
+# Update the Codex Web UI internal app (loopback service behind /codex)
+if [ -d /opt/codex-web-ui/.git ]; then
+  cd /opt/codex-web-ui
+  git reset --hard HEAD --quiet
+  git clean -fd --quiet
+  git pull
+  sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+  npm install --no-audit --no-fund --silent
+  npx vite build --base=/codex/
+  npm run build:cli
+  cd $INSTALL_DIR
+  systemctl restart codex-web
+fi
+
 # Re-sync APP_KEY from the persisted key file into the 0600 EnvironmentFile.
 # It must never be written into the unit itself — unit files are world-readable
 # and `systemctl show` exposes Environment= to any local user.
@@ -400,6 +470,7 @@ if [ "$COOLIFY_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
 fi
 echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Codex:       ${BOLD}http://$LOCAL_IP/codex/${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u openfinder -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC}"

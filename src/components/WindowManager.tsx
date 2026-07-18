@@ -9,6 +9,7 @@ import ActivityApp from './ActivityApp';
 import NotesApp from './NotesApp';
 import PhotosApp from './PhotosApp';
 import VSCodeApp from './VSCodeApp';
+import CodexApp from './CodexApp';
 import BrowserApp from './BrowserApp';
 import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
@@ -19,7 +20,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'photos' | 'vscode' | 'browser';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'photos' | 'vscode' | 'codex' | 'browser';
   username?: string;
 }
 
@@ -99,6 +100,10 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       window.history.pushState(null, '', '/photos');
     } else if (view === 'vscode') {
       window.history.pushState(null, '', '/vscode');
+    } else if (view === 'codex') {
+      // /codex is served by the codex-web-ui proxy, so a refresh here opens
+      // the full-page Codex app rather than the desktop — both are valid entries.
+      window.history.pushState(null, '', '/codex');
     } else if (view === 'browser') {
       window.history.pushState(null, '', '/browser');
     }
@@ -151,6 +156,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             onOpenNotes={() => setView('notes')}
             onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
+            onOpenCodex={() => setView('codex')}
             onOpenBrowser={() => setView('browser')}
             username={username}
             wallpaper={wallpaper}
@@ -165,6 +171,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
             onOpenNotes={() => setView('notes')}
             onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
+            onOpenCodex={() => setView('codex')}
             onOpenBrowser={() => setView('browser')}
             username={username}
           />
@@ -252,6 +259,18 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
           {view === 'vscode' && <VSCodeApp onClose={() => setView('desktop')} isActive />}
+        </div>
+      </motion.div>
+
+      {/* Codex App overlay */}
+      <motion.div
+        initial={false}
+        animate={view === 'codex' ? "visible" : "hidden"}
+        variants={windowVariants}
+        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'codex' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      >
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0a0a0a] shadow-2xl relative">
+          {view === 'codex' && <CodexApp onClose={() => setView('desktop')} isActive />}
         </div>
       </motion.div>
 

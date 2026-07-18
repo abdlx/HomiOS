@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad')",
+      "Bash(cd \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui\")",
+      "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex/)",
+      "Bash(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\\\\n' -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex)",
+      "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex/assets/app.js)",
+      "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex-api/threads)",
+      "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex-local-file?path=x)",
+      "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" -o /dev/null -w \"upstream down -> %{http_code}\\\\n\" http://127.0.0.1:3123/codex/)",
+      "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" http://127.0.0.1:3123/codex-api/threads)",
+      "Bash(grep -n 'src=\\\\|href=' \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui/index.html\")"
+    ]
+  }
+}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/re
 import {
   Folder, FolderOpen, Settings, Terminal, Activity, Boxes,
   FileText, Image as ImageIcon, Code, Globe, Battery, Wifi,
-  Signal, Download, Search, ChevronRight
+  Signal, Download, Search, ChevronRight, Sparkles
 } from 'lucide-react';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -18,6 +18,7 @@ const ALL_APPS = [
   { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#22D3EE] to-[#2563EB]' },
   { id: 'finder',   label: 'Finder',    icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'vscode',   label: 'VS Code',   icon: Code,       color: 'from-[#0066b8] to-[#007acc]' },
+  { id: 'codex',    label: 'Codex',     icon: Sparkles,   color: 'from-[#17BE92] to-[#0A6F55]' },
   { id: 'browser',  label: 'Browser',   icon: Globe,      color: 'from-[#14B8A6] to-[#0F766E]' },
 ];
 
@@ -33,6 +34,7 @@ interface MobileLauncherProps {
   onOpenNotes: () => void;
   onOpenPhotos: () => void;
   onOpenVSCode: () => void;
+  onOpenCodex: () => void;
   onOpenBrowser: () => void;
   username?: string;
   wallpaper?: string;
@@ -161,7 +163,7 @@ function MobileDock({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (
 
 export default function MobileLauncher({
   onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity,
-  onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenBrowser,
+  onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser,
   username, wallpaper
 }: MobileLauncherProps) {
   const [now, setNow] = useState<Date | null>(null);
@@ -179,10 +181,10 @@ export default function MobileLauncher({
       settings: onOpenSettings, terminal: onOpenTerminal,
       activity: onOpenActivity, coolify: onOpenCoolify,
       notes: onOpenNotes, photos: onOpenPhotos,
-      vscode: onOpenVSCode, browser: onOpenBrowser,
+      vscode: onOpenVSCode, codex: onOpenCodex, browser: onOpenBrowser,
     };
     return map[id] || (() => {});
-  }, [onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenBrowser]);
+  }, [onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser]);
 
   const gridApps = ALL_APPS.filter(a => !DOCK_IDS.includes(a.id));
   const dockApps = ALL_APPS.filter(a => DOCK_IDS.includes(a.id));

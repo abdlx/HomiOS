@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe
+  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe, Sparkles
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -22,6 +22,7 @@ interface DesktopEnvironmentProps {
   onOpenNotes: () => void;
   onOpenPhotos: () => void;
   onOpenVSCode: () => void;
+  onOpenCodex: () => void;
   onOpenBrowser: () => void;
   username?: string;
 }
@@ -47,10 +48,11 @@ const ALL_APPS: Record<string, DesktopAppConfig> = {
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
   photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
   vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
+  codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
   browser: { id: 'browser', label: 'Browser', icon: Globe, color: 'from-[#14B8A6] to-[#0F766E]' },
 };
 
-const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'browser'];
+const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'codex', 'browser'];
 
 const MetricCardBackdrop = React.memo(function MetricCardBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
   return glassSurfaces ? (
@@ -110,7 +112,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   );
 });
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenBrowser }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -263,6 +265,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'notes') return onOpenNotes;
     if (id === 'photos') return onOpenPhotos;
     if (id === 'vscode') return onOpenVSCode;
+    if (id === 'codex') return onOpenCodex;
     if (id === 'browser') return onOpenBrowser;
     return undefined;
   };
