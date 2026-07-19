@@ -258,8 +258,11 @@ cd "$CODEX_WEB_DIR"
 # stays loopback-only behind the OpenFinder session proxy.
 if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
   sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+elif grep -q "CODEXUI_HOST" src/cli/index.ts; then
+  log "codex-web-ui already honors CODEXUI_HOST."
 else
-  warn "codex-web-ui bind patch anchor not found — relying on systemd IPAddressAllow=localhost only."
+  warn "codex-web-ui bind patch anchor not found — the passwordless app may listen on ALL interfaces."
+  warn "Block external access to port 5900 (ufw deny 5900) or update the patch in install.sh."
 fi
 npm install --no-audit --no-fund --silent > /dev/null 2>&1
 # Frontend assets must resolve under the /codex/ subpath (vue-tsc typecheck skipped).
@@ -279,10 +282,9 @@ WorkingDirectory=$CODEX_WEB_DIR
 Environment=CODEXUI_HOST=127.0.0.1
 ExecStart=/usr/bin/node $CODEX_WEB_DIR/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
 Restart=always
-# Defense in depth: even if the loopback bind patch is ever lost after an
-# upstream update, the kernel refuses non-loopback traffic for this service.
-IPAddressDeny=any
-IPAddressAllow=localhost
+# No IPAddressDeny lockdown here: it filters outbound traffic too, and Codex
+# must reach the OpenAI API (and npm, to bootstrap the Codex CLI). Loopback-only
+# exposure comes from the CODEXUI_HOST bind patch applied above.
 
 [Install]
 WantedBy=multi-user.target
@@ -430,7 +432,11 @@ cd $CODEX_WEB_DIR
 git reset --hard HEAD --quiet
 git clean -fd --quiet
 git pull
-sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
+  sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
+elif ! grep -q "CODEXUI_HOST" src/cli/index.ts; then
+  echo "WARNING: codex-web-ui bind patch anchor not found — port 5900 may listen on all interfaces."
+fi
 npm install --no-audit --no-fund --silent
 npx vite build --base=/codex/
 npm run build:cli
@@ -449,8 +455,6 @@ WorkingDirectory=$CODEX_WEB_DIR
 Environment=CODEXUI_HOST=127.0.0.1
 ExecStart=/usr/bin/node $CODEX_WEB_DIR/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
 Restart=always
-IPAddressDeny=any
-IPAddressAllow=localhost
 
 [Install]
 WantedBy=multi-user.target

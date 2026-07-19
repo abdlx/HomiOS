@@ -10,7 +10,12 @@
       "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex-local-file?path=x)",
       "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" -o /dev/null -w \"upstream down -> %{http_code}\\\\n\" http://127.0.0.1:3123/codex/)",
       "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" http://127.0.0.1:3123/codex-api/threads)",
-      "Bash(grep -n 'src=\\\\|href=' \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui/index.html\")"
+      "Bash(grep -n 'src=\\\\|href=' \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui/index.html\")",
+      "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35/)",
+      "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35/codex)",
+      "Bash(curl -sk -D - -o /dev/null --max-time 10 https://169.58.7.35/)",
+      "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35:3000/)",
+      "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35:8000/)"
     ]
   }
 }
