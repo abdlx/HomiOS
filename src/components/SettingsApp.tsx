@@ -16,18 +16,18 @@ interface SettingsAppProps {
 }
 
 const WALLPAPERS = [
-  "https://images.unsplash.com/photo-1552083375-1447ce886485?q=80&w=1470&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1682685797208-c741d58c2eff?q=80&w=1470&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1491466424936-e304919aada7?q=80&w=1469&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1482784160316-6eb046863ece?q=80&w=1470&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=1575&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1499678329028-101435549a4e?q=80&w=1470&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1511300636408-a63a89df3482?q=80&w=1470&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1485470733090-0aae1788d5af?q=80&w=1517&auto=format&fit=crop",
-  "https://images.wallpapersden.com/image/download/mesmerizing-night-landscape_bGxnZ2uUmZqaraWkpJRmbmdlrWZlbWU.jpg",
-  "https://images.alphacoders.com/533/thumb-1920-533936.jpg",
-  "https://png.pngtree.com/background/20250102/original/pngtree-mesmerizing-sunset-sky-a-texture-of-beautiful-clouds-in-the-background-picture-image_13450799.jpg",
-  "https://wallpapercave.com/wp/wp10536271.jpg"
+  "/wallpapers/wallpaper-01.jpg",
+  "/wallpapers/wallpaper-02.jpg",
+  "/wallpapers/wallpaper-03.jpg",
+  "/wallpapers/wallpaper-04.jpg",
+  "/wallpapers/wallpaper-05.jpg",
+  "/wallpapers/wallpaper-06.jpg",
+  "/wallpapers/wallpaper-07.jpg",
+  "/wallpapers/wallpaper-08.jpg",
+  "/wallpapers/wallpaper-09.jpg",
+  "/wallpapers/wallpaper-10.jpg",
+  "/wallpapers/wallpaper-11.jpg",
+  "/wallpapers/wallpaper-12.jpg"
 ];
 
 const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
