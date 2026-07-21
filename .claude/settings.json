@@ -18,7 +18,14 @@
       "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35:8000/)",
       "Bash(file wallpaper-*.jpg)",
       "Bash(curl -sL --max-time 60 -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\)\" -o wallpaper-09.jpg \"https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=1470&auto=format&fit=crop\")",
-      "Bash(node server.js)"
+      "Bash(node server.js)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"$\\($_.LocalAddress\\):$\\($_.LocalPort\\) PID=$\\($_.OwningProcess\\) $\\($p.ProcessName\\) started $\\($p.StartTime\\)\" })",
+      "PowerShell(try { Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction Stop | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"$\\($_.LocalAddress\\):$\\($_.LocalPort\\) PID=$\\($_.OwningProcess\\) $\\($p.ProcessName\\) started $\\($p.StartTime\\)\" } } catch { \"nothing listening on 3000\" })",
+      "PowerShell(if \\(Test-Path .next\\) { Get-ChildItem .next | Select-Object Name, LastWriteTime; if \\(Test-Path .next\\\\BUILD_ID\\) { \"BUILD_ID: $\\(Get-Content .next\\\\BUILD_ID\\)\" } else { \"no BUILD_ID \\(dev artifacts\\)\" } } else { \"no .next dir\" })",
+      "PowerShell(npm run build)",
+      "Bash(NODE_ENV=production node server.js)",
+      "Bash(grep -iE \"^\\(archiver|adm-zip|yauzl|unzipper|extract-zip|node-stream-zip\\)$\")",
+      "Bash(grep -iE \"^\\(unzipper|yauzl|adm-zip|node-stream-zip|decompress|extract-zip|jszip|fflate\\)$\")"
     ]
   }
 }

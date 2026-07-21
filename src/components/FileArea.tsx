@@ -12,7 +12,12 @@ import {
   Code,
   Music,
   MoreVertical,
-  Share2
+  Share2,
+  Check,
+  FileArchive,
+  Download,
+  Trash2,
+  X
 } from 'lucide-react';
 import { FileItem, ViewMode } from '../types';
 import ContextMenu from './ContextMenu';
@@ -23,8 +28,13 @@ interface FileAreaProps {
   files: FileItem[];
   selectedFileId: string | null;
   setSelectedFileId: (id: string | null) => void;
+  /** Multi-selection set. When omitted, FileArea falls back to single-select. */
+  selectedIds?: Set<string>;
+  onSelectFile?: (file: FileItem, modifiers?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => void;
+  onClearSelection?: () => void;
   onFileDoubleClick: (file: FileItem) => void;
   onDeleteFile: (id: string) => void;
+  onDeleteMany?: (ids: string[]) => void;
   onRenameFile: (id: string, newName: string) => void;
   onUploadFiles: (files: FileList | File[]) => void;
   viewMode: ViewMode;
@@ -37,14 +47,21 @@ interface FileAreaProps {
   onShare?: (file: FileItem) => void;
   onPasteClipboard?: () => void;
   onMoveFileToFolder?: (file: FileItem, targetFolder: FileItem) => void;
+  onZip?: (files: FileItem[]) => void;
+  onUnzip?: (file: FileItem) => void;
+  onDownloadMany?: (files: FileItem[]) => void;
 }
 
 export default function FileArea({
   files,
   selectedFileId,
   setSelectedFileId,
+  selectedIds: selectedIdsProp,
+  onSelectFile: onSelectFileProp,
+  onClearSelection: onClearSelectionProp,
   onFileDoubleClick,
   onDeleteFile,
+  onDeleteMany,
   onRenameFile,
   onUploadFiles,
   viewMode,
@@ -56,8 +73,17 @@ export default function FileArea({
   onAddNewFolder,
   onShare,
   onPasteClipboard,
-  onMoveFileToFolder
+  onMoveFileToFolder,
+  onZip,
+  onUnzip,
+  onDownloadMany
 }: FileAreaProps) {
+  // Single-select fallback so consumers that don't manage a multi-selection set
+  // (e.g. the read-only Photos view) keep working unchanged.
+  const selectedIds = selectedIdsProp ?? new Set(selectedFileId ? [selectedFileId] : []);
+  const onSelectFile = onSelectFileProp ?? ((file: FileItem) => setSelectedFileId(file.id));
+  const onClearSelection = onClearSelectionProp ?? (() => setSelectedFileId(null));
+
   const PAGE_SIZE = 120;
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -350,17 +376,23 @@ export default function FileArea({
     return (
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
         {visibleFiles.map((file) => {
-          const isSelected = selectedFileId === file.id;
+          const isSelected = selectedIds.has(file.id);
+          const isActive = selectedFileId === file.id;
 
           return (
             <div
               key={file.id}
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedFileId(file.id);
+                onSelectFile(file, { ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey });
               }}
               onDoubleClick={() => onFileDoubleClick(file)}
-              onContextMenu={(e) => handleContextMenu(e, file)}
+              onContextMenu={(e) => {
+                // Right-clicking an unselected item selects it first so the
+                // menu's bulk actions operate on a sensible set.
+                if (!selectedIds.has(file.id)) onSelectFile(file);
+                handleContextMenu(e, file);
+              }}
               draggable
               onDragStart={(e) => handleFileDragStart(e, file)}
               onDragEnd={() => { setDraggingFileId(null); setDropFolderId(null); }}
@@ -371,10 +403,25 @@ export default function FileArea({
                 dropFolderId === file.id
                   ? 'bg-emerald-500/12 border-emerald-400/50 ring-2 ring-emerald-400/20'
                   : isSelected
-                  ? 'bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/15 dark:border-blue-400/20 shadow-[0_4px_12px_rgba(59,130,246,0.06)]'
+                  ? `bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/25 dark:border-blue-400/30 shadow-[0_4px_12px_rgba(59,130,246,0.06)] ${isActive ? 'ring-2 ring-blue-400/40' : ''}`
                   : 'border-transparent hover:bg-neutral-50/80 dark:hover:bg-white/5 hover:border-neutral-200/40 dark:hover:border-white/10'
               }`}
             >
+              {/* Selection checkbox — visible on hover or when selected. */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectFile(file, { ctrlKey: true });
+                }}
+                className={`absolute top-1.5 left-1.5 w-4 h-4 rounded-md border flex items-center justify-center z-10 transition-all focus:outline-none ${
+                  isSelected
+                    ? 'bg-blue-600 border-blue-600 text-white opacity-100'
+                    : 'bg-white/80 dark:bg-black/40 border-neutral-300 dark:border-white/30 text-transparent opacity-0 group-hover:opacity-100'
+                }`}
+                title={isSelected ? 'Deselect' : 'Select'}
+              >
+                <Check size={11} strokeWidth={3} />
+              </button>
               <button
                 onClick={(e) => handleContextMenu(e, file)}
                 className="absolute top-1.5 right-1.5 p-1 rounded-full text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 hover:text-neutral-700 dark:hover:text-neutral-200 opacity-0 group-hover:opacity-100 transition-all z-10 focus:outline-none"
@@ -512,6 +559,23 @@ export default function FileArea({
         <table className="w-full text-left text-xs text-neutral-600 dark:text-neutral-300">
           <thead className="bg-neutral-50/70 dark:bg-white/5 border-b border-neutral-200/60 dark:border-white/10 text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
             <tr>
+              <th className="py-2.5 pl-4 pr-1 w-8">
+                <input
+                  type="checkbox"
+                  aria-label="Select all"
+                  checked={visibleFiles.length > 0 && visibleFiles.every((f) => selectedIds.has(f.id))}
+                  ref={(el) => {
+                    if (el) el.indeterminate = visibleFiles.some((f) => selectedIds.has(f.id)) && !visibleFiles.every((f) => selectedIds.has(f.id));
+                  }}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const allSelected = visibleFiles.every((f) => selectedIds.has(f.id));
+                    if (allSelected) onClearSelection();
+                    else visibleFiles.forEach((f) => { if (!selectedIds.has(f.id)) onSelectFile(f, { ctrlKey: true }); });
+                  }}
+                  className="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer"
+                />
+              </th>
               <th className="py-2.5 px-4 w-full sm:w-1/2">Name</th>
               <th className="py-2.5 px-3 hidden sm:table-cell">Kind</th>
               <th className="py-2.5 px-3 hidden sm:table-cell">Size / Items</th>
@@ -522,20 +586,32 @@ export default function FileArea({
           </thead>
           <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
             {visibleFiles.map((file) => {
-              const isSelected = selectedFileId === file.id;
+              const isSelected = selectedIds.has(file.id);
               return (
                 <tr
                   key={file.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSelectedFileId(file.id);
+                    onSelectFile(file, { ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey });
                   }}
                   onDoubleClick={() => onFileDoubleClick(file)}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
+                  onContextMenu={(e) => {
+                    if (!selectedIds.has(file.id)) onSelectFile(file);
+                    handleContextMenu(e, file);
+                  }}
                   className={`group hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors cursor-pointer ${
                     isSelected ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''
                   }`}
                 >
+                  <td className="py-2.5 pl-4 pr-1" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${file.name}`}
+                      checked={isSelected}
+                      onChange={() => onSelectFile(file, { ctrlKey: true })}
+                      className="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer"
+                    />
+                  </td>
                   <td className="py-2.5 px-4 flex items-center space-x-2.5 font-medium text-neutral-800 dark:text-neutral-200">
                     {file.type === 'folder' ? (
                       renderFolderIcon(file.folderColor, 'sm')
@@ -633,9 +709,12 @@ export default function FileArea({
             return (
               <button
                 key={file.id}
-                onClick={() => setSelectedFileId(file.id)}
+                onClick={(e) => onSelectFile(file, { ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })}
                 onDoubleClick={() => onFileDoubleClick(file)}
-                onContextMenu={(e) => handleContextMenu(e, file)}
+                onContextMenu={(e) => {
+                  if (!selectedIds.has(file.id)) onSelectFile(file);
+                  handleContextMenu(e, file);
+                }}
                 className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between font-medium transition-colors ${
                   isSelected ? 'bg-blue-600 text-white' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                 }`}
@@ -848,7 +927,7 @@ export default function FileArea({
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onClick={() => setContextMenu(null)}
+      onClick={() => { setContextMenu(null); onClearSelection(); }}
     >
       {/* Right-click context menu */}
       {contextMenu && (
@@ -857,6 +936,23 @@ export default function FileArea({
           x={contextMenu.x}
           y={contextMenu.y}
           clipboardState={clipboardState}
+          selectionCount={contextMenu.file ? (selectedIds.has(contextMenu.file.id) ? selectedIds.size : 1) : 0}
+          onZip={onZip ? () => {
+            const target = contextMenu.file && selectedIds.has(contextMenu.file.id)
+              ? files.filter((f) => selectedIds.has(f.id))
+              : contextMenu.file ? [contextMenu.file] : [];
+            if (target.length) onZip(target);
+          } : undefined}
+          onUnzip={onUnzip}
+          onDownloadSelection={onDownloadMany ? () => {
+            const target = files.filter((f) => selectedIds.has(f.id));
+            if (target.length) onDownloadMany(target);
+          } : undefined}
+          onDeleteSelection={() => {
+            const ids = Array.from(selectedIds);
+            if (onDeleteMany) onDeleteMany(ids);
+            else ids.forEach((id) => onDeleteFile(id));
+          }}
           onClose={() => setContextMenu(null)}
           onQuickLook={contextMenu.file ? (f) => onFileDoubleClick(f) : undefined}
           onRename={contextMenu.file ? async (f) => {
@@ -919,6 +1015,71 @@ export default function FileArea({
           Loading more items...
         </div>
       )}
+
+      {/* Floating selection action bar */}
+      {selectedIds.size > 0 && (() => {
+        const selected = files.filter((f) => selectedIds.has(f.id));
+        const singleZip = selected.length === 1 && /\.zip$/i.test(selected[0].name) && selected[0].type !== 'folder';
+        return (
+          <div
+            className="sticky bottom-3 z-20 mx-auto mt-4 flex w-fit max-w-full items-center gap-1 rounded-full border border-neutral-200/70 bg-white/90 px-2 py-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[#26262a]/90"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            <span className="px-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 whitespace-nowrap">
+              {selectedIds.size} selected
+            </span>
+            <div className="mx-0.5 h-5 w-px bg-neutral-200 dark:bg-white/10" />
+
+            {onZip && (
+              <button
+                onClick={() => onZip(selected)}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-white/10 transition-colors"
+                title="Compress selection to a .zip"
+              >
+                <FileArchive size={14} /> Zip
+              </button>
+            )}
+
+            {singleZip && onUnzip && (
+              <button
+                onClick={() => onUnzip(selected[0])}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-white/10 transition-colors"
+                title="Extract archive"
+              >
+                <FileArchive size={14} /> Extract
+              </button>
+            )}
+
+            {onDownloadMany && (
+              <button
+                onClick={() => onDownloadMany(selected)}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-white/10 transition-colors"
+                title="Download selection"
+              >
+                <Download size={14} /> Download
+              </button>
+            )}
+
+            <button
+              onClick={() => (onDeleteMany ? onDeleteMany(Array.from(selectedIds)) : selected.forEach((f) => onDeleteFile(f.id)))}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+              title="Delete selection"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+
+            <div className="mx-0.5 h-5 w-px bg-neutral-200 dark:bg-white/10" />
+            <button
+              onClick={() => onClearSelection()}
+              className="flex items-center justify-center rounded-full p-1.5 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-white/10 transition-colors"
+              title="Clear selection"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        );
+      })()}
 
     </div>
   );

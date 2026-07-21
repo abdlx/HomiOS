@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2, Code2 } from 'lucide-react';
+import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2, Code2, FileArchive } from 'lucide-react';
 import { FileItem } from '../types';
 
 interface ContextMenuProps {
@@ -8,11 +8,14 @@ interface ContextMenuProps {
   x: number;
   y: number;
   clipboardState?: { action: 'copy' | 'cut'; file: FileItem } | null;
+  /** Number of items currently selected (>1 switches the menu to bulk mode). */
+  selectionCount?: number;
   onClose: () => void;
   onQuickLook?: (file: FileItem) => void;
   onRename?: (file: FileItem) => void;
   onFavorite?: (file: FileItem) => void;
   onDelete?: (id: string) => void;
+  onDeleteSelection?: () => void;
   onCreateFile?: () => void;
   onCreateFolder?: () => void;
   onCopy?: (file: FileItem) => void;
@@ -21,13 +24,19 @@ interface ContextMenuProps {
   onTag?: (file: FileItem, tag: string) => void;
   onShare?: (file: FileItem) => void;
   onOpenInCodeServer?: (file: FileItem) => void;
+  onZip?: () => void;
+  onUnzip?: (file: FileItem) => void;
+  onDownloadSelection?: () => void;
 }
 
 export default function ContextMenu({
-  file, x, y, clipboardState, onClose,
-  onQuickLook, onRename, onFavorite, onDelete,
-  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare, onOpenInCodeServer
+  file, x, y, clipboardState, selectionCount = 0, onClose,
+  onQuickLook, onRename, onFavorite, onDelete, onDeleteSelection,
+  onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare, onOpenInCodeServer,
+  onZip, onUnzip, onDownloadSelection
 }: ContextMenuProps) {
+  const isMulti = selectionCount > 1;
+  const isZip = !!file && file.type !== 'folder' && /\.zip$/i.test(file.name);
   const ref = useRef<HTMLDivElement>(null);
   const fileUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&raw=true` : '';
   const downloadUrl = file ? `/api/files?path=${encodeURIComponent(file.id)}&${file.type === 'folder' ? 'downloadZip=true' : 'raw=true'}` : '';
@@ -79,7 +88,17 @@ export default function ContextMenu({
       className="w-48 bg-[#1a2035]/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.6)] p-1.5 space-y-0.5"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {file ? (
+      {file && isMulti ? (
+        <>
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b border-white/10 mb-1">
+            {selectionCount} items selected
+          </div>
+          {onZip && <Item icon={<FileArchive size={13} />} label="Compress to ZIP" onClick={() => onZip()} />}
+          {onDownloadSelection && <Item icon={<Download size={13} />} label="Download" onClick={() => onDownloadSelection()} />}
+          <div className="border-t border-white/5 my-1" />
+          {onDeleteSelection && <Item icon={<Trash2 size={13} />} label={`Delete ${selectionCount} items`} onClick={() => onDeleteSelection()} danger />}
+        </>
+      ) : file ? (
         <>
           <div className="flex justify-between px-2 py-2 border-b border-white/10 mb-1">
             {['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Gray'].map(t => {
@@ -109,6 +128,11 @@ export default function ContextMenu({
           <Item icon={<Edit3 size={13} />} label="Rename" onClick={() => onRename?.(file)} />
           <Item icon={<Copy size={13} />} label="Copy" onClick={() => onCopy?.(file)} />
           <Item icon={<Scissors size={13} />} label="Cut" onClick={() => onCut?.(file)} />
+          {isZip && onUnzip ? (
+            <Item icon={<FileArchive size={13} />} label="Extract Here" onClick={() => onUnzip(file)} />
+          ) : (
+            onZip && <Item icon={<FileArchive size={13} />} label="Compress to ZIP" onClick={() => onZip()} />
+          )}
           <a
             href={downloadUrl}
             download={file.type === 'folder' ? `${file.name}.zip` : file.name}

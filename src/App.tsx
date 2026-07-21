@@ -12,7 +12,7 @@ import StorageDashboard from './components/StorageDashboard';
 import SambaPanel from './components/SambaPanel';
 import TransferCenter from './components/TransferCenter';
 import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
-import { confirmDialog, toast } from './components/SystemUI';
+import { confirmDialog, promptDialog, toast } from './components/SystemUI';
 import { Menu } from 'lucide-react';
 import { ensureCsrfToken, getCsrfToken } from './csrf';
 interface AppProps {
@@ -22,6 +22,14 @@ interface AppProps {
 export default function App({ onClose }: AppProps = {}) {
   const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const lastSelectedIdRef = useRef<string | null>(null);
+  // Always-fresh handles for keyboard shortcuts, so the global keydown listener
+  // never calls a stale closure (Ctrl+A / Delete depend on the latest file list).
+  const selectionActionsRef = useRef<{ selectAll: () => void; deleteMany: (ids: string[]) => void }>({
+    selectAll: () => {},
+    deleteMany: () => {},
+  });
   const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
   const currentPath = pathHistory[historyIndex];
@@ -146,25 +154,54 @@ export default function App({ onClose }: AppProps = {}) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && selectedFileId) {
+      const target = e.target as HTMLElement;
+      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      // Only drive file-area shortcuts when the browsing pane is active.
+      if (showStorage || showShared) return;
+
+      if (e.code === 'Space' && selectedFileId && !typing) {
         const item = currentFiles.find(f => f.id === selectedFileId);
-        const target = e.target as HTMLElement;
-        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          if (item) setQuickLookFile(item);
-        }
+        e.preventDefault();
+        if (item) setQuickLookFile(item);
+        return;
+      }
+
+      // Ctrl/Cmd+A — select every visible item.
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A') && !typing) {
+        e.preventDefault();
+        selectionActionsRef.current.selectAll();
+        return;
+      }
+
+      // Delete / Backspace — remove the current selection.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selectedIds.size > 0) {
+        e.preventDefault();
+        selectionActionsRef.current.deleteMany(Array.from(selectedIds));
+        return;
+      }
+
+      // Escape — clear the selection.
+      if (e.key === 'Escape' && !typing && selectedIds.size > 0) {
+        clearSelection();
+        return;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFileId, currentFiles]);
+  }, [selectedFileId, currentFiles, selectedIds, showStorage, showShared]);
+
+  const clearSelection = () => {
+    setSelectedFileId(null);
+    setSelectedIds(new Set());
+    lastSelectedIdRef.current = null;
+  };
 
   const pushPath = (newPath: string[]) => {
     const newHistory = pathHistory.slice(0, historyIndex + 1);
     newHistory.push(newPath);
     setPathHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
-    setSelectedFileId(null);
+    clearSelection();
     setShowStorage(false);
     setShowShared(false);
   };
@@ -172,7 +209,7 @@ export default function App({ onClose }: AppProps = {}) {
   const handleNavigateBack = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
-      setSelectedFileId(null);
+      clearSelection();
       setShowStorage(false);
       setShowShared(false);
     }
@@ -181,7 +218,7 @@ export default function App({ onClose }: AppProps = {}) {
   const handleNavigateForward = () => {
     if (historyIndex < pathHistory.length - 1) {
       setHistoryIndex(historyIndex + 1);
-      setSelectedFileId(null);
+      clearSelection();
       setShowStorage(false);
       setShowShared(false);
     }
@@ -610,6 +647,142 @@ export default function App({ onClose }: AppProps = {}) {
     }
   };
 
+  // Bulk delete: confirm once for the whole set, then delete sequentially.
+  const handleDeleteMany = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (ids.length === 1) {
+      await handleDeleteFile(ids[0]);
+      return;
+    }
+    const ok = await confirmDialog({
+      title: `Delete ${ids.length} items?`,
+      message: 'These items will be permanently removed. This action cannot be undone.',
+      tone: 'danger',
+      confirmLabel: `Delete ${ids.length} items`,
+    });
+    if (!ok) return;
+
+    let failures = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch('/api/files', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: `/${id}` }),
+        });
+        if (!res.ok) failures++;
+      } catch {
+        failures++;
+      }
+    }
+    clearSelection();
+    loadFiles();
+    if (failures === 0) {
+      toast({ message: `Deleted ${ids.length} items`, tone: 'success' });
+    } else {
+      toast({ message: `Deleted ${ids.length - failures} of ${ids.length}`, description: `${failures} could not be removed`, tone: 'danger' });
+    }
+  };
+
+  // Generic NDJSON progress runner for the zip/unzip endpoints, mirroring
+  // runFileOperation but for single-endpoint jobs.
+  const runProgressJob = async (options: {
+    endpoint: string;
+    body: Record<string, unknown>;
+    name: string;
+    verb: string; // "Compressing" / "Extracting"
+    doneLabel: string; // "Compressed" / "Extracted"
+    type: TransferTask['type'];
+  }) => {
+    const taskId = `${options.type}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const task: TransferTask = {
+      id: taskId,
+      name: options.name,
+      progress: 0,
+      status: 'uploading',
+      type: options.type,
+      description: `${options.verb} ${options.name}`,
+    };
+    setTransfers((prev) => [...prev, task]);
+
+    try {
+      const res = await fetch(options.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options.body),
+      });
+      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+      await readMoveProgress(res, taskId);
+      toast({ message: `${options.doneLabel} ${options.name}`, tone: 'success' });
+      loadFiles();
+      return true;
+    } catch (err: any) {
+      updateTransferThrottled(taskId, {
+        status: 'error',
+        error: err?.message || `${options.verb} failed`,
+        description: `${options.verb} failed`,
+      }, true);
+      toast({ message: `Could not ${options.verb.toLowerCase().replace(/ing$/, '')} ${options.name}`, description: err?.message, tone: 'danger' });
+      return false;
+    }
+  };
+
+  // Compress the given items into a single .zip in the current directory.
+  const handleZip = async (filesToZip: FileItem[]) => {
+    if (filesToZip.length === 0) return;
+    const apiPath = getApiPath();
+    const suggested = filesToZip.length === 1
+      ? `${filesToZip[0].name.replace(/\.[^.]+$/, '') || filesToZip[0].name}.zip`
+      : 'Archive.zip';
+    const archiveName = await promptDialog({
+      title: `Compress ${filesToZip.length} item${filesToZip.length === 1 ? '' : 's'}`,
+      placeholder: 'Archive.zip',
+      defaultValue: suggested,
+      confirmLabel: 'Compress',
+    });
+    if (!archiveName || !archiveName.trim()) return;
+
+    const sourcePaths = filesToZip.map((f) => `/${f.id}`.replace(/\/+/g, '/'));
+    const ok = await runProgressJob({
+      endpoint: '/api/files/zip',
+      body: { sourcePaths, destinationDir: `/${apiPath}`, archiveName: archiveName.trim() },
+      name: archiveName.trim().endsWith('.zip') ? archiveName.trim() : `${archiveName.trim()}.zip`,
+      verb: 'Compressing',
+      doneLabel: 'Compressed',
+      type: 'copy',
+    });
+    if (ok) clearSelection();
+  };
+
+  // Extract a .zip archive into a sibling folder.
+  const handleUnzip = async (file: FileItem) => {
+    await runProgressJob({
+      endpoint: '/api/files/unzip',
+      body: { archivePath: `/${file.id}`.replace(/\/+/g, '/'), destinationDir: undefined },
+      name: file.name,
+      verb: 'Extracting',
+      doneLabel: 'Extracted',
+      type: 'copy',
+    });
+    clearSelection();
+  };
+
+  // Download several items: trigger the browser download for each in turn.
+  const handleDownloadMany = (filesToDownload: FileItem[]) => {
+    filesToDownload.forEach((file, i) => {
+      const url = `/api/files?path=${encodeURIComponent(file.id)}&${file.type === 'folder' ? 'downloadZip=true' : 'raw=true'}`;
+      // Stagger slightly so browsers don't drop concurrent navigations.
+      window.setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.type === 'folder' ? `${file.name}.zip` : file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 300);
+    });
+  };
+
   const parseSizeToVal = (sizeStr: string): number => {
     const stripped = sizeStr.toLowerCase().trim();
     if (stripped.includes('--')) return 0;
@@ -661,6 +834,61 @@ export default function App({ onClose }: AppProps = {}) {
       if (sortOption === 'date') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       return a.name.localeCompare(b.name);
     });
+
+  // ── Multi-selection ──
+  // Finder-style: plain click replaces, Ctrl/Cmd+click toggles, Shift+click
+  // extends a contiguous range from the last-clicked anchor over the *visible*
+  // ordered list (processedFiles). `selectedFileId` stays the primary/active
+  // item (drives QuickLook, the column-view preview, etc.).
+  const handleSelectFile = (file: FileItem, e?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => {
+    const additive = !!(e?.ctrlKey || e?.metaKey);
+    const range = !!e?.shiftKey;
+
+    if (range && lastSelectedIdRef.current) {
+      const ids = processedFiles.map((f) => f.id);
+      const anchorIdx = ids.indexOf(lastSelectedIdRef.current);
+      const targetIdx = ids.indexOf(file.id);
+      if (anchorIdx !== -1 && targetIdx !== -1) {
+        const [lo, hi] = anchorIdx < targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+        const rangeIds = ids.slice(lo, hi + 1);
+        setSelectedIds((prev) => {
+          const next = additive ? new Set(prev) : new Set<string>();
+          rangeIds.forEach((id) => next.add(id));
+          return next;
+        });
+        setSelectedFileId(file.id);
+        return;
+      }
+    }
+
+    if (additive) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(file.id)) next.delete(file.id);
+        else next.add(file.id);
+        setSelectedFileId(next.has(file.id) ? file.id : (next.size ? Array.from(next)[next.size - 1] : null));
+        return next;
+      });
+      lastSelectedIdRef.current = file.id;
+      return;
+    }
+
+    // Plain click: single selection.
+    setSelectedIds(new Set([file.id]));
+    setSelectedFileId(file.id);
+    lastSelectedIdRef.current = file.id;
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(processedFiles.map((f) => f.id)));
+    if (processedFiles.length) {
+      setSelectedFileId(processedFiles[0].id);
+      lastSelectedIdRef.current = processedFiles[processedFiles.length - 1].id;
+    }
+  };
+
+  // Keep the keyboard-shortcut ref pointed at the current handlers/data.
+  selectionActionsRef.current = { selectAll: handleSelectAll, deleteMany: handleDeleteMany };
 
   const starredFolders: SidebarItem[] = Object.entries(fileMetadata)
     .filter(([id, meta]) => meta.isFavorite)
@@ -751,8 +979,12 @@ export default function App({ onClose }: AppProps = {}) {
                     files={processedFiles}
                     selectedFileId={selectedFileId}
                     setSelectedFileId={setSelectedFileId}
+                    selectedIds={selectedIds}
+                    onSelectFile={handleSelectFile}
+                    onClearSelection={clearSelection}
                     onFileDoubleClick={handleFileDoubleClick}
                     onDeleteFile={handleDeleteFile}
+                    onDeleteMany={handleDeleteMany}
                     onRenameFile={handleRenameFile}
                     onUploadFiles={handleUploadFiles}
                     viewMode={viewMode}
@@ -765,6 +997,9 @@ export default function App({ onClose }: AppProps = {}) {
                     onShare={handleShare}
                     onPasteClipboard={handlePasteClipboard}
                     onMoveFileToFolder={handleMoveFileToFolder}
+                    onZip={handleZip}
+                    onUnzip={handleUnzip}
+                    onDownloadMany={handleDownloadMany}
                   />
                 </>
               )}
