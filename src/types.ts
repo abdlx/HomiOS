@@ -85,6 +85,13 @@ export interface DriveItem {
   usagePercent?: number;
   usedBytes?: string;
   totalBytes?: string;
+  /** Root, /boot, /boot/efi or the Windows system drive */
+  isSystem?: boolean;
+  /** USB / hotplug / removable media */
+  isRemovable?: boolean;
+  isReadOnly?: boolean;
+  /** Hardware model reported by the device, e.g. "Samsung SSD 980" */
+  model?: string;
 }
 
 export type JobType =

@@ -25,7 +25,9 @@
       "PowerShell(npm run build)",
       "Bash(NODE_ENV=production node server.js)",
       "Bash(grep -iE \"^\\(archiver|adm-zip|yauzl|unzipper|extract-zip|node-stream-zip\\)$\")",
-      "Bash(grep -iE \"^\\(unzipper|yauzl|adm-zip|node-stream-zip|decompress|extract-zip|jszip|fflate\\)$\")"
+      "Bash(grep -iE \"^\\(unzipper|yauzl|adm-zip|node-stream-zip|decompress|extract-zip|jszip|fflate\\)$\")",
+      "Bash(powershell -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,FileSystem,Size,FreeSpace,DriveType | ConvertTo-Json -Compress\")",
+      "Bash(node \"C:/Users/Abdullah/AppData/Local/Temp/claude/d--code-github-projects-OpenFinder/9e396136-b85e-4676-97ab-a440d588b353/scratchpad/t.mjs\")"
     ]
   }
 }

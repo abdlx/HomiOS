@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { HardDrive, Cpu, ToggleLeft, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { DriveItem } from '../types';
 
 interface StorageDashboardProps {
@@ -51,11 +51,17 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
   };
 
   const usageColor = (pct?: number) => {
-    if (!pct) return 'from-blue-500 to-cyan-400';
+    if (pct === undefined) return 'from-blue-500 to-cyan-400';
     if (pct >= 90) return 'from-red-500 to-orange-400';
     if (pct >= 70) return 'from-amber-500 to-yellow-400';
     return 'from-blue-500 to-cyan-400';
   };
+
+  /** Windows reports "C:", Linux/macOS report a device node under /dev. */
+  const deviceId = (drive: DriveItem) =>
+    /^[A-Za-z]:$/.test(drive.name) ? drive.name : `/dev/${drive.name}`;
+
+  const DriveIcon = (drive: DriveItem) => (drive.isRemovable ? Usb : drive.isSystem ? Server : HardDrive);
 
   return (
     <div className="flex-1 bg-transparent p-8 overflow-y-auto">
@@ -108,29 +114,53 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${drive.isMounted ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
-                      <HardDrive size={18} className={drive.isMounted ? 'text-blue-500' : 'text-slate-400'} />
+                      {React.createElement(DriveIcon(drive), {
+                        size: 18,
+                        className: drive.isMounted ? 'text-blue-500' : 'text-slate-400',
+                      })}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">/dev/{drive.name} {drive.fstype ? `- ${drive.fstype}` : ''}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{deviceId(drive)} {drive.fstype ? `- ${drive.fstype}` : ''}</p>
                     </div>
                   </div>
 
-                  {/* Mounted badge */}
-                  <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
-                    drive.isMounted
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                      : 'bg-slate-50 border-slate-200 text-slate-500'
-                  }`}>
-                    {drive.isMounted ? 'Mounted' : 'Unmounted'}
-                  </span>
+                  {/* Status badges */}
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
+                      drive.isMounted
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      {drive.isMounted ? 'Mounted' : 'Unmounted'}
+                    </span>
+                    {drive.isSystem && (
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-violet-50 border-violet-200 text-violet-600">
+                        System
+                      </span>
+                    )}
+                    {drive.isRemovable && (
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-amber-50 border-amber-200 text-amber-600">
+                        Removable
+                      </span>
+                    )}
+                    {drive.isReadOnly && (
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-slate-50 border-slate-200 text-slate-500">
+                        Read-only
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Capacity bar */}
                 {drive.isMounted && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      <span>{drive.usedBytes ? `${drive.usedBytes} used` : 'Usage unknown'}</span>
+                      <span>
+                        {drive.usedBytes
+                          ? `${drive.usedBytes} of ${drive.totalBytes || drive.size || '?'} used`
+                          : 'Usage unknown'}
+                      </span>
                       <span className="font-mono">{pct !== undefined ? `${pct}%` : drive.size || '?'}</span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
