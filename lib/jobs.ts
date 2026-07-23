@@ -5,6 +5,7 @@ import { createNotification } from './notifications.ts';
 import { rebuildFileIndex } from './indexer.ts';
 import { ensureThumbnail } from './thumbnails.ts';
 import { runBackup, restoreBackup } from './backups.ts';
+import { runSyncPlan } from './sync.ts';
 import { runOcr } from './ocr.ts';
 
 export type JobType =
@@ -13,6 +14,7 @@ export type JobType =
   | 'thumbnail.generate'
   | 'backup.run'
   | 'backup.restore'
+  | 'sync.run'
   | 'ocr.run'
   | 'zip.create'
   | 'file.move';
@@ -26,6 +28,7 @@ const JOB_RESOURCE_CLASS: Record<JobType, JobResourceClass> = {
   'thumbnail.generate': 'media',
   'backup.run': 'backup',
   'backup.restore': 'backup',
+  'sync.run': 'backup',
   'ocr.run': 'cpu',
   'zip.create': 'cpu',
   'file.move': 'io',
@@ -222,6 +225,8 @@ async function executeJob(job: any) {
       result = await runBackup({ ...payload, jobId: job.id, onProgress });
     } else if (job.type === 'backup.restore') {
       result = await restoreBackup({ ...payload, onProgress });
+    } else if (job.type === 'sync.run') {
+      result = await runSyncPlan({ planId: payload.planId, jobId: job.id, onProgress });
     } else if (job.type === 'ocr.run') {
       result = await runOcr({ ...payload, teamId: job.teamId, onProgress });
     } else if (job.type === 'zip.create') {

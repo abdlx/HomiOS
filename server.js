@@ -402,6 +402,10 @@ app.prepare().then(async () => {
     const { startJobWorker } = await import('./lib/jobs.ts');
     startJobWorker();
     console.log('OpenFinder job worker started');
+
+    const { startSyncScheduler } = await import('./lib/sync.ts');
+    startSyncScheduler();
+    console.log('OpenFinder backup sync scheduler started');
   } catch (e) {
     console.warn('OpenFinder job worker failed to start:', e);
   }
@@ -426,6 +430,10 @@ app.prepare().then(async () => {
     force.unref();
 
     if (checkpointTimer) clearInterval(checkpointTimer);
+    try {
+      const { stopSyncScheduler } = await import('./lib/sync.ts');
+      stopSyncScheduler();
+    } catch {}
 
     for (const term of global.openfinderTerminalSessions?.values() || []) {
       try { term.kill(); } catch {}

@@ -1,12 +1,15 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup } from 'lucide-react';
 import { DriveItem } from '../types';
+import BackupsPanel from './BackupsPanel';
 
 interface StorageDashboardProps {
   onNavigateDrive: (path: string) => void;
 }
 
-export default function StorageDashboard({ onNavigateDrive }: StorageDashboardProps) {
+type StorageTab = 'drives' | 'backups';
+
+function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
   const [drives, setDrives] = useState<DriveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [mountingDevice, setMountingDevice] = useState<string | null>(null);
@@ -224,6 +227,38 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
           OpenFinder runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely.
         </p>
       </div>
+    </div>
+  );
+}
+
+const TABS: { id: StorageTab; label: string; icon: typeof HardDrive }[] = [
+  { id: 'drives', label: 'Drives', icon: HardDrive },
+  { id: 'backups', label: 'Backups', icon: DatabaseBackup },
+];
+
+export default function StorageDashboard({ onNavigateDrive }: StorageDashboardProps) {
+  const [activeTab, setActiveTab] = useState<StorageTab>('drives');
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex items-center space-x-1 px-8 pt-6 border-b border-slate-200/70 dark:border-white/10">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center space-x-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 -mb-px transition-all ${
+              activeTab === tab.id
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            {React.createElement(tab.icon, { size: 14 })}
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'backups' ? <BackupsPanel /> : <DrivesPanel onNavigateDrive={onNavigateDrive} />}
     </div>
   );
 }

@@ -319,6 +319,38 @@ export function getDb(): any {
       FOREIGN KEY(run_id) REFERENCES backup_runs(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS sync_plans (
+      id             TEXT PRIMARY KEY,
+      team_id        TEXT,
+      user_id        INTEGER,
+      name           TEXT NOT NULL,
+      sources        TEXT NOT NULL DEFAULT '[]',
+      destinations   TEXT NOT NULL DEFAULT '[]',
+      mirror_deletes INTEGER DEFAULT 0,
+      schedule       TEXT NOT NULL DEFAULT 'manual',
+      enabled        INTEGER DEFAULT 1,
+      last_run_at    DATETIME,
+      last_status    TEXT,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_runs (
+      id            TEXT PRIMARY KEY,
+      plan_id       TEXT,
+      job_id        TEXT,
+      status        TEXT NOT NULL DEFAULT 'running',
+      files_copied  INTEGER DEFAULT 0,
+      files_skipped INTEGER DEFAULT 0,
+      files_deleted INTEGER DEFAULT 0,
+      bytes_copied  INTEGER DEFAULT 0,
+      pairs         TEXT DEFAULT '[]',
+      error         TEXT,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at   DATETIME,
+      FOREIGN KEY(plan_id) REFERENCES sync_plans(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS notifications (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       team_id     TEXT,
@@ -338,6 +370,7 @@ export function getDb(): any {
     CREATE INDEX IF NOT EXISTS idx_file_index_path ON file_index(path);
     CREATE INDEX IF NOT EXISTS idx_media_index_path ON media_index(path);
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at, created_at);
+    CREATE INDEX IF NOT EXISTS idx_sync_runs_plan ON sync_runs(plan_id, created_at);
   `);
 
   try {

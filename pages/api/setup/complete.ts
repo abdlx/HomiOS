@@ -1,14 +1,13 @@
 import { getDb } from '../../../lib/db.ts';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { setResourceProfile } from '../../../lib/resource-profile.ts';
-import { createBackupPlan } from '../../../lib/backups.ts';
 import { withTransaction } from '../../../lib/db.ts';
 
 export default withAuth(async (req, res, session) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { drives, performanceProfile, photoSources, backupDestination } = req.body || {};
+    const { drives, performanceProfile, photoSources } = req.body || {};
     const db = getDb();
 
     db.exec(`
@@ -48,17 +47,6 @@ export default withAuth(async (req, res, session) => {
 
     if (['beautiful', 'balanced', 'server_saver'].includes(performanceProfile)) {
       setResourceProfile(performanceProfile);
-    }
-
-    if (backupDestination && drives?.[0]) {
-      createBackupPlan({
-        teamId: session.teamId,
-        userId: session.userId,
-        name: 'Default Local Backup',
-        sourcePath: drives[0],
-        destinationType: 'local',
-        destination: String(backupDestination),
-      });
     }
 
     res.json({ ok: true });

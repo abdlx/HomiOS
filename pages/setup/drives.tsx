@@ -6,7 +6,6 @@ export default function DriveSetup() {
   const [selected, setSelected] = useState<string[]>([]);
   const [photoSources, setPhotoSources] = useState<string[]>([]);
   const [performanceProfile, setPerformanceProfile] = useState<'beautiful' | 'balanced' | 'server_saver'>('balanced');
-  const [backupDestination, setBackupDestination] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -20,7 +19,7 @@ export default function DriveSetup() {
     const res = await fetch('/api/setup/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ drives: selected, photoSources, performanceProfile, backupDestination })
+      body: JSON.stringify({ drives: selected, photoSources, performanceProfile })
     });
 
     if (res.ok) {
@@ -84,16 +83,6 @@ export default function DriveSetup() {
               </label>
             </div>
           ))}
-
-          <div className="bg-slate-700 rounded-lg p-4">
-            <label className="block text-sm font-semibold text-white mb-2">Optional Local Backup Destination</label>
-            <input
-              value={backupDestination}
-              onChange={(e) => setBackupDestination(e.target.value)}
-              placeholder="/mnt/backup or D:\\Backups"
-              className="w-full rounded-lg bg-slate-800 text-white border border-slate-600 px-3 py-2"
-            />
-          </div>
         </div>
 
         <button

@@ -100,6 +100,7 @@ export type JobType =
   | 'thumbnail.generate'
   | 'backup.run'
   | 'backup.restore'
+  | 'sync.run'
   | 'ocr.run'
   | 'zip.create'
   | 'file.move';
