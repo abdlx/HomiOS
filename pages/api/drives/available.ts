@@ -3,6 +3,10 @@ import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
 import { withAuth } from '../../../lib/api-auth.ts';
+import { applyDriveNicknames } from '../../../lib/drive-labels.ts';
+
+/** Overlay user-set nicknames, then respond. Single exit for every platform branch. */
+const sendDrives = (res: any, drives: any[]) => res.json(applyDriveNicknames(drives));
 
 const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -177,7 +181,7 @@ export default withAuth(async function handler(req: any, res: any) {
         return a.name.localeCompare(b.name);
       });
 
-      return res.json(drives);
+      return sendDrives(res, drives);
     } catch (e) {
       console.error('Failed to get Linux drives via lsblk:', e);
       // If lsblk fails entirely, fall through to the readdir fallback below.
@@ -222,7 +226,7 @@ export default withAuth(async function handler(req: any, res: any) {
           };
         })
         .filter(Boolean);
-      return res.json(drives);
+      return sendDrives(res, drives);
     } catch (e) {
       console.error('Failed to get macOS drives via df:', e);
     }
@@ -262,7 +266,7 @@ export default withAuth(async function handler(req: any, res: any) {
             size,
           };
         });
-      return res.json(drives);
+      return sendDrives(res, drives);
     } catch (e) {
       console.error('Failed to get Windows drives via CIM:', e);
     }

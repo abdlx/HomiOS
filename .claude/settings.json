@@ -32,7 +32,10 @@
       "PowerShell(Get-Partition -DiskNumber 1)",
       "PowerShell(Get-Partition -DiskNumber 1 | ForEach-Object { $v = $_ | Get-Volume -ErrorAction SilentlyContinue; [PSCustomObject]@{ Part=$_.PartitionNumber; Letter=$_.DriveLetter; SizeMB=[math]::Round\\($_.Size/1MB,1\\); Offset=$_.Offset; MbrType=$_.MbrType; Label=$v.FileSystemLabel; FS=$v.FileSystem } } | Format-Table -AutoSize)",
       "PowerShell(Get-Partition -DiskNumber 1 | ForEach-Object { $v = $_ | Get-Volume -ErrorAction SilentlyContinue; [PSCustomObject]@{ Part=$_.PartitionNumber; Letter=$_.DriveLetter; SizeGB=[math]::Round\\($_.Size/1GB,2\\); Label=$v.FileSystemLabel; FS=$v.FileSystem; FreeGB=[math]::Round\\($v.SizeRemaining/1GB,2\\) } } | Format-Table -AutoSize)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(git add *)",
+      "Bash(grep -n \"res.json\\(drives\\)\\\\|res.json\\(\\\\s*$\\\\|res.json\\($\" pages/api/drives/available.ts)",
+      "Bash(git commit -q -m ' *)"
     ]
   }
 }

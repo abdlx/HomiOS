@@ -1,7 +1,8 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup } from 'lucide-react';
+import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup, Pencil } from 'lucide-react';
 import { DriveItem } from '../types';
 import BackupsPanel from './BackupsPanel';
+import { promptDialog, toast } from './SystemUI';
 
 interface StorageDashboardProps {
   onNavigateDrive: (path: string) => void;
@@ -31,6 +32,35 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
   };
 
   useEffect(() => { loadDrives(); }, []);
+
+  const handleRename = async (drive: DriveItem) => {
+    const current = drive.nickname || '';
+    const next = await promptDialog({
+      title: `Rename ${drive.defaultLabel || drive.label}`,
+      message: 'Set a display name for this drive in OpenFinder. Leave blank to reset to the default. This does not change the disk label.',
+      placeholder: drive.defaultLabel || 'My Drive',
+      defaultValue: current,
+      confirmLabel: 'Save',
+    });
+    // Dialog cancelled (null), or nothing actually changed.
+    if (next === null || next.trim() === current) return;
+    try {
+      const res = await fetch('/api/drives/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: drive.name, label: next.trim() }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        toast({ message: next.trim() ? 'Drive renamed' : 'Name reset', tone: 'success' });
+        loadDrives();
+      } else {
+        toast({ message: result.error || 'Rename failed', tone: 'danger' });
+      }
+    } catch {
+      toast({ message: 'Connection error', tone: 'danger' });
+    }
+  };
 
   const handleMount = async (drive: DriveItem) => {
     setMountingDevice(drive.name);
@@ -124,7 +154,16 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
                       })}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
+                      <div className="flex items-center space-x-1.5">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
+                        <button
+                          onClick={() => handleRename(drive)}
+                          title="Rename drive"
+                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{deviceId(drive)} {drive.fstype ? `- ${drive.fstype}` : ''}</p>
                     </div>
                   </div>

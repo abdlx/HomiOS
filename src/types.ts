@@ -92,6 +92,10 @@ export interface DriveItem {
   isReadOnly?: boolean;
   /** Hardware model reported by the device, e.g. "Samsung SSD 980" */
   model?: string;
+  /** User-set OpenFinder display name, if any (overrides label). */
+  nickname?: string;
+  /** The label before any nickname was applied — used to offer a reset. */
+  defaultLabel?: string;
 }
 
 export type JobType =
