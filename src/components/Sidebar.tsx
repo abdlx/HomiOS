@@ -47,14 +47,17 @@ export default function Sidebar({
       .then((res) => res.json())
       .then((data) => {
         if (data && data.length >= 0) {
-          const drives = data.map((d: any) => ({
-            id: d.path || d.label,
-            label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
-            icon: 'HardDrive',
-            path: d.path,
-            name: d.name, // raw device name e.g. "sda1"
-            isMounted: d.isMounted !== false
-          }));
+          const drives = data
+            // System volumes (/, /boot, /boot/efi) aren't user storage — hide them from the list.
+            .filter((d: any) => !d.isSystem)
+            .map((d: any) => ({
+              id: d.path || d.label,
+              label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
+              icon: 'HardDrive',
+              path: d.path,
+              name: d.name, // raw device name e.g. "sda1"
+              isMounted: d.isMounted !== false
+            }));
           setRealFolders(drives);
         }
       })
