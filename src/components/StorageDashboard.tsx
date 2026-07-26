@@ -21,7 +21,8 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
       const res = await fetch('/api/drives/available');
       if (res.ok) {
         const data = await res.json();
-        setDrives(data);
+        // System volumes (/, /boot, /boot/efi) aren't user storage — hide them.
+        setDrives(data.filter((d: DriveItem) => !d.isSystem));
       }
     } catch (e) {
       console.error('Failed to load drives:', e);
