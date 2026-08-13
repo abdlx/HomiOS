@@ -1,9 +1,8 @@
 import os from 'os';
-import path from 'path';
 import { execFile } from 'child_process';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { mkdir } from 'fs/promises';
-import { getSambaRoot } from '../../../lib/safe-paths.ts';
+import { DriveMountPathError, getDriveMountPoint } from '../../../lib/drive-mounts.ts';
 
 const execFileAsync = (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -63,14 +62,17 @@ export default withAuth(async function handler(req: any, res: any) {
   const { device } = req.body; // e.g. "sda1" or "nvme0n1p1"
   if (!device) return res.status(400).json({ error: 'Device name is required' });
 
-  // Sanitize — only allow alphanumeric, dash, underscore
-  const safeDevice = String(device);
-  if (!/^[a-zA-Z0-9_-]+$/.test(safeDevice)) {
-    return res.status(400).json({ error: 'Invalid device name' });
+  let mountPoint: string;
+  try {
+    mountPoint = getDriveMountPoint(device);
+  } catch (error) {
+    if (error instanceof DriveMountPathError) {
+      return res.status(400).json({ error: error.message });
+    }
+    throw error;
   }
-  // Managed disks live inside the isolated Samba tree, so folders selected in
-  // Finder can be shared without widening Samba access to the host filesystem.
-  const mountPoint = path.join(getSambaRoot(), safeDevice);
+
+  const safeDevice = String(device).trim();
   const devPath = `/dev/${safeDevice}`;
 
   try {

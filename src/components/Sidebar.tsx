@@ -93,7 +93,7 @@ export default function Sidebar({
         const deviceName = (item as any).name || item.label.split(' ')[0];
         const confirmMount = await confirmDialog({
           title: `Mount “${item.label}”?`,
-          message: `This will mount /dev/${deviceName} → /mnt/${deviceName}. Requires sudo or root privileges.`,
+          message: `This will mount /dev/${deviceName} at its fixed OpenFinder mount path. Requires sudo or root privileges.`,
           confirmLabel: 'Mount',
         });
         if (confirmMount) {
