@@ -272,6 +272,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
             onOpenNotes={() => setView('notes')}
             onOpenVSCode={() => setView('vscode')}
             onOpenCodex={() => setView('codex')}
+            onOpenSearch={() => setIsCommandPaletteOpen(true)}
             username={username}
           />
         )}

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Terminal, Folder, Activity, Settings, Code, RefreshCw, HardDrive, FileText, Sparkles, Images, Boxes } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Terminal, Folder, Activity, Settings, Code, RefreshCw, HardDrive, FileText, Sparkles, Images, Boxes } from 'lucide-react';
+import { GooeyInput } from '@/components/ui/gooey-input';
 import { SearchResult } from '../types';
 
 interface CommandPaletteProps {
@@ -59,8 +61,6 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
     return ACTIONS.filter((action) => !q || action.label.toLowerCase().includes(q)).slice(0, 8);
   }, [query]);
 
-  if (!open) return null;
-
   const runAction = (view: typeof ACTIONS[number]['view']) => {
     onOpenView(view);
     onClose();
@@ -77,46 +77,71 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
   };
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-[12vh]" onClick={onClose}>
-      <div className="w-[min(680px,calc(100vw-32px))] rounded-2xl border border-white/10 bg-white dark:bg-[#1f1f22] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-white/10">
-          <Search size={18} className="text-slate-400" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onClose();
-              if (e.key === 'Enter' && filteredActions[0]) runAction(filteredActions[0].view);
-            }}
-            placeholder="Search files or run a command"
-            className="flex-1 bg-transparent outline-none text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
-          />
-        </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[300] flex items-start justify-center bg-black/30 px-4 pt-[18vh] backdrop-blur-xl"
+          onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search OpenFinder"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 120, scale: 0.35 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 80, scale: 0.55 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 27, mass: 0.72 }}
+            className="w-[min(680px,calc(100vw-32px))]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GooeyInput
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') onClose();
+                if (e.key === 'Enter' && filteredActions[0]) runAction(filteredActions[0].view);
+              }}
+              placeholder="Search files or run a command"
+              aria-label="Search files or run a command"
+              trailing={<kbd className="rounded-full border border-white/12 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/45">ESC</kbd>}
+            />
 
-        <div className="max-h-[60vh] overflow-y-auto p-2">
+            <AnimatePresence>
+              {query.trim().length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-3 max-h-[54vh] overflow-y-auto rounded-[28px] border border-white/14 bg-[#17171a]/86 p-2 text-white shadow-[0_28px_90px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-3xl"
+                >
           <button
             onClick={refreshIndex}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[18px] text-left text-sm text-white/78 hover:bg-white/10 hover:text-white"
           >
             <RefreshCw size={16} className="text-blue-500" />
             <span className="font-medium">Refresh file index</span>
           </button>
           <button
             onClick={() => runAction('activity')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[18px] text-left text-sm text-white/78 hover:bg-white/10 hover:text-white"
           >
             <HardDrive size={16} className="text-emerald-500" />
             <span className="font-medium">Open backups and task manager</span>
           </button>
 
           {filteredActions.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-white/10">
+            <div className="mt-2 border-t border-white/10 pt-2">
               {filteredActions.map((action) => (
                 <button
                   key={action.id}
                   onClick={() => runAction(action.view)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[18px] text-left text-sm text-white/78 hover:bg-white/10 hover:text-white"
                 >
                   <action.icon size={16} className="text-slate-400" />
                   <span>{action.label}</span>
@@ -126,22 +151,26 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
           )}
 
           {(results.length > 0 || loading) && (
-            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-white/10">
+            <div className="mt-2 border-t border-white/10 pt-2">
               {loading && <div className="px-3 py-2 text-xs text-slate-400">Searching…</div>}
               {results.map((result) => (
                 <button
                   key={result.id}
                   onClick={() => runAction(result.kind === 'note' ? 'notes' : 'files')}
-                  className="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-white/10"
+                  className="w-full rounded-[18px] px-3 py-2.5 text-left hover:bg-white/10"
                 >
-                  <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{result.name}</div>
-                  <div className="text-xs text-slate-400 truncate">{result.path || result.snippet}</div>
+                  <div className="truncate text-sm font-medium text-white/90">{result.name}</div>
+                  <div className="truncate text-xs text-white/42">{result.path || result.snippet}</div>
                 </button>
               ))}
             </div>
           )}
-        </div>
-      </div>
-    </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

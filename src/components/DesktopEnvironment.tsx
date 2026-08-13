@@ -23,6 +23,7 @@ interface DesktopEnvironmentProps {
   onOpenNotes: () => void;
   onOpenVSCode: () => void;
   onOpenCodex: () => void;
+  onOpenSearch: () => void;
   username?: string;
 }
 
@@ -168,7 +169,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   );
 });
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -529,6 +530,18 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
       </div>
 
       <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
+        <motion.button
+          layoutId="openfinder-search-pill"
+          onClick={onOpenSearch}
+          whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.05, y: -2 }}
+          whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.94 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          className="group mb-2 inline-flex h-8 items-center gap-2 rounded-full border border-white/20 bg-black/38 px-4 text-[12px] font-semibold tracking-[0.01em] text-white/88 shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl hover:bg-black/50 hover:text-white"
+          aria-label="Open search"
+        >
+          <Search size={13} strokeWidth={2.4} className="text-white/65 transition-colors group-hover:text-white" />
+          <span>search</span>
+        </motion.button>
         <div onDragOver={handleAppDragOver} onDrop={(e) => handleAppDrop(e, undefined, 'dock')}>
         <FloatingDock
           glassSurfaces={performanceSettings.glassSurfaces}
