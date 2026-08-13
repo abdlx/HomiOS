@@ -1,7 +1,9 @@
 import os from 'os';
+import path from 'path';
 import { execFile } from 'child_process';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { mkdir } from 'fs/promises';
+import { getSambaRoot } from '../../../lib/safe-paths.ts';
 
 const execFileAsync = (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -66,7 +68,9 @@ export default withAuth(async function handler(req: any, res: any) {
   if (!/^[a-zA-Z0-9_-]+$/.test(safeDevice)) {
     return res.status(400).json({ error: 'Invalid device name' });
   }
-  const mountPoint = `/mnt/${safeDevice}`;
+  // Managed disks live inside the isolated Samba tree, so folders selected in
+  // Finder can be shared without widening Samba access to the host filesystem.
+  const mountPoint = path.join(getSambaRoot(), safeDevice);
   const devPath = `/dev/${safeDevice}`;
 
   try {

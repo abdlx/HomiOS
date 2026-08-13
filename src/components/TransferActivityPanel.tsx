@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Clock3, Copy, DatabaseBackup, Loader2, Pause, Play, RefreshCw, XCircle } from 'lucide-react';
 import { Job } from '../types';
 import { useJobActivity } from '../hooks/useJobActivity';
@@ -31,10 +31,34 @@ export default function TransferActivityPanel() {
   const { transferJobs, activeJobs, error, updateJob } = useJobActivity();
   const [collapsed, setCollapsed] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const panelRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem('openfinder_transfer_panel_collapsed') === 'true');
   }, []);
+
+  // This panel and Finder's local upload panel live in different component
+  // trees. Publish our measured footprint so either panel can stack cleanly,
+  // even when this one expands, collapses, or changes with server activity.
+  useEffect(() => {
+    const root = document.documentElement;
+    const panel = panelRef.current;
+    if (!panel) {
+      root.style.removeProperty('--openfinder-activity-panel-offset');
+      return;
+    }
+
+    const publishOffset = () => {
+      root.style.setProperty('--openfinder-activity-panel-offset', `${Math.ceil(panel.getBoundingClientRect().height) + 12}px`);
+    };
+    publishOffset();
+    const observer = new ResizeObserver(publishOffset);
+    observer.observe(panel);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--openfinder-activity-panel-offset');
+    };
+  }, [transferJobs.length, error]);
 
   const activeTransferIds = useMemo(() => new Set(activeJobs.map((job) => job.id)), [activeJobs]);
   const visible = useMemo(() => {
@@ -55,7 +79,7 @@ export default function TransferActivityPanel() {
   };
 
   return (
-    <aside className="fixed bottom-5 right-5 z-[210] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[24px] border border-white/12 bg-[#151518]/94 text-white shadow-[0_24px_80px_rgba(0,0,0,.48)] backdrop-blur-2xl">
+    <aside ref={panelRef} className="fixed bottom-5 right-5 z-[210] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[24px] border border-white/12 bg-[#151518]/94 text-white shadow-[0_24px_80px_rgba(0,0,0,.48)] backdrop-blur-2xl">
       <button onClick={toggleCollapsed} className="flex w-full items-center gap-3 border-b border-white/10 px-4 py-3 text-left hover:bg-white/[0.04]">
         <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
           {running > 0 ? <Loader2 size={17} className="animate-spin" /> : <DatabaseBackup size={17} />}

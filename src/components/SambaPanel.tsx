@@ -279,7 +279,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Folder Path</label>
                     <input type="text" value={newSharePath} onChange={e => setNewSharePath(e.target.value)} placeholder="e.g. /mnt/sda1/Media" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">For safety, the folder must be inside the server's configured Samba storage root.</p>
+                    <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">Choose a folder on an OpenFinder-managed disk inside the configured Samba storage root.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

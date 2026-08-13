@@ -24,7 +24,13 @@ export default function TransferCenter({
   const activeCount = transfers.filter((t) => t.status === 'uploading' || t.status === 'pending').length;
 
   return (
-    <div className={`fixed right-6 w-80 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-neutral-200 dark:border-white/10 rounded-2xl overflow-hidden z-50 flex flex-col max-h-[430px] ${isMobile ? 'bottom-20 left-6 right-6 w-auto' : 'bottom-6'}`}>
+    <div
+      className={`fixed right-6 w-80 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-neutral-200 dark:border-white/10 rounded-2xl overflow-hidden z-[215] flex flex-col transition-[bottom,max-height] duration-200 ${isMobile ? 'left-6 right-6 w-auto' : ''}`}
+      style={{
+        bottom: `calc(${isMobile ? '5rem' : '1.5rem'} + var(--openfinder-activity-panel-offset, 0px))`,
+        maxHeight: `min(430px, calc(100dvh - ${isMobile ? '6rem' : '2.5rem'} - var(--openfinder-activity-panel-offset, 0px)))`,
+      }}
+    >
       <div className="bg-neutral-50 dark:bg-white/5 px-4 py-2 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center">
         <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Transfers ({activeCount} active)</span>
         <button onClick={onClearFinished} className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer">
