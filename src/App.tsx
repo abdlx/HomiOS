@@ -298,7 +298,7 @@ export default function App({ onClose }: AppProps = {}) {
   };
 
   const handleShare = (file: FileItem) => {
-    setShareTarget(`/${getApiPath()}/${file.name}`.replace(/\/\//g, '/'));
+    setShareTarget(`/${String(file.id).replace(/\\/g, '/')}`.replace(/\/+/g, '/'));
     setShowShared(true);
     setShowStorage(false);
     setActiveSection('shared');

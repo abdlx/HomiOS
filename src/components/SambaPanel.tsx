@@ -38,6 +38,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   const [newShareEnabled, setNewShareEnabled] = useState(true);
   const [newShareExpiresAt, setNewShareExpiresAt] = useState('');
   const [newShareUsers, setNewShareUsers] = useState<number[]>([]);
+  const [shareSaving, setShareSaving] = useState(false);
 
   // New User form state
   const [isAddingUser, setIsAddingUser] = useState(false);
@@ -81,31 +82,40 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   }, [defaultPath]);
 
   const createShare = async () => {
+    if (shareSaving) return;
     if (!newShareName || !newSharePath) return toast({ message: 'Name and path are required', tone: 'warning' });
-    const res = await fetch('/api/shares', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newShareName,
-        path: newSharePath,
-        readOnly: newShareReadOnly,
-        enabled: newShareEnabled,
-        expiresAt: newShareExpiresAt || null,
-        userIds: newShareUsers
-      })
-    });
-    if (res.ok) {
-      setIsAddingShare(false);
-      setNewShareName('');
-      setNewSharePath('');
-      setNewShareReadOnly(false);
-      setNewShareEnabled(true);
-      setNewShareExpiresAt('');
-      setNewShareUsers([]);
-      loadData();
-    } else {
-      const data = await res.json();
-      toast({ message: 'Something went wrong', description: data.error, tone: 'danger' });
+    setShareSaving(true);
+    try {
+      const res = await fetch('/api/shares', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newShareName,
+          path: newSharePath,
+          readOnly: newShareReadOnly,
+          enabled: newShareEnabled,
+          expiresAt: newShareExpiresAt || null,
+          userIds: newShareUsers
+        })
+      });
+      if (res.ok) {
+        setIsAddingShare(false);
+        setNewShareName('');
+        setNewSharePath('');
+        setNewShareReadOnly(false);
+        setNewShareEnabled(true);
+        setNewShareExpiresAt('');
+        setNewShareUsers([]);
+        await loadData();
+        toast({ message: 'Samba share is live', description: `\\\\${host}\\${newShareName}`, tone: 'success' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ message: 'Could not create Samba share', description: data.error || `Server returned ${res.status}`, tone: 'danger' });
+      }
+    } catch {
+      toast({ message: 'Could not create Samba share', description: 'The server could not be reached. Try again.', tone: 'danger' });
+    } finally {
+      setShareSaving(false);
     }
   };
 
@@ -269,6 +279,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Folder Path</label>
                     <input type="text" value={newSharePath} onChange={e => setNewSharePath(e.target.value)} placeholder="e.g. /mnt/sda1/Media" className="w-full mt-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">For safety, the folder must be inside the server's configured Samba storage root.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -305,8 +316,8 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <button onClick={createShare} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2">
-                    <Save size={16} /> Create Share
+                  <button disabled={shareSaving} onClick={createShare} className="bg-blue-600 disabled:opacity-60 disabled:cursor-wait text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    {shareSaving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />} {shareSaving ? 'Creating…' : 'Create Share'}
                   </button>
                 </div>
               </div>

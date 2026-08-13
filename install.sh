@@ -156,6 +156,7 @@ Environment=HOST=127.0.0.1
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
+Environment=OPENFINDER_SAMBA_ROOT=/mnt/openfinder-storage
 EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/npm start
 # Auto-restart on crash with 5s delay

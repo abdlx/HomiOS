@@ -2,13 +2,38 @@
  * Samba (SMB/CIFS) integration — smb.conf generation + smbpasswd management.
  * Schema lives in lib/db.ts; callers pass the shared connection in.
  */
-import { renameSync, unlinkSync, writeFileSync } from 'fs';
-import { execSync, spawnSync } from 'child_process';
+import { copyFileSync, existsSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { resolveWithinRoot, sanitizeSambaText, validateSambaShareName } from './safe-paths.ts';
 
 // ─── smb.conf regeneration ────────────────────────────────────────────────────
 
-export function regenerateSmbConf(db: any) {
+export type SambaApplyResult = {
+  ok: boolean;
+  applied: boolean;
+  reloaded: boolean;
+  warning?: string;
+};
+
+export class SambaConfigError extends Error {
+  code: 'unavailable' | 'validation' | 'write' | 'reload';
+  constructor(code: SambaConfigError['code'], message: string) {
+    super(message);
+    this.name = 'SambaConfigError';
+    this.code = code;
+  }
+}
+
+function commandOutput(result: ReturnType<typeof spawnSync>): string {
+  return String(result.stderr || result.stdout || '').trim();
+}
+
+/** Generate, validate, atomically install, and reload smb.conf. Errors are never swallowed. */
+export function regenerateSmbConf(db: any): SambaApplyResult {
+  const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
+  const tmp = `${target}.openfinder.tmp`;
+  const backup = `${target}.openfinder.previous`;
+  const hadTarget = existsSync(target);
   try {
     const shares = db.prepare(`
       SELECT * FROM shares
@@ -66,23 +91,43 @@ export function regenerateSmbConf(db: any) {
 `;
     }
 
-    const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
-    const tmp = `${target}.openfinder.tmp`;
     writeFileSync(tmp, config, { mode: 0o644 });
-    const test = spawnSync('testparm', ['-s', tmp], { timeout: 5000, encoding: 'utf8' });
-    if (test.status !== 0) {
-      try { unlinkSync(tmp); } catch {}
-      throw new Error(test.stderr || test.stdout || 'Generated Samba config failed validation');
+    const testparmBin = process.env.SAMBA_TESTPARM_BIN || 'testparm';
+    const smbcontrolBin = process.env.SAMBA_CONTROL_BIN || 'smbcontrol';
+    const systemctlBin = process.env.SAMBA_SYSTEMCTL_BIN || 'systemctl';
+    const pkillBin = process.env.SAMBA_PKILL_BIN || 'pkill';
+    const test = spawnSync(testparmBin, ['-s', tmp], { timeout: 5000, encoding: 'utf8' });
+    if (test.error && (test.error as any).code === 'ENOENT') {
+      throw new SambaConfigError('unavailable', 'Samba validation tool (testparm) is not installed');
     }
+    if (test.status !== 0) {
+      throw new SambaConfigError('validation', commandOutput(test) || 'Generated Samba configuration failed validation');
+    }
+    if (existsSync(target)) copyFileSync(target, backup);
     renameSync(tmp, target);
 
-    // Graceful reload, fall back to restart
-    const reload = spawnSync('smbcontrol', ['smbd', 'reload-config'], { timeout: 3000 });
-    if (reload.status !== 0) {
-      execSync('systemctl reload smbd 2>/dev/null || pkill -HUP smbd || true');
+    // Graceful daemon reload. Do not run through a shell: this preserves precise
+    // exit codes and avoids claiming success when every fallback failed.
+    const attempts = [
+      spawnSync(smbcontrolBin, ['smbd', 'reload-config'], { timeout: 5000, encoding: 'utf8' }),
+      spawnSync(systemctlBin, ['reload', 'smbd'], { timeout: 8000, encoding: 'utf8' }),
+      spawnSync(pkillBin, ['-HUP', 'smbd'], { timeout: 5000, encoding: 'utf8' }),
+    ];
+    if (!attempts.some((result) => result.status === 0)) {
+      if (existsSync(backup)) copyFileSync(backup, target);
+      else if (!hadTarget) try { unlinkSync(target); } catch {}
+      throw new SambaConfigError(
+        'reload',
+        commandOutput(attempts[2]) || commandOutput(attempts[1]) || commandOutput(attempts[0]) || 'Samba service could not reload the new configuration',
+      );
     }
-  } catch (e) {
-    console.error('[samba] smb.conf regeneration failed:', e);
+    try { unlinkSync(backup); } catch {}
+    return { ok: true, applied: true, reloaded: true };
+  } catch (error: any) {
+    try { unlinkSync(tmp); } catch {}
+    if (error instanceof SambaConfigError) throw error;
+    const code: SambaConfigError['code'] = error?.code === 'EACCES' || error?.code === 'EPERM' ? 'write' : 'unavailable';
+    throw new SambaConfigError(code, error?.message || 'Samba configuration could not be applied');
   }
 }
 
