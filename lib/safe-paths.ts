@@ -7,17 +7,43 @@ export function getSambaRoot(): string {
 }
 
 /**
- * Directories an administrator may publish through Samba. The managed-disk root
- * is always allowed; additional roots are an explicit, host-level opt-in.
+ * Directories an administrator may publish through Samba. In addition to normal
+ * data locations and configured roots, mounted volumes are discovered from the
+ * host so drives do not have to live below OPENFINDER_SAMBA_ROOT.
  */
 export function getSambaAllowedRoots(): string[] {
+  const standardDataRoots = process.platform === 'win32'
+    ? []
+    : ['/home', '/media', '/mnt', '/srv', '/data', '/storage'];
   const configured = String(process.env.OPENFINDER_SAMBA_ALLOWED_ROOTS || '')
     .split(path.delimiter)
     .map((value) => value.trim())
     .filter(Boolean)
     .filter((value) => path.isAbsolute(value))
     .map((value) => path.resolve(value));
-  return [...new Set([getSambaRoot(), ...configured])];
+  const mounted = getMountedShareRoots();
+  return [...new Set([getSambaRoot(), ...standardDataRoots, ...mounted, ...configured])];
+}
+
+const blockedMountRoots = ['/boot', '/dev', '/etc', '/proc', '/root', '/run', '/snap', '/sys', '/usr', '/var'];
+
+function decodeMountPath(value: string): string {
+  return value.replace(/\\040/g, ' ').replace(/\\011/g, '\t').replace(/\\134/g, '\\');
+}
+
+function getMountedShareRoots(): string[] {
+  if (process.platform !== 'linux') return [];
+  try {
+    return fs.readFileSync('/proc/self/mountinfo', 'utf8')
+      .split('\n')
+      .map((line) => line.split(' - ')[0]?.trim().split(/\s+/)[4])
+      .filter(Boolean)
+      .map((mountPoint) => path.resolve(decodeMountPath(mountPoint!)))
+      .filter((mountPoint) => mountPoint !== '/')
+      .filter((mountPoint) => !blockedMountRoots.some((root) => isInside(root, mountPoint)));
+  } catch {
+    return [];
+  }
 }
 
 function hasControlChars(value: string): boolean {

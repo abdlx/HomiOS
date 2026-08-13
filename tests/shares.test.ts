@@ -5,6 +5,7 @@ import path from 'path';
 import { getDb, withTransaction } from '../lib/db.ts';
 import { createSession, createUserWithPasswordHash } from '../lib/auth.ts';
 import sharesHandler from '../pages/api/shares/index.ts';
+import { resolveWithinRoot } from '../lib/safe-paths.ts';
 import { mockReq, mockRes } from './helpers.ts';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openfinder-samba-'));
@@ -47,6 +48,11 @@ async function post(body: any) {
 }
 
 describe('/api/shares', () => {
+  it.skipIf(process.platform === 'win32')('allows folders in standard host data locations', () => {
+    expect(resolveWithinRoot('/home/openfinder-share-test')).toBe('/home/openfinder-share-test');
+    expect(resolveWithinRoot('/srv/openfinder-share-test')).toBe('/srv/openfinder-share-test');
+  });
+
   it('creates a Samba share, validates the config, and installs it', async () => {
     const sharePath = path.join(sambaRoot, 'photos');
     const response = await post({ name: 'Photos', path: sharePath });
