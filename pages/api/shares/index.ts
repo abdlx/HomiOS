@@ -29,10 +29,16 @@ function validateAccessRows(db: any, rows: any[]) {
   const uniqueIds = [...new Set(normalized.map((row) => row.id))];
   if (uniqueIds.length > 0) {
     const placeholders = uniqueIds.map(() => '?').join(', ');
-    const found = db.prepare(`SELECT COUNT(*) as count FROM samba_users WHERE id IN (${placeholders})`).get(...uniqueIds) as any;
-    if ((found?.count || 0) !== uniqueIds.length) throw new ValidationError('One or more Samba users no longer exist');
+    const found = db.prepare(`SELECT COUNT(*) as count FROM samba_users WHERE enabled = 1 AND id IN (${placeholders})`).get(...uniqueIds) as any;
+    if ((found?.count || 0) !== uniqueIds.length) throw new ValidationError('One or more selected Samba users are missing or disabled');
   }
   return normalized;
+}
+
+function requireAccessUser(rows: any[], enabled: boolean) {
+  if (enabled && rows.length === 0) {
+    throw new ValidationError('Select at least one enabled Samba user before publishing this share');
+  }
 }
 
 function ensureShareDirectory(sharePath: string) {
@@ -102,6 +108,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       const safeComment = sanitizeSambaText(comment);
       const safeExpiry = validateExpiry(expiresAt);
       const accessRows = validateAccessRows(db, normalizeAccessRows(userIds, userAccess, readOnly));
+      requireAccessUser(accessRows, !!enabled);
       const existingShare = db.prepare('SELECT * FROM shares WHERE name = ?').get(safeName) as any;
       if (existingShare && (existingShare.user_id !== session.userId || existingShare.path !== sharePath)) {
         return res.status(409).json({ error: 'A Samba share with that name already exists' });
@@ -182,9 +189,14 @@ export default withAuth(async function handler(req: any, res: any, session: any)
 
         if (Array.isArray(userIds) || Array.isArray(userAccess)) {
           const accessRows = validateAccessRows(tx, normalizeAccessRows(userIds, userAccess, !!(readOnly ?? existing.read_only)));
+          requireAccessUser(accessRows, !!(enabled ?? existing.enabled));
           tx.prepare('DELETE FROM share_users WHERE share_id = ?').run(id);
           const linkStmt = tx.prepare('INSERT INTO share_users (share_id, samba_user_id, access) VALUES (?, ?, ?)');
           for (const row of accessRows) linkStmt.run(id, row.id, row.access);
+        }
+        if (!Array.isArray(userIds) && !Array.isArray(userAccess) && !!(enabled ?? existing.enabled)) {
+          const access = tx.prepare('SELECT COUNT(*) AS count FROM share_users WHERE share_id = ?').get(id) as any;
+          requireAccessUser(Array.from({ length: access?.count || 0 }), true);
         }
         regenerateSmbConf(tx);
       });

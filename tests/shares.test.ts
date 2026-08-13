@@ -13,6 +13,7 @@ const confPath = path.join(root, 'smb.conf');
 const okCommand = process.platform === 'win32' ? 'cmd.exe' : 'true';
 
 let sessionId: string;
+let sambaUserId: number;
 
 beforeAll(() => {
   fs.mkdirSync(sambaRoot, { recursive: true });
@@ -24,6 +25,7 @@ beforeAll(() => {
   process.env.SAMBA_PKILL_BIN = okCommand;
   const userId = withTransaction((db) => createUserWithPasswordHash(db, 'shares@openfinder.test', 'x', { isAdmin: true }));
   sessionId = createSession(userId);
+  sambaUserId = Number(getDb().prepare("INSERT INTO samba_users (username, enabled) VALUES ('sharetest', 1)").run().lastInsertRowid);
 });
 
 beforeEach(() => {
@@ -37,7 +39,7 @@ afterAll(() => {
 
 async function post(body: any) {
   const response = mockRes();
-  await sharesHandler(mockReq({ method: 'POST', sessionId, body }), response);
+  await sharesHandler(mockReq({ method: 'POST', sessionId, body: { userIds: [sambaUserId], ...body } }), response);
   return response;
 }
 
@@ -56,6 +58,13 @@ describe('/api/shares', () => {
     const response = await post({ name: 'Unsafe', path: path.join(root, 'outside') });
     expect(response.statusCode).toBe(400);
     expect(response.body.error).toContain(sambaRoot);
+  });
+
+  it('refuses to publish a share that no Samba user can authenticate to', async () => {
+    const response = await post({ name: 'LockedOut', path: path.join(sambaRoot, 'locked-out'), userIds: [] });
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toMatch(/select at least one/i);
+    expect(getDb().prepare("SELECT id FROM shares WHERE name = 'LockedOut'").get()).toBeUndefined();
   });
 
   it('returns 409 for a duplicate share name', async () => {

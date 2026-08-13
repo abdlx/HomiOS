@@ -84,6 +84,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   const createShare = async () => {
     if (shareSaving) return;
     if (!newShareName || !newSharePath) return toast({ message: 'Name and path are required', tone: 'warning' });
+    if (newShareEnabled && newShareUsers.length === 0) return toast({ message: 'Select an access user', description: 'Windows needs a Samba username and password to open this share.', tone: 'warning' });
     setShareSaving(true);
     try {
       const res = await fetch('/api/shares', {
@@ -301,6 +302,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Allowed Users</label>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Select at least one user, then use that username and SMB password when Windows asks for credentials.</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {users.map(u => (
                       <button 
@@ -422,6 +424,11 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
 
                 <div className="border-t border-slate-100 dark:border-white/10 pt-3">
                   <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-2">Access Control</p>
+                  {(share.sambaUsers?.length || 0) === 0 && (
+                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+                      This share cannot be opened yet. Assign an enabled Samba user below, then connect again with that user's SMB password.
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {users.map(u => {
                       const access = share.sambaUsers?.find((su: any) => su.id === u.id)?.access;

@@ -42,6 +42,7 @@ export default withAuth(async function handler(req: any, res: any) {
         const user = db.prepare('SELECT * FROM samba_users WHERE username = ?').get(username) as any;
         if (!user) return res.status(404).json({ error: 'User not found' });
         const osResult = toggleSambaUser(username, !!enabled);
+        if (!osResult.ok) return res.status(503).json({ error: osResult.error || 'Samba could not update this account' });
         withTransaction((tx) => {
           tx.prepare('UPDATE samba_users SET enabled = ? WHERE username = ?').run(!!enabled ? 1 : 0, username);
         });
@@ -54,7 +55,8 @@ export default withAuth(async function handler(req: any, res: any) {
         const user = db.prepare('SELECT * FROM samba_users WHERE username = ?').get(username) as any;
         if (!user) return res.status(404).json({ error: 'User not found' });
         const osResult = setSambaPassword(username, password);
-        return res.json({ ok: osResult.ok, osResult: summarizeOsResult(osResult) });
+        if (!osResult.ok) return res.status(503).json({ error: osResult.error || 'Samba could not update this password' });
+        return res.json({ ok: true, osResult: summarizeOsResult(osResult) });
       }
 
       if (!password) return res.status(400).json({ error: 'password is required for new users' });
@@ -62,6 +64,7 @@ export default withAuth(async function handler(req: any, res: any) {
       if (existing) return res.status(409).json({ error: 'User already exists' });
 
       const osResult = setSambaPassword(username, password);
+      if (!osResult.ok) return res.status(503).json({ error: osResult.error || 'Samba could not create this account' });
       const result = withTransaction((tx) => tx.prepare(
         'INSERT INTO samba_users (username, enabled) VALUES (?, 1)'
       ).run(username));
@@ -81,6 +84,7 @@ export default withAuth(async function handler(req: any, res: any) {
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       const osResult = removeSambaUser(user.username);
+      if (!osResult.ok) return res.status(503).json({ error: osResult.error || 'Samba could not remove this account' });
       withTransaction((tx) => {
         tx.prepare('DELETE FROM samba_users WHERE id = ?').run(id);
       });
