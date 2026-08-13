@@ -442,8 +442,8 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <NotificationCenter open={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
 
-      <div className="relative z-10 flex-1 flex flex-col items-center pt-5 md:pt-4 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
-        <header className="w-full max-w-[1050px] mb-8 md:mb-10">
+      <div className="relative z-10 flex-1 flex flex-col items-center pt-8 md:pt-7 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
+        <header className="w-full max-w-[1050px] mb-11 md:mb-[52px]">
           <div className="text-center">
             <h1 className="text-[30px] md:text-[38px] leading-tight font-semibold tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]">
               {greeting}, {username || 'User'}
@@ -453,7 +453,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </p>
           </div>
 
-          <div className="relative isolate mt-6 overflow-hidden rounded-[32px] shadow-[0_16px_40px_rgba(0,0,0,0.2)]">
+          <div className="relative isolate mt-[34px] overflow-hidden rounded-[32px] shadow-[0_16px_40px_rgba(0,0,0,0.2)]">
             <div className="pointer-events-none absolute inset-0 -z-10">
               <HeaderMetricsBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
             </div>
