@@ -32,6 +32,42 @@ if [ "$EUID" -ne 0 ]; then
   fail "Please run as root: sudo bash install.sh"
 fi
 
+# Optional services default to off in unattended installs. Interactive installs
+# ask once, while flags/env vars make automation deterministic.
+COOLIFY_ENABLED="${COOLIFY_ENABLED:-}"
+IMMICH_ENABLED="${IMMICH_ENABLED:-}"
+NON_INTERACTIVE=false
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --with-coolify) COOLIFY_ENABLED=true ;;
+    --without-coolify) COOLIFY_ENABLED=false ;;
+    --with-immich) IMMICH_ENABLED=true ;;
+    --without-immich) IMMICH_ENABLED=false ;;
+    --non-interactive) NON_INTERACTIVE=true ;;
+    -h|--help)
+      echo "Usage: sudo bash install.sh [--with-coolify|--without-coolify] [--with-immich|--without-immich] [--non-interactive]"
+      exit 0
+      ;;
+    *) fail "Unknown option: $1" ;;
+  esac
+  shift
+done
+
+normalize_bool() {
+  case "${1,,}" in
+    1|true|yes|y|on) echo true ;;
+    0|false|no|n|off|'') echo false ;;
+    *) fail "Expected a boolean value, got: $1" ;;
+  esac
+}
+
+ask_optional() {
+  local label="$1"
+  local answer
+  read -r -p "Install optional $label service? [y/N] " answer
+  normalize_bool "$answer"
+}
+
 echo -e "${BOLD}"
 echo "  ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗███╗   ██╗██████╗ ███████╗██████╗ "
 echo " ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██║████╗  ██║██╔══██╗██╔════╝██╔══██╗"
@@ -66,9 +102,12 @@ fi
 # ── 3. App directory & clone/update ──────────────────────────
 INSTALL_DIR="/opt/openfinder"
 REPO_URL="https://github.com/abdlx/OpenFinder-shell.git"
-COOLIFY_ENABLED="${COOLIFY_ENABLED:-true}"
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
+IMMICH_APP_PORT="${IMMICH_APP_PORT:-2283}"
+IMMICH_DATA_DIR="${IMMICH_DATA_DIR:-/data/immich}"
+IMMICH_VERSION="${IMMICH_VERSION:-v3}"
+IMMICH_COMPOSE_URL="${IMMICH_COMPOSE_URL:-https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml}"
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."
@@ -82,6 +121,20 @@ else
   cd "$INSTALL_DIR"
 fi
 
+# Preserve the prior choices when the installer is re-run over an existing host.
+PREVIOUS_ENV_FILE="$INSTALL_DIR/data/openfinder.env"
+if [ -f "$PREVIOUS_ENV_FILE" ]; then
+  [ -n "$COOLIFY_ENABLED" ] || COOLIFY_ENABLED=$(sed -n 's/^COOLIFY_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  [ -n "$IMMICH_ENABLED" ] || IMMICH_ENABLED=$(sed -n 's/^IMMICH_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+fi
+if [ "$NON_INTERACTIVE" = "false" ] && [ -t 0 ]; then
+  [ -n "$COOLIFY_ENABLED" ] || COOLIFY_ENABLED=$(ask_optional "Coolify")
+  [ -n "$IMMICH_ENABLED" ] || IMMICH_ENABLED=$(ask_optional "Immich")
+fi
+COOLIFY_ENABLED=$(normalize_bool "$COOLIFY_ENABLED")
+IMMICH_ENABLED=$(normalize_bool "$IMMICH_ENABLED")
+log "Optional services: Coolify=$COOLIFY_ENABLED, Immich=$IMMICH_ENABLED"
+
 # ── 4. Install npm dependencies & build ───────────────────────
 log "Installing Node.js packages..."
 npm install --legacy-peer-deps --silent
@@ -92,13 +145,27 @@ node -e "import('sharp').then(() => console.log('sharp ok')).catch((err) => { co
 log "Building production Next.js bundle..."
 npm run build
 
-chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down.sh" \
+  "$INSTALL_DIR/scripts/immich-up.sh" "$INSTALL_DIR/scripts/immich-down.sh" 2>/dev/null || true
 
 if [ "$COOLIFY_ENABLED" = "true" ]; then
   log "Starting bundled Coolify sidecar..."
   COOLIFY_APP_PORT="$COOLIFY_APP_PORT" COOLIFY_DATA_DIR="$COOLIFY_DATA_DIR" bash "$INSTALL_DIR/scripts/coolify-up.sh"
 else
   warn "Coolify sidecar disabled (COOLIFY_ENABLED=false)."
+  if [ -f "$COOLIFY_DATA_DIR/source/.env" ]; then
+    COOLIFY_DATA_DIR="$COOLIFY_DATA_DIR" bash "$INSTALL_DIR/scripts/coolify-down.sh" || true
+  fi
+fi
+
+if [ "$IMMICH_ENABLED" = "true" ]; then
+  log "Starting optional Immich service..."
+  IMMICH_APP_PORT="$IMMICH_APP_PORT" IMMICH_DATA_DIR="$IMMICH_DATA_DIR" IMMICH_VERSION="$IMMICH_VERSION" IMMICH_COMPOSE_URL="$IMMICH_COMPOSE_URL" bash "$INSTALL_DIR/scripts/immich-up.sh"
+else
+  warn "Immich disabled (IMMICH_ENABLED=false)."
+  if [ -f "$IMMICH_DATA_DIR/docker-compose.yml" ]; then
+    IMMICH_DATA_DIR="$IMMICH_DATA_DIR" bash "$INSTALL_DIR/scripts/immich-down.sh" || true
+  fi
 fi
 
 # ── 5. Create data directories ───────────────────────────────
@@ -140,6 +207,14 @@ umask 077
 cat > "$ENV_FILE" <<EOF
 APP_KEY=$APP_KEY
 OPENFINDER_SAMBA_ALLOWED_ROOTS=$SAMBA_ALLOWED_ROOTS
+COOLIFY_ENABLED=$COOLIFY_ENABLED
+COOLIFY_APP_PORT=$COOLIFY_APP_PORT
+COOLIFY_DATA_DIR=$COOLIFY_DATA_DIR
+IMMICH_ENABLED=$IMMICH_ENABLED
+IMMICH_APP_PORT=$IMMICH_APP_PORT
+IMMICH_DATA_DIR=$IMMICH_DATA_DIR
+IMMICH_VERSION=$IMMICH_VERSION
+IMMICH_COMPOSE_URL=$IMMICH_COMPOSE_URL
 EOF
 chmod 600 "$ENV_FILE"
 umask 022
@@ -408,9 +483,46 @@ log "Nginx configured — proxying port 80 → Node.js :3000"
 # ── 10. Auto-update script ────────────────────────────────────
 cat > /usr/local/bin/openfinder-update <<UPDATEEOF
 #!/bin/bash
-set -e
+set -euo pipefail
 
-cd $INSTALL_DIR
+INSTALL_DIR="$INSTALL_DIR"
+ENV_FILE="$INSTALL_DIR/data/openfinder.env"
+
+read_setting() {
+  local key="\$1"
+  local fallback="\$2"
+  local value=""
+  if [ -f "\$ENV_FILE" ]; then
+    value=\$(sed -n "s/^\${key}=//p" "\$ENV_FILE" | tail -n 1)
+  fi
+  printf '%s' "\${value:-\$fallback}"
+}
+
+COOLIFY_ENABLED=\$(read_setting COOLIFY_ENABLED "$COOLIFY_ENABLED")
+COOLIFY_APP_PORT=\$(read_setting COOLIFY_APP_PORT "$COOLIFY_APP_PORT")
+COOLIFY_DATA_DIR=\$(read_setting COOLIFY_DATA_DIR "$COOLIFY_DATA_DIR")
+IMMICH_ENABLED=\$(read_setting IMMICH_ENABLED "$IMMICH_ENABLED")
+IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
+IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
+IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
+IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
+
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in
+    --with-coolify) COOLIFY_ENABLED=true ;;
+    --without-coolify) COOLIFY_ENABLED=false ;;
+    --with-immich) IMMICH_ENABLED=true ;;
+    --without-immich) IMMICH_ENABLED=false ;;
+    -h|--help)
+      echo "Usage: sudo openfinder-update [--with-coolify|--without-coolify] [--with-immich|--without-immich]"
+      exit 0
+      ;;
+    *) echo "Unknown option: \$1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+cd "\$INSTALL_DIR"
 git reset --hard HEAD --quiet
 git clean -fd --quiet
 git pull
@@ -420,9 +532,17 @@ npm install --legacy-peer-deps --silent
 node -e "import('sharp').catch((err) => { console.error('sharp failed:', err.message); process.exit(1); })"
 npm run build
 
-chmod +x $INSTALL_DIR/scripts/coolify-up.sh $INSTALL_DIR/scripts/coolify-down.sh 2>/dev/null || true
-if [ "\${COOLIFY_ENABLED:-true}" = "true" ]; then
-  COOLIFY_APP_PORT="\${COOLIFY_APP_PORT:-8000}" COOLIFY_DATA_DIR="\${COOLIFY_DATA_DIR:-/data/coolify}" bash $INSTALL_DIR/scripts/coolify-up.sh
+chmod +x "\$INSTALL_DIR/scripts/coolify-up.sh" "\$INSTALL_DIR/scripts/coolify-down.sh" \
+  "\$INSTALL_DIR/scripts/immich-up.sh" "\$INSTALL_DIR/scripts/immich-down.sh" 2>/dev/null || true
+if [ "\$COOLIFY_ENABLED" = "true" ]; then
+  COOLIFY_APP_PORT="\$COOLIFY_APP_PORT" COOLIFY_DATA_DIR="\$COOLIFY_DATA_DIR" bash "\$INSTALL_DIR/scripts/coolify-up.sh"
+elif [ -f "\$COOLIFY_DATA_DIR/source/.env" ]; then
+  COOLIFY_DATA_DIR="\$COOLIFY_DATA_DIR" bash "\$INSTALL_DIR/scripts/coolify-down.sh" || true
+fi
+if [ "\$IMMICH_ENABLED" = "true" ]; then
+  IMMICH_APP_PORT="\$IMMICH_APP_PORT" IMMICH_DATA_DIR="\$IMMICH_DATA_DIR" IMMICH_VERSION="\$IMMICH_VERSION" IMMICH_COMPOSE_URL="\$IMMICH_COMPOSE_URL" bash "\$INSTALL_DIR/scripts/immich-up.sh"
+elif [ -f "\$IMMICH_DATA_DIR/docker-compose.yml" ]; then
+  IMMICH_DATA_DIR="\$IMMICH_DATA_DIR" bash "\$INSTALL_DIR/scripts/immich-down.sh" || true
 fi
 
 if command -v code-server &>/dev/null; then
@@ -482,7 +602,9 @@ if [ -f "\$APP_KEY_FILE" ]; then
     CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
   fi
   umask 077
-  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\n' "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" > "\$ENV_FILE"
+  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\n' \
+    "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" "\$COOLIFY_ENABLED" "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" \
+    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" > "\$ENV_FILE"
   chmod 600 "\$ENV_FILE"
   umask 022
   # Scrub any APP_KEY left in the unit by a pre-hardening install.
@@ -507,6 +629,9 @@ echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
 if [ "$COOLIFY_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
 fi
+if [ "$IMMICH_ENABLED" = "true" ]; then
+  echo -e "${GREEN}${BOLD}║${NC}  Immich:     ${BOLD}http://$LOCAL_IP:$IMMICH_APP_PORT${NC}"
+fi
 echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Codex:       ${BOLD}http://$LOCAL_IP/codex/${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
@@ -515,4 +640,5 @@ echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${YELLOW}First boot: Open the dashboard URL to create your admin account.${NC}"
+echo -e "  ${YELLOW}Change optional services later with openfinder-update --with/--without-coolify or --with/--without-immich.${NC}"
 echo ""

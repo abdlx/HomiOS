@@ -1,22 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Terminal, Folder, Image, Activity, Settings, Code, RefreshCw, HardDrive, FileText, Globe, Sparkles } from 'lucide-react';
+import { Search, Terminal, Folder, Activity, Settings, Code, RefreshCw, HardDrive, FileText, Sparkles, Images, Boxes } from 'lucide-react';
 import { SearchResult } from '../types';
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'photos' | 'vscode' | 'codex' | 'notes' | 'browser') => void;
+  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'vscode' | 'codex' | 'notes' | 'coolify' | 'immich') => void;
 }
 
 const ACTIONS = [
   { id: 'files', label: 'Open Files', icon: Folder, view: 'files' as const },
-  { id: 'photos', label: 'Open Photos', icon: Image, view: 'photos' as const },
   { id: 'activity', label: 'Open Task Manager', icon: Activity, view: 'activity' as const },
   { id: 'terminal', label: 'Open Terminal', icon: Terminal, view: 'terminal' as const },
   { id: 'vscode', label: 'Open VS Code', icon: Code, view: 'vscode' as const },
   { id: 'codex', label: 'Open Codex', icon: Sparkles, view: 'codex' as const },
   { id: 'notes', label: 'Open Notes', icon: FileText, view: 'notes' as const },
-  { id: 'browser', label: 'Open Browser', icon: Globe, view: 'browser' as const },
+  { id: 'immich', label: 'Open Immich', icon: Images, view: 'immich' as const },
+  { id: 'coolify', label: 'Open Coolify', icon: Boxes, view: 'coolify' as const },
   { id: 'settings', label: 'Open Settings', icon: Settings, view: 'settings' as const },
 ];
 
@@ -131,7 +131,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
               {results.map((result) => (
                 <button
                   key={result.id}
-                  onClick={() => runAction(result.kind === 'note' ? 'notes' : result.kind === 'media' ? 'photos' : 'files')}
+                  onClick={() => runAction(result.kind === 'note' ? 'notes' : 'files')}
                   className="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-white/10"
                 >
                   <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{result.name}</div>

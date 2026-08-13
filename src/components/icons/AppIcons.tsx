@@ -142,20 +142,6 @@ function Notes({ u }: { u: string }) {
   );
 }
 
-function Photos({ u }: { u: string }) {
-  const petals = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#0A84FF', '#AF52DE'];
-  return (
-    <Squircle u={u} from="#FEFEFE" to="#E7E7EC">
-      <g transform="translate(32 32)">
-        {petals.map((c, i) => (
-          <ellipse key={i} rx="6.5" ry="13" fill={c} fillOpacity="0.88" transform={`rotate(${i * 60}) translate(0 -8.5)`} />
-        ))}
-        <circle r="5" fill="#ffffff" />
-      </g>
-    </Squircle>
-  );
-}
-
 function CodeEditor({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#3AA0FF" to="#1E5FCF">
@@ -185,21 +171,14 @@ function CodexSpark({ u }: { u: string }) {
   );
 }
 
-function Compass({ u }: { u: string }) {
+function Immich({ u }: { u: string }) {
+  const colors = ['#ef4444', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1', '#d946ef'];
   return (
-    <Squircle u={u} from="#2BD3C7" to="#0E9488">
-      <defs>
-        <radialGradient id={`${u}-dial`} cx="0.4" cy="0.35" r="0.8">
-          <stop stopColor="#ffffff" />
-          <stop offset="1" stopColor="#E3E7EA" />
-        </radialGradient>
-      </defs>
-      <circle cx="32" cy="32" r="16" fill={`url(#${u}-dial)`} />
-      <circle cx="32" cy="32" r="16" fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="1" />
-      {/* needle */}
-      <path d="M32 32L41 23l-6 10z" fill="#FF3B30" />
-      <path d="M32 32L23 41l6-10z" fill="#B7BCC4" />
-      <circle cx="32" cy="32" r="2" fill="#3A3A3C" />
+    <Squircle u={u} from="#ffffff" to="#e5e7eb">
+      <g transform="translate(32 32)">
+        {colors.map((color, index) => <ellipse key={color} rx="5.5" ry="13" fill={color} fillOpacity="0.92" transform={`rotate(${index * 60}) translate(0 -8)`} />)}
+        <circle r="5" fill="#ffffff" />
+      </g>
     </Squircle>
   );
 }
@@ -223,11 +202,10 @@ const RENDERERS: Record<string, (u: string) => React.ReactNode> = {
   settings: (u) => <Settings u={u} />,
   activity: (u) => <Activity u={u} />,
   coolify: (u) => <Coolify u={u} />,
+  immich: (u) => <Immich u={u} />,
   notes: (u) => <Notes u={u} />,
-  photos: (u) => <Photos u={u} />,
   vscode: (u) => <CodeEditor u={u} />,
   codex: (u) => <CodexSpark u={u} />,
-  browser: (u) => <Compass u={u} />,
 };
 
 export function AppIcon({

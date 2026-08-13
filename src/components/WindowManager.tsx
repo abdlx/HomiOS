@@ -7,10 +7,10 @@ import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
 
 import NotesApp from './NotesApp';
-import PhotosApp from './PhotosApp';
 import VSCodeApp from './VSCodeApp';
 import CodexApp from './CodexApp';
-import BrowserApp from './BrowserApp';
+import CoolifyApp from './CoolifyApp';
+import ImmichApp from './ImmichApp';
 import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
@@ -22,7 +22,7 @@ import TransferActivityPanel from './TransferActivityPanel';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'photos' | 'vscode' | 'codex' | 'browser';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'vscode' | 'codex' | 'coolify' | 'immich';
   username?: string;
 }
 
@@ -182,11 +182,6 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
     return () => window.removeEventListener('openfinder:transfers', handleTransfers);
   }, []);
 
-  const handleOpenCoolify = () => {
-    const coolifyUrl = typeof window === 'undefined' ? 'http://localhost:8000' : `http://${window.location.hostname}:8000`;
-    window.open(coolifyUrl, '_blank', 'noopener,noreferrer');
-  };
-
   useEffect(() => {
     // When view changes, seamlessly update URL without reloading
     if (view === 'desktop') {
@@ -201,16 +196,16 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       window.history.pushState(null, '', '/activity');
     } else if (view === 'notes') {
       window.history.pushState(null, '', '/notes');
-    } else if (view === 'photos') {
-      window.history.pushState(null, '', '/photos');
     } else if (view === 'vscode') {
       window.history.pushState(null, '', '/vscode');
     } else if (view === 'codex') {
       // /codex is served by the codex-web-ui proxy, so a refresh here opens
       // the full-page Codex app rather than the desktop — both are valid entries.
       window.history.pushState(null, '', '/codex');
-    } else if (view === 'browser') {
-      window.history.pushState(null, '', '/browser');
+    } else if (view === 'coolify') {
+      window.history.pushState(null, '', '/coolify');
+    } else if (view === 'immich') {
+      window.history.pushState(null, '', '/immich');
     }
   }, [view]);
 
@@ -258,12 +253,11 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
-            onOpenCoolify={handleOpenCoolify}
+            onOpenCoolify={() => setView('coolify')}
+            onOpenImmich={() => setView('immich')}
             onOpenNotes={() => setView('notes')}
-            onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
             onOpenCodex={() => setView('codex')}
-            onOpenBrowser={() => setView('browser')}
             username={username}
             wallpaper={wallpaper}
           />
@@ -273,12 +267,11 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
-            onOpenCoolify={handleOpenCoolify}
+            onOpenCoolify={() => setView('coolify')}
+            onOpenImmich={() => setView('immich')}
             onOpenNotes={() => setView('notes')}
-            onOpenPhotos={() => setView('photos')}
             onOpenVSCode={() => setView('vscode')}
             onOpenCodex={() => setView('codex')}
-            onOpenBrowser={() => setView('browser')}
             username={username}
           />
         )}
@@ -349,19 +342,6 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         </div>
       </motion.div>
 
-      {/* Photos App overlay */}
-      <motion.div
-        initial={false}
-        animate={view === 'photos' ? "visible" : "hidden"}
-        variants={windowVariants}
-        className={frameClass('photos', 'z-50')}
-        onClickCapture={(event) => handleChromeCapture('photos', event)}
-      >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {windowState.openedViews.includes('photos') && <PhotosApp onClose={() => dispatchWindow({ type: 'close', view: 'photos' })} isActive={view === 'photos'} />}
-        </div>
-      </motion.div>
-
       {/* VS Code App overlay */}
       <motion.div
         initial={false}
@@ -396,16 +376,16 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         </div>
       </motion.div>
 
-      {/* Browser App overlay */}
-      <motion.div
-        initial={false}
-        animate={view === 'browser' ? "visible" : "hidden"}
-        variants={windowVariants}
-        className={frameClass('browser', 'z-50')}
-        onClickCapture={(event) => handleChromeCapture('browser', event)}
-      >
-        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {windowState.openedViews.includes('browser') && <BrowserApp onClose={() => dispatchWindow({ type: 'close', view: 'browser' })} />}
+      {/* Optional service apps */}
+      <motion.div initial={false} animate={view === 'coolify' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('coolify', 'z-50')} onClickCapture={(event) => handleChromeCapture('coolify', event)}>
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
+          {windowState.openedViews.includes('coolify') && <CoolifyApp onClose={() => dispatchWindow({ type: 'close', view: 'coolify' })} isActive={view === 'coolify'} />}
+        </div>
+      </motion.div>
+
+      <motion.div initial={false} animate={view === 'immich' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('immich', 'z-50')} onClickCapture={(event) => handleChromeCapture('immich', event)}>
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#111827] shadow-2xl relative">
+          {windowState.openedViews.includes('immich') && <ImmichApp onClose={() => dispatchWindow({ type: 'close', view: 'immich' })} isActive={view === 'immich'} />}
         </div>
       </motion.div>
 

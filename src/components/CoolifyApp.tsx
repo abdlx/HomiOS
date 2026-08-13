@@ -8,38 +8,41 @@ interface CoolifyAppProps {
 
 export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [isEnabled, setIsEnabled] = useState<boolean | null>(null);
+  const [port, setPort] = useState(8000);
   const [checkKey, setCheckKey] = useState(0);
 
   const coolifyUrl = useMemo(() => {
-    if (typeof window === 'undefined') return 'http://localhost:8000';
-    return `http://${window.location.hostname}:8000`;
-  }, []);
+    if (typeof window === 'undefined') return `http://localhost:${port}`;
+    return `${window.location.protocol}//${window.location.hostname}:${port}`;
+  }, [port]);
 
   useEffect(() => {
     if (!isActive) return;
 
     let cancelled = false;
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 2500);
-
-    fetch(`${coolifyUrl}/api/health`, {
-      mode: 'no-cors',
-      signal: controller.signal,
-    })
-      .then(() => {
-        if (!cancelled) setIsOnline(true);
+    fetch('/api/integrations/status', { cache: 'no-store', signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Status unavailable')))
+      .then((data) => {
+        if (!cancelled) {
+          setIsEnabled(data.coolify.enabled);
+          setIsOnline(data.coolify.online);
+          setPort(data.coolify.port);
+        }
       })
       .catch(() => {
-        if (!cancelled) setIsOnline(false);
-      })
-      .finally(() => window.clearTimeout(timeout));
+        if (!cancelled) {
+          setIsEnabled(false);
+          setIsOnline(false);
+        }
+      });
 
     return () => {
       cancelled = true;
       controller.abort();
-      window.clearTimeout(timeout);
     };
-  }, [coolifyUrl, checkKey, isActive]);
+  }, [checkKey, isActive]);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#0b1120] text-white">
@@ -87,9 +90,9 @@ export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps
               <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-cyan-300">
                 <Server size={28} strokeWidth={1.7} />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Coolify is starting or not installed.</h3>
+              <h3 className="text-lg font-semibold mb-2">{isEnabled ? 'Coolify is starting.' : 'Coolify is not installed.'}</h3>
               <p className="text-sm text-white/55 mb-5">
-                OpenFinder will load Coolify here once the sidecar is available on port 8000.
+                {isEnabled ? 'OpenFinder will load Coolify when the optional service becomes reachable.' : 'Re-run the installer with --with-coolify, or run openfinder-update --with-coolify.'}
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -102,14 +105,14 @@ export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps
                   onClick={() => window.open(coolifyUrl, '_blank', 'noopener,noreferrer')}
                   className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition"
                 >
-                  Open Port 8000
+                  Open Service
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {isActive && isOnline !== false && (
+        {isActive && isEnabled && isOnline && (
           <iframe
             key={checkKey}
             src={coolifyUrl}

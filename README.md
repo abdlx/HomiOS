@@ -53,6 +53,25 @@ Run this command as your primary user (or root):
 curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | sudo bash
 ```
 
+Coolify and Immich are independent optional services. Interactive installs ask
+about each one; unattended installs leave both disabled unless requested:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | sudo bash -s -- --with-coolify --with-immich --non-interactive
+```
+
+The choices persist across upgrades and can be changed later without deleting
+service data:
+
+```bash
+sudo openfinder-update --with-immich
+sudo openfinder-update --without-coolify
+```
+
+Immich stores its library and PostgreSQL data under `/data/immich` by default
+and appears as a native OpenFinder desktop/mobile app at `/immich`. Enabled
+updates refresh its official release Compose bundle and recreate its containers.
+
 Once the script finishes, your dashboard will be instantly available at `http://<your-server-ip>`.
 
 ---

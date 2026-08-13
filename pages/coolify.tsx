@@ -11,11 +11,14 @@ export async function getServerSideProps(context: any) {
     return { redirect: { destination: '/login', permanent: false } };
   }
 
-  const host = context.req.headers.host || 'localhost';
-  const hostname = host.split(':')[0];
-  return { redirect: { destination: `http://${hostname}:8000`, permanent: false } };
+  let username = 'User';
+  if (session.email) {
+    const rawName = session.email.split('@')[0];
+    username = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  }
+  return { props: { username } };
 }
 
-export default function Coolify() {
-  return null;
+export default function Coolify({ username }: { username: string }) {
+  return <WindowManager initialView="coolify" username={username} />;
 }

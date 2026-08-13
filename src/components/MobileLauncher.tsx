@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 import {
   Folder, FolderOpen, Settings, Terminal, Activity, Boxes,
-  FileText, Image as ImageIcon, Code, Globe, Battery, Wifi,
-  Signal, Download, Search, ChevronRight, Sparkles
+  FileText, Code, Battery, Wifi,
+  Signal, Download, Search, ChevronRight, Sparkles, Images
 } from 'lucide-react';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -11,18 +11,17 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 const ALL_APPS = [
   { id: 'files',    label: 'Files',     icon: Folder,     color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'notes',    label: 'Notes',     icon: FileText,   color: 'from-[#F59E0B] to-[#D97706]' },
-  { id: 'photos',   label: 'Photos',    icon: ImageIcon,  color: 'from-[#EC4899] to-[#BE185D]' },
   { id: 'settings', label: 'Settings',  icon: Settings,   color: 'from-[#8E8E93] to-[#48484A]' },
   { id: 'terminal', label: 'Terminal',  icon: Terminal,   color: 'from-[#2C2C2E] to-[#1C1C1E]' },
   { id: 'activity', label: 'Activity',  icon: Activity,   color: 'from-[#32ADE6] to-[#12648A]' },
   { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#22D3EE] to-[#2563EB]' },
+  { id: 'immich',   label: 'Immich',    icon: Images,     color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
   { id: 'finder',   label: 'Finder',    icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'vscode',   label: 'VS Code',   icon: Code,       color: 'from-[#0066b8] to-[#007acc]' },
   { id: 'codex',    label: 'Codex',     icon: Sparkles,   color: 'from-[#17BE92] to-[#0A6F55]' },
-  { id: 'browser',  label: 'Browser',   icon: Globe,      color: 'from-[#14B8A6] to-[#0F766E]' },
 ];
 
-const DOCK_IDS = ['files', 'notes', 'photos', 'settings'];
+const DOCK_IDS = ['files', 'notes', 'settings'];
 const APPS_PER_PAGE = 16; // 4x4 grid
 
 interface MobileLauncherProps {
@@ -31,11 +30,10 @@ interface MobileLauncherProps {
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
   onOpenCoolify: () => void;
+  onOpenImmich: () => void;
   onOpenNotes: () => void;
-  onOpenPhotos: () => void;
   onOpenVSCode: () => void;
   onOpenCodex: () => void;
-  onOpenBrowser: () => void;
   username?: string;
   wallpaper?: string;
 }
@@ -163,7 +161,7 @@ function MobileDock({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (
 
 export default function MobileLauncher({
   onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity,
-  onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser,
+  onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex,
   username, wallpaper
 }: MobileLauncherProps) {
   const [now, setNow] = useState<Date | null>(null);
@@ -179,12 +177,12 @@ export default function MobileLauncher({
     const map: Record<string, () => void> = {
       files: onOpenFinder, finder: onOpenFinder,
       settings: onOpenSettings, terminal: onOpenTerminal,
-      activity: onOpenActivity, coolify: onOpenCoolify,
-      notes: onOpenNotes, photos: onOpenPhotos,
-      vscode: onOpenVSCode, codex: onOpenCodex, browser: onOpenBrowser,
+      activity: onOpenActivity, coolify: onOpenCoolify, immich: onOpenImmich,
+      notes: onOpenNotes,
+      vscode: onOpenVSCode, codex: onOpenCodex,
     };
     return map[id] || (() => {});
-  }, [onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser]);
+  }, [onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
 
   const gridApps = ALL_APPS.filter(a => !DOCK_IDS.includes(a.id));
   const dockApps = ALL_APPS.filter(a => DOCK_IDS.includes(a.id));

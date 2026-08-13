@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe, Sparkles
+  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -19,11 +19,10 @@ interface DesktopEnvironmentProps {
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
   onOpenCoolify: () => void;
+  onOpenImmich: () => void;
   onOpenNotes: () => void;
-  onOpenPhotos: () => void;
   onOpenVSCode: () => void;
   onOpenCodex: () => void;
-  onOpenBrowser: () => void;
   username?: string;
 }
 
@@ -44,15 +43,14 @@ const ALL_APPS: Record<string, DesktopAppConfig> = {
   activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
   terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
   coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
+  immich: { id: 'immich', label: 'Immich', icon: Images, color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
   finder: { id: 'finder', label: 'Finder', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
-  photos: { id: 'photos', label: 'Photos', icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]' },
   vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
   codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
-  browser: { id: 'browser', label: 'Browser', icon: Globe, color: 'from-[#14B8A6] to-[#0F766E]' },
 };
 
-const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'codex', 'browser'];
+const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'immich', 'notes', 'vscode', 'codex'];
 
 const HeaderMetricsBackdrop = React.memo(function HeaderMetricsBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
   return glassSurfaces ? (
@@ -170,7 +168,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   );
 });
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenNotes, onOpenPhotos, onOpenVSCode, onOpenCodex, onOpenBrowser }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -282,7 +280,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     const savedGrid = localStorage.getItem('openfinder_grid_apps');
     const savedDock = localStorage.getItem('openfinder_dock_apps');
     let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['files'];
-    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder', 'photos'];
+    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder'];
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     currentGrid = [...currentGrid, ...missingApps];
     setGridAppIds(currentGrid);
@@ -320,11 +318,10 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
     if (id === 'coolify') return onOpenCoolify;
+    if (id === 'immich') return onOpenImmich;
     if (id === 'notes') return onOpenNotes;
-    if (id === 'photos') return onOpenPhotos;
     if (id === 'vscode') return onOpenVSCode;
     if (id === 'codex') return onOpenCodex;
-    if (id === 'browser') return onOpenBrowser;
     return undefined;
   };
 
