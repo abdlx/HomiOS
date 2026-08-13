@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Hash, Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe, Sparkles
+  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Image as ImageIcon, Code, Bell, Globe, Sparkles
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -9,7 +9,6 @@ import { useUsername } from '../hooks/useUsername';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
 import { AppIcon } from './icons/AppIcons';
-import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 
@@ -54,11 +53,61 @@ const ALL_APPS: Record<string, DesktopAppConfig> = {
 
 const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'codex', 'browser'];
 
-const MetricCardBackdrop = React.memo(function MetricCardBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
-  return glassSurfaces ? (
-    <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
-  ) : (
-    <div className="w-full h-full rounded-[32px] bg-black/25 border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.16)] backdrop-blur-md" />
+const METRIC_TONES = {
+  blue: {
+    icon: 'bg-blue-500/20 border-blue-400/30 text-blue-300 shadow-[inset_0_0_18px_rgba(59,130,246,0.18)]',
+    bar: 'bg-gradient-to-r from-blue-500 to-cyan-400',
+  },
+  violet: {
+    icon: 'bg-violet-500/20 border-violet-400/30 text-violet-300 shadow-[inset_0_0_18px_rgba(139,92,246,0.18)]',
+    bar: 'bg-gradient-to-r from-violet-500 to-fuchsia-400',
+  },
+  emerald: {
+    icon: 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300 shadow-[inset_0_0_18px_rgba(16,185,129,0.18)]',
+    bar: 'bg-gradient-to-r from-emerald-500 to-teal-300',
+  },
+  rose: {
+    icon: 'bg-rose-500/20 border-rose-400/30 text-rose-300 shadow-[inset_0_0_18px_rgba(244,63,94,0.18)]',
+    bar: 'bg-gradient-to-r from-rose-500 to-pink-400',
+  },
+} as const;
+
+const HeaderMetric = React.memo(function HeaderMetric({
+  icon: Icon,
+  label,
+  value,
+  progress,
+  tone,
+  detail,
+}: {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  label: string;
+  value: string;
+  progress: number;
+  tone: keyof typeof METRIC_TONES;
+  detail?: React.ReactNode;
+}) {
+  const colors = METRIC_TONES[tone];
+  const safeProgress = Math.min(100, Math.max(0, Number.isFinite(progress) ? progress : 0));
+
+  return (
+    <div className="min-h-[138px] bg-[#0b2942]/80 px-6 py-5 md:px-7 flex flex-col justify-between">
+      <div>
+        <div className="flex items-center gap-4">
+          <div className={`w-11 h-11 shrink-0 rounded-xl border flex items-center justify-center ${colors.icon}`}>
+            <Icon size={23} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-slate-300/80 leading-none mb-1.5">{label}</p>
+            <p className="text-[21px] font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
+          </div>
+        </div>
+        <div className="mt-4 h-[5px] overflow-hidden rounded-full bg-white/20">
+          <div className={`h-full rounded-full transition-[width] duration-700 ${colors.bar}`} style={{ width: `${safeProgress}%` }} />
+        </div>
+      </div>
+      {detail && <div className="mt-3 min-h-[28px] text-[11px] leading-[1.45] text-slate-300/75">{detail}</div>}
+    </div>
   );
 });
 
@@ -338,9 +387,20 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     setContextMenu({ x, y, appId, source });
   };
 
+  const cpuPercent = stats?.cpu?.usagePercent || 0;
+  const memoryPercent = stats?.memory?.total ? (stats.memory.used / stats.memory.total) * 100 : 0;
+  const storagePercent = stats?.disk?.total ? (stats.disk.used / stats.disk.total) * 100 : 0;
+  const load = stats?.cpu?.load || 0;
+  const loadPercent = stats?.cpu?.cores ? (load / stats.cpu.cores) * 100 : 0;
+  const toGiB = (bytes: number | undefined) => ((bytes || 0) / 1024 / 1024 / 1024).toFixed(1);
+  const greeting = now
+    ? now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+    : 'Welcome';
+
   return (
     <div className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white transition-all duration-1000" style={{ backgroundImage: `url('${wallpaper}')` }} onContextMenu={(e) => e.preventDefault()}>
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/25" />
+      <div className="absolute inset-x-0 top-7 h-[370px] bg-gradient-to-b from-[#03182b]/85 via-[#0a2d48]/55 to-transparent pointer-events-none" />
 
       <div className="relative z-30 hidden md:flex items-center justify-between h-7 px-4 bg-black/25 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none flex-shrink-0">
         <div className="flex items-center space-x-5">
@@ -374,37 +434,56 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <NotificationCenter open={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
 
-      <div className="relative z-10 flex-1 flex flex-col items-center pt-6 md:pt-12 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white drop-shadow-sm text-center mb-8 md:mb-10">
-          {now ? (() => { const h = now.getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })() : 'Welcome'}, {username || 'User'}.
-        </h1>
+      <div className="relative z-10 flex-1 flex flex-col items-center pt-5 md:pt-4 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
+        <header className="w-full max-w-[1050px] mb-8 md:mb-10">
+          <div className="text-center">
+            <h1 className="text-[30px] md:text-[38px] leading-tight font-semibold tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]">
+              {greeting}, {username || 'User'}
+            </h1>
+            <p className="mt-2 text-sm md:text-[15px] font-medium tracking-wide text-slate-300/75 drop-shadow-md">
+              {now ? now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : '\u00a0'}
+            </p>
+          </div>
 
-        <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10 w-full max-w-[1050px] pb-4 md:pb-0">
-          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
-            <div className="absolute inset-0 -z-10">
-              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
-            </div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-start space-x-3 max-w-[70%]"><div className="p-2.5 bg-blue-500/20 rounded-2xl border border-blue-500/30 text-blue-400"><Activity size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">CPU Usage</h3><p className="text-white/50 text-[11px] mt-1 line-clamp-2">{stats?.cpu?.model || 'Processor'}</p></div></div>
-              <span className="text-2xl font-bold text-white">{stats?.cpu?.usagePercent?.toFixed(1) || '0.0'}%</span>
-            </div>
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${stats?.cpu?.usagePercent || 0}%` }} /></div>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-[26px] border border-white/20 bg-white/15 shadow-[0_18px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+            <HeaderMetric
+              icon={Activity}
+              label="CPU"
+              value={`${cpuPercent.toFixed(0)}%`}
+              progress={cpuPercent}
+              tone="blue"
+              detail={<span className="line-clamp-2">{stats?.cpu?.model || 'Processor details unavailable'}</span>}
+            />
+            <HeaderMetric
+              icon={Cpu}
+              label="Memory"
+              value={`${toGiB(stats?.memory?.used)} / ${toGiB(stats?.memory?.total)} GB`}
+              progress={memoryPercent}
+              tone="violet"
+            />
+            <HeaderMetric
+              icon={HardDrive}
+              label="Storage"
+              value={`${toGiB(stats?.disk?.used)} / ${toGiB(stats?.disk?.total)} GB`}
+              progress={storagePercent}
+              tone="emerald"
+            />
+            <HeaderMetric
+              icon={Zap}
+              label="System Load"
+              value={load.toFixed(2)}
+              progress={loadPercent}
+              tone="rose"
+              detail={(
+                <span className="flex items-center gap-2.5 capitalize">
+                  <span>{stats?.cpu?.cores || 0} Cores</span>
+                  <span className="text-white/35">•</span>
+                  <span className="inline-flex items-center gap-1.5"><Monitor size={12} />{stats?.os?.platform || 'N/A'}</span>
+                </span>
+              )}
+            />
           </div>
-          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
-            <div className="absolute inset-0 -z-10">
-              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
-            </div>
-            <div className="flex items-center justify-between mb-6"><div className="flex items-center space-x-3"><div className="p-2 bg-purple-500/20 rounded-xl border border-purple-500/30 text-purple-400"><Cpu size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Memory</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${(stats.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
-            <div className="flex items-center justify-between"><div className="flex items-center space-x-3"><div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400"><HardDrive size={18} /></div><span className="text-white/80 text-[13px] font-semibold">Storage</span></div><span className="text-white font-semibold text-[13px]">{stats ? `${((stats.disk.total - stats.disk.free) / 1024 / 1024 / 1024).toFixed(1)} / ${(stats.disk.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '0 GB'}</span></div>
-          </div>
-          <div className="relative min-w-[85vw] md:min-w-0 snap-center rounded-[32px] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.2)] min-h-[160px]">
-            <div className="absolute inset-0 -z-10">
-              <MetricCardBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
-            </div>
-            <div className="flex justify-between items-start mb-4"><div className="flex items-center space-x-3"><div className="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400"><Zap size={22} /></div><div><h3 className="text-white/90 text-sm font-semibold">System Load</h3><p className="text-white/50 text-[11px]">Avg over 1 min</p></div></div><span className="text-2xl font-bold text-white">{stats?.cpu?.load?.toFixed(2) || '0.00'}</span></div>
-            <div className="grid grid-cols-2 gap-3"><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Cores</span><span className="text-white font-medium text-sm flex items-center"><Hash size={12} className="mr-1 text-rose-400" />{stats?.cpu?.cores || 0}</span></div><div className="bg-white/5 rounded-xl p-3 border border-white/5"><span className="block text-white/40 text-[10px] uppercase font-bold mb-1">Platform</span><span className="text-white font-medium text-sm flex items-center capitalize"><Monitor size={12} className="mr-1 text-rose-400" />{stats?.os?.platform || 'N/A'}</span></div></div>
-          </div>
-        </div>
+        </header>
 
         <div
           className="flex flex-wrap justify-center gap-x-7 gap-y-7 md:gap-x-9 md:gap-y-8 w-full max-w-[720px] mb-8"
