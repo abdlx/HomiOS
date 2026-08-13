@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Clock3, Copy, DatabaseBackup, Loader2, Pause, Play, RefreshCw, XCircle } from 'lucide-react';
 import { Job } from '../types';
 import { useJobActivity } from '../hooks/useJobActivity';
+import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
+import GlassSurface from '../../components/GlassSurface';
 
 const terminal = new Set(['completed', 'failed', 'cancelled']);
 
@@ -29,6 +31,7 @@ function formatBytes(value?: number) {
 
 export default function TransferActivityPanel() {
   const { transferJobs, activeJobs, error, updateJob } = useJobActivity();
+  const { settings: performanceSettings } = usePerformanceSettings();
   const [collapsed, setCollapsed] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -79,8 +82,25 @@ export default function TransferActivityPanel() {
   };
 
   return (
-    <aside ref={panelRef} className="fixed bottom-5 right-5 z-[210] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[24px] border border-white/12 bg-[#151518]/94 text-white shadow-[0_24px_80px_rgba(0,0,0,.48)] backdrop-blur-2xl">
-      <button onClick={toggleCollapsed} className="flex w-full items-center gap-3 border-b border-white/10 px-4 py-3 text-left hover:bg-white/[0.04]">
+    <aside ref={panelRef} className="fixed bottom-5 right-5 z-[210] isolate w-[380px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[24px] text-white shadow-[0_24px_80px_rgba(0,0,0,.34)]">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        {performanceSettings.glassSurfaces ? (
+          <GlassSurface
+            width="100%"
+            height="100%"
+            borderRadius={24}
+            distortionScale={300}
+            opacity={1}
+            borderWidth={0.2}
+            displace={1.6}
+            backgroundOpacity={0}
+          />
+        ) : (
+          <div className="h-full w-full rounded-[24px] border border-white/10 bg-black/30 shadow-[0_14px_36px_rgba(0,0,0,0.24)] backdrop-blur-md" />
+        )}
+      </div>
+      <div className="relative z-10">
+      <button onClick={toggleCollapsed} className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04] ${collapsed ? '' : 'border-b border-white/10'}`}>
         <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
           {running > 0 ? <Loader2 size={17} className="animate-spin" /> : <DatabaseBackup size={17} />}
           {(running + queued) > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-blue-500 px-1 text-center text-[9px] font-bold text-white">{running + queued}</span>}
@@ -142,6 +162,7 @@ export default function TransferActivityPanel() {
           </button>
         </>
       )}
+      </div>
     </aside>
   );
 }

@@ -9,6 +9,7 @@ import { useUsername } from '../hooks/useUsername';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { FloatingDock } from './ui/floating-dock';
 import { AppIcon } from './icons/AppIcons';
+import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 
@@ -53,6 +54,14 @@ const ALL_APPS: Record<string, DesktopAppConfig> = {
 
 const FACTORY_DOCK_APPS = ['settings', 'finder', 'terminal', 'activity', 'coolify', 'notes', 'photos', 'vscode', 'codex', 'browser'];
 
+const HeaderMetricsBackdrop = React.memo(function HeaderMetricsBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
+  return glassSurfaces ? (
+    <GlassSurface width="100%" height="100%" borderRadius={32} distortionScale={300} opacity={1} borderWidth={0.07} displace={5} backgroundOpacity={0.4} blur={30} />
+  ) : (
+    <div className="h-full w-full rounded-[32px] border border-white/10 bg-black/25 shadow-[0_16px_40px_rgba(0,0,0,0.16)] backdrop-blur-md" />
+  );
+});
+
 const METRIC_TONES = {
   blue: {
     icon: 'bg-blue-500/20 border-blue-400/30 text-blue-300 shadow-[inset_0_0_18px_rgba(59,130,246,0.18)]',
@@ -91,7 +100,7 @@ const HeaderMetric = React.memo(function HeaderMetric({
   const safeProgress = Math.min(100, Math.max(0, Number.isFinite(progress) ? progress : 0));
 
   return (
-    <div className="min-h-[138px] bg-[#0b2942]/80 px-6 py-5 md:px-7 flex flex-col justify-between">
+    <div className="relative min-h-[138px] px-6 py-5 md:px-7 flex flex-col justify-between">
       <div>
         <div className="flex items-center gap-4">
           <div className={`w-11 h-11 shrink-0 rounded-xl border flex items-center justify-center ${colors.icon}`}>
@@ -400,7 +409,6 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   return (
     <div className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white transition-all duration-1000" style={{ backgroundImage: `url('${wallpaper}')` }} onContextMenu={(e) => e.preventDefault()}>
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/25" />
-      <div className="absolute inset-x-0 top-7 h-[370px] bg-gradient-to-b from-[#03182b]/85 via-[#0a2d48]/55 to-transparent pointer-events-none" />
 
       <div className="relative z-30 hidden md:flex items-center justify-between h-7 px-4 bg-black/25 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none flex-shrink-0">
         <div className="flex items-center space-x-5">
@@ -445,43 +453,54 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
             </p>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-[26px] border border-white/20 bg-white/15 shadow-[0_18px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
-            <HeaderMetric
-              icon={Activity}
-              label="CPU"
-              value={`${cpuPercent.toFixed(0)}%`}
-              progress={cpuPercent}
-              tone="blue"
-              detail={<span className="line-clamp-2">{stats?.cpu?.model || 'Processor details unavailable'}</span>}
-            />
-            <HeaderMetric
-              icon={Cpu}
-              label="Memory"
-              value={`${toGiB(stats?.memory?.used)} / ${toGiB(stats?.memory?.total)} GB`}
-              progress={memoryPercent}
-              tone="violet"
-            />
-            <HeaderMetric
-              icon={HardDrive}
-              label="Storage"
-              value={`${toGiB(stats?.disk?.used)} / ${toGiB(stats?.disk?.total)} GB`}
-              progress={storagePercent}
-              tone="emerald"
-            />
-            <HeaderMetric
-              icon={Zap}
-              label="System Load"
-              value={load.toFixed(2)}
-              progress={loadPercent}
-              tone="rose"
-              detail={(
-                <span className="flex items-center gap-2.5 capitalize">
-                  <span>{stats?.cpu?.cores || 0} Cores</span>
-                  <span className="text-white/35">•</span>
-                  <span className="inline-flex items-center gap-1.5"><Monitor size={12} />{stats?.os?.platform || 'N/A'}</span>
-                </span>
-              )}
-            />
+          <div className="relative isolate mt-6 overflow-hidden rounded-[32px] shadow-[0_16px_40px_rgba(0,0,0,0.2)]">
+            <div className="pointer-events-none absolute inset-0 -z-10">
+              <HeaderMetricsBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+              <div className="relative after:absolute after:inset-x-6 after:bottom-0 after:h-px after:bg-white/10 md:after:inset-y-5 md:after:left-auto md:after:right-0 md:after:h-auto md:after:w-px lg:after:block">
+                <HeaderMetric
+                  icon={Activity}
+                  label="CPU"
+                  value={`${cpuPercent.toFixed(0)}%`}
+                  progress={cpuPercent}
+                  tone="blue"
+                  detail={<span className="line-clamp-2">{stats?.cpu?.model || 'Processor details unavailable'}</span>}
+                />
+              </div>
+              <div className="relative after:absolute after:inset-x-6 after:bottom-0 after:h-px after:bg-white/10 md:after:inset-x-6 md:after:inset-y-auto md:after:bottom-0 md:after:h-px md:after:w-auto lg:after:inset-y-5 lg:after:left-auto lg:after:right-0 lg:after:h-auto lg:after:w-px">
+                <HeaderMetric
+                  icon={Cpu}
+                  label="Memory"
+                  value={`${toGiB(stats?.memory?.used)} / ${toGiB(stats?.memory?.total)} GB`}
+                  progress={memoryPercent}
+                  tone="violet"
+                />
+              </div>
+              <div className="relative after:absolute after:inset-x-6 after:bottom-0 after:h-px after:bg-white/10 md:after:inset-y-5 md:after:left-auto md:after:right-0 md:after:h-auto md:after:w-px lg:after:block">
+                <HeaderMetric
+                  icon={HardDrive}
+                  label="Storage"
+                  value={`${toGiB(stats?.disk?.used)} / ${toGiB(stats?.disk?.total)} GB`}
+                  progress={storagePercent}
+                  tone="emerald"
+                />
+              </div>
+              <HeaderMetric
+                icon={Zap}
+                label="System Load"
+                value={load.toFixed(2)}
+                progress={loadPercent}
+                tone="rose"
+                detail={(
+                  <span className="flex items-center gap-2.5 capitalize">
+                    <span>{stats?.cpu?.cores || 0} Cores</span>
+                    <span className="text-white/35">•</span>
+                    <span className="inline-flex items-center gap-1.5"><Monitor size={12} />{stats?.os?.platform || 'N/A'}</span>
+                  </span>
+                )}
+              />
+            </div>
           </div>
         </header>
 
