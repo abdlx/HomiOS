@@ -6,6 +6,20 @@ export function getSambaRoot(): string {
   return path.resolve(process.env.OPENFINDER_SAMBA_ROOT || '/mnt/openfinder-storage');
 }
 
+/**
+ * Directories an administrator may publish through Samba. The managed-disk root
+ * is always allowed; additional roots are an explicit, host-level opt-in.
+ */
+export function getSambaAllowedRoots(): string[] {
+  const configured = String(process.env.OPENFINDER_SAMBA_ALLOWED_ROOTS || '')
+    .split(path.delimiter)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value) => path.isAbsolute(value))
+    .map((value) => path.resolve(value));
+  return [...new Set([getSambaRoot(), ...configured])];
+}
+
 function hasControlChars(value: string): boolean {
   return /[\u0000-\u001f\u007f]/.test(value);
 }
@@ -25,26 +39,25 @@ function realOrNearestExisting(target: string): string {
   return fs.realpathSync(current);
 }
 
-export function resolveWithinRoot(inputPath: string, rootPath = getSambaRoot()): string {
+export function resolveWithinRoot(inputPath: string, rootPath?: string): string {
   const raw = String(inputPath || '').trim();
   if (!raw) throw new ValidationError('Path is required');
   if (hasControlChars(raw)) throw new ValidationError('Path contains invalid characters');
   if (!path.isAbsolute(raw)) throw new ValidationError('Share path must be absolute');
 
-  const root = path.resolve(rootPath);
   const candidate = path.resolve(raw);
-  if (!isInside(root, candidate)) {
-    throw new ValidationError(`Samba shares must be inside ${root}`);
-  }
-  if (fs.existsSync(root)) {
-    const realRoot = fs.realpathSync(root);
-    const nearestReal = realOrNearestExisting(candidate);
-    if (!isInside(realRoot, nearestReal)) {
-      throw new ValidationError(`Samba shares must be inside ${root}`);
+  const roots = rootPath ? [path.resolve(rootPath)] : getSambaAllowedRoots();
+  for (const root of roots) {
+    if (!isInside(root, candidate)) continue;
+    if (fs.existsSync(root)) {
+      const realRoot = fs.realpathSync(root);
+      const nearestReal = realOrNearestExisting(candidate);
+      if (!isInside(realRoot, nearestReal)) continue;
     }
+    return candidate;
   }
 
-  return candidate;
+  throw new ValidationError(`Samba shares must be inside an allowed root: ${roots.join(', ')}`);
 }
 
 export function sanitizeSambaText(value: string, fallback = ''): string {

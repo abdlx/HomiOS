@@ -9,6 +9,7 @@ import { mockReq, mockRes } from './helpers.ts';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openfinder-samba-'));
 const sambaRoot = path.join(root, 'storage');
+const additionalRoot = path.join(root, 'additional-shares');
 const confPath = path.join(root, 'smb.conf');
 const okCommand = process.platform === 'win32' ? 'cmd.exe' : 'true';
 
@@ -17,7 +18,9 @@ let sambaUserId: number;
 
 beforeAll(() => {
   fs.mkdirSync(sambaRoot, { recursive: true });
+  fs.mkdirSync(additionalRoot, { recursive: true });
   process.env.OPENFINDER_SAMBA_ROOT = sambaRoot;
+  process.env.OPENFINDER_SAMBA_ALLOWED_ROOTS = additionalRoot;
   process.env.SAMBA_CONF_PATH = confPath;
   process.env.SAMBA_TESTPARM_BIN = okCommand;
   process.env.SAMBA_CONTROL_BIN = okCommand;
@@ -54,10 +57,20 @@ describe('/api/shares', () => {
     expect(getDb().prepare('SELECT COUNT(*) as count FROM shares').get().count).toBe(1);
   });
 
-  it('returns an actionable 400 instead of 500 for paths outside the Samba jail', async () => {
+  it('allows a share inside an explicitly configured additional root', async () => {
+    const sharePath = path.join(additionalRoot, 'documents');
+    const response = await post({ name: 'Documents', path: sharePath });
+
+    expect(response.statusCode).toBe(201);
+    expect(fs.readFileSync(confPath, 'utf8')).toContain(`[Documents]\n  path = ${sharePath}`);
+  });
+
+  it('returns an actionable 400 instead of 500 for paths outside every allowed root', async () => {
     const response = await post({ name: 'Unsafe', path: path.join(root, 'outside') });
     expect(response.statusCode).toBe(400);
+    expect(response.body.error).toContain('allowed root');
     expect(response.body.error).toContain(sambaRoot);
+    expect(response.body.error).toContain(additionalRoot);
   });
 
   it('refuses to publish a share that no Samba user can authenticate to', async () => {

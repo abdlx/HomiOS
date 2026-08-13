@@ -132,9 +132,14 @@ fi
 # Unit files are world-readable and `systemctl show openfinder` prints Environment=
 # to any local user — which would hand over the key that decrypts every stored SSH
 # private key and S3 credential.
+SAMBA_ALLOWED_ROOTS=""
+if [ -f "$ENV_FILE" ]; then
+  SAMBA_ALLOWED_ROOTS=$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "$ENV_FILE" | tail -n 1)
+fi
 umask 077
 cat > "$ENV_FILE" <<EOF
 APP_KEY=$APP_KEY
+OPENFINDER_SAMBA_ALLOWED_ROOTS=$SAMBA_ALLOWED_ROOTS
 EOF
 chmod 600 "$ENV_FILE"
 umask 022
@@ -472,8 +477,12 @@ APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
 ENV_FILE="$INSTALL_DIR/data/openfinder.env"
 if [ -f "\$APP_KEY_FILE" ]; then
   CURRENT_KEY=\$(cat "\$APP_KEY_FILE")
+  CURRENT_SAMBA_ALLOWED_ROOTS=""
+  if [ -f "\$ENV_FILE" ]; then
+    CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
+  fi
   umask 077
-  printf 'APP_KEY=%s\n' "\$CURRENT_KEY" > "\$ENV_FILE"
+  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\n' "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" > "\$ENV_FILE"
   chmod 600 "\$ENV_FILE"
   umask 022
   # Scrub any APP_KEY left in the unit by a pre-hardening install.
