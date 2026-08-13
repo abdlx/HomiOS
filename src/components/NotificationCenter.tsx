@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, CheckCheck, Circle, Info, Trash2, X, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Bell, CheckCheck, Circle, Info, Trash2, X, AlertTriangle, CheckCircle2, XCircle, Loader2, Pause, Play, RefreshCw } from 'lucide-react';
 import { NotificationItem } from '../types';
+import { useJobActivity } from '../hooks/useJobActivity';
 
 type NotificationFilter = 'all' | 'unread' | 'activity' | 'transfers' | 'system';
 
@@ -36,8 +37,14 @@ export default function NotificationCenter({ open, onClose, onUnreadChange }: No
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const [loading, setLoading] = useState(false);
+  const { activeJobs, transferJobs, updateJob } = useJobActivity();
 
   const unreadCount = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
+  const liveJobs = useMemo(() => {
+    if (filter === 'system' || filter === 'unread') return [];
+    if (filter === 'transfers') return transferJobs.filter((job) => ['queued', 'running', 'paused'].includes(job.status));
+    return activeJobs;
+  }, [filter, transferJobs, activeJobs]);
 
   const load = async (nextFilter = filter) => {
     setLoading(true);
@@ -148,6 +155,35 @@ export default function NotificationCenter({ open, onClose, onUnreadChange }: No
       </div>
 
       <div className="h-[calc(100%-142px)] overflow-y-auto p-3">
+        {liveJobs.length > 0 && (
+          <section className="mb-3 space-y-2" aria-label="Live jobs">
+            <div className="flex items-center gap-2 px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">
+              <Loader2 size={11} className="animate-spin text-blue-300" />
+              Live on server
+            </div>
+            {liveJobs.map((job) => (
+              <div key={job.id} className="rounded-2xl border border-blue-400/15 bg-blue-500/[0.08] p-3">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="truncate text-xs font-semibold">{job.name}</h3>
+                      <span className="font-mono text-[10px] text-white/55">{job.progress || 0}%</span>
+                    </div>
+                    <p className="mt-1 text-[10px] capitalize text-white/42">{job.status}{job.runAt && job.status === 'queued' ? ` · ${new Date(job.runAt).toLocaleString()}` : ''}</p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-blue-400 transition-[width] duration-300" style={{ width: `${Math.max(job.status === 'running' ? 2 : 0, job.progress || 0)}%` }} />
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {job.status === 'queued' && <button onClick={() => void updateJob(job.id, 'pause')} className="rounded-lg p-1.5 text-white/45 hover:bg-white/10 hover:text-white" title="Pause"><Pause size={12} /></button>}
+                    {job.status === 'paused' && <button onClick={() => void updateJob(job.id, 'resume')} className="rounded-lg p-1.5 text-white/45 hover:bg-white/10 hover:text-white" title="Resume"><Play size={12} /></button>}
+                    <button onClick={() => void updateJob(job.id, 'cancel')} className="rounded-lg p-1.5 text-white/45 hover:bg-red-500/15 hover:text-red-300" title="Cancel"><XCircle size={12} /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
         {loading && items.length === 0 && (
           <div className="py-10 text-center text-sm text-white/45">Loading notifications...</div>
         )}

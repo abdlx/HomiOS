@@ -64,6 +64,8 @@ export interface TransferTask {
   error?: string;
   controller?: AbortController;
   retry?: () => Promise<unknown> | unknown;
+  /** Durable server-side job backing this task. */
+  serverJobId?: string;
   /** TUS upload instance for pause/resume support */
   tusUpload?: any;
   /** Bytes transferred so far */
@@ -107,7 +109,8 @@ export type JobType =
   | 'sync.run'
   | 'ocr.run'
   | 'zip.create'
-  | 'file.move';
+  | 'file.move'
+  | 'file.copy';
 
 export type JobStatus = 'queued' | 'running' | 'paused' | 'cancelled' | 'failed' | 'completed';
 export type JobResourceClass = 'cpu' | 'io' | 'media' | 'backup';
@@ -123,7 +126,18 @@ export interface Job {
   name: string;
   payload?: any;
   result?: any;
+  progressData?: {
+    bytesTransferred?: number;
+    bytesTotal?: number;
+    filesTransferred?: number;
+    filesTotal?: number;
+  };
   error?: string;
+  priority?: number;
+  attempts?: number;
+  maxAttempts?: number;
+  runAt?: string;
+  updatedAt?: string;
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;

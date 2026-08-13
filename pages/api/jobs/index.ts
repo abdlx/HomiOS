@@ -7,9 +7,11 @@ const VALID_TYPES = new Set<JobType>([
   'thumbnail.generate',
   'backup.run',
   'backup.restore',
+  'sync.run',
   'ocr.run',
   'zip.create',
   'file.move',
+  'file.copy',
 ]);
 
 export default withAuth(async (req: any, res: any, session: any) => {
@@ -25,13 +27,16 @@ export default withAuth(async (req: any, res: any, session: any) => {
   }
 
   if (req.method === 'POST') {
-    const { type, payload, name, priority } = req.body || {};
+    const { type, payload, name, priority, runAt, maxAttempts, idempotencyKey } = req.body || {};
     if (!VALID_TYPES.has(type)) return res.status(400).json({ error: 'Invalid job type' });
     const id = enqueueJob({
       type,
       payload,
       name,
       priority,
+      runAt,
+      maxAttempts,
+      idempotencyKey,
       teamId: session.teamId,
       userId: session.userId,
     });

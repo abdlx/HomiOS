@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import dynamic from 'next/dynamic';
 import DesktopEnvironment from './DesktopEnvironment';
 import MobileLauncher from './MobileLauncher';
@@ -17,6 +17,8 @@ import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { useWallpaper } from '../hooks/useWallpaper';
+import { JobActivityProvider } from '../hooks/useJobActivity';
+import TransferActivityPanel from './TransferActivityPanel';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
@@ -24,14 +26,117 @@ interface WindowManagerProps {
   username?: string;
 }
 
-export default function WindowManager({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
-  const [view, setView] = useState<string>(initialView);
+type WindowMode = 'normal' | 'fullscreen';
+type WindowState = { activeView: string; openedViews: string[]; modes: Record<string, WindowMode> };
+type WindowAction =
+  | { type: 'hydrate'; openedViews: string[]; modes: Record<string, WindowMode> }
+  | { type: 'open'; view: string }
+  | { type: 'close'; view: string }
+  | { type: 'minimize'; view: string }
+  | { type: 'toggle-fullscreen'; view: string };
+
+function windowReducer(state: WindowState, action: WindowAction): WindowState {
+  if (action.type === 'hydrate') {
+    return {
+      ...state,
+      openedViews: Array.from(new Set([...action.openedViews, ...state.openedViews])),
+      modes: action.modes,
+    };
+  }
+  if (action.type === 'open') {
+    if (action.view === 'desktop') return { ...state, activeView: 'desktop' };
+    return {
+      ...state,
+      activeView: action.view,
+      openedViews: state.openedViews.includes(action.view) ? state.openedViews : [...state.openedViews, action.view],
+    };
+  }
+  if (action.type === 'close') {
+    return { ...state, activeView: 'desktop', openedViews: state.openedViews.filter((view) => view !== action.view) };
+  }
+  if (action.type === 'minimize') return { ...state, activeView: 'desktop' };
+  return {
+    ...state,
+    modes: { ...state.modes, [action.view]: state.modes[action.view] === 'fullscreen' ? 'normal' : 'fullscreen' },
+  };
+}
+
+function initialWindowState(initialView: string): WindowState {
+  return {
+    activeView: initialView,
+    openedViews: initialView === 'desktop' ? [] : [initialView],
+    modes: {},
+  };
+}
+
+function WindowTrafficLights({ onClose, onMinimize, onZoom }: { onClose: () => void; onMinimize: () => void; onZoom: () => void }) {
+  return (
+    <div className="absolute left-4 top-4 z-[120] hidden items-center gap-2 md:flex">
+      <button onClick={onClose} className="h-3 w-3 rounded-full border border-[#e0443e] bg-[#ff5f56] hover:brightness-90" title="Close" aria-label="Close window" />
+      <button onClick={onMinimize} className="h-3 w-3 rounded-full border border-[#dfa123] bg-[#ffbd2e] hover:brightness-90" title="Minimize" aria-label="Minimize window" />
+      <button onClick={onZoom} className="h-3 w-3 rounded-full border border-[#1aab29] bg-[#27c93f] hover:brightness-90" title="Zoom" aria-label="Toggle full screen" />
+    </div>
+  );
+}
+
+function WindowManagerShell({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
+  const [windowState, dispatchWindow] = useReducer(windowReducer, initialView, initialWindowState);
+  const [windowStateHydrated, setWindowStateHydrated] = useState(false);
+  const view = windowState.activeView;
+  const setView = (nextView: string) => dispatchWindow({ type: 'open', view: nextView });
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { settings: performanceSettings } = usePerformanceSettings();
   const { wallpaper } = useWallpaper();
   const hasActiveTransfers = transfers.some(task => task.status === 'uploading' || task.status === 'pending' || task.status === 'paused');
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('openfinder_window_state') || '{}');
+      dispatchWindow({
+        type: 'hydrate',
+        openedViews: Array.isArray(saved.openedViews) ? saved.openedViews : [],
+        modes: saved.modes && typeof saved.modes === 'object' ? saved.modes : {},
+      });
+    } catch {}
+    setWindowStateHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!windowStateHydrated) return;
+    localStorage.setItem('openfinder_window_state', JSON.stringify({
+      openedViews: windowState.openedViews,
+      modes: windowState.modes,
+    }));
+  }, [windowState.openedViews, windowState.modes, windowStateHydrated]);
+
+  const frameClass = (appId: string, zClass: string) => {
+    const fullscreen = windowState.modes[appId] === 'fullscreen';
+    return `absolute ${zClass} ${fullscreen ? 'inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom'} shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
+  };
+
+  const handleChromeCapture = (appId: string, event: React.MouseEvent) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[title]');
+    if (!button) return;
+    const classes = button.className?.toString() || '';
+    const isTrafficLight = classes.includes('rounded-full') && classes.includes('w-3') && classes.includes('h-3');
+    if (!isTrafficLight) return;
+    const title = button.getAttribute('title');
+    if (title === 'Minimize') {
+      event.preventDefault();
+      event.stopPropagation();
+      dispatchWindow({ type: 'minimize', view: appId });
+    } else if (title === 'Zoom') {
+      event.preventDefault();
+      event.stopPropagation();
+      dispatchWindow({ type: 'toggle-fullscreen', view: appId });
+    } else if (title === 'Close') {
+      event.preventDefault();
+      event.stopPropagation();
+      dispatchWindow({ type: 'close', view: appId });
+    }
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -116,6 +221,7 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         onClose={() => setIsCommandPaletteOpen(false)}
         onOpenView={(nextView) => setView(nextView)}
       />
+      <TransferActivityPanel />
 
       {transfers.length > 0 && (() => {
         const active = transfers.filter(task => task.status === 'uploading' || task.status === 'pending');
@@ -183,10 +289,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'files' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-10 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'files' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('files', 'z-10')}
+        onClickCapture={(event) => handleChromeCapture('files', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {(view === 'files' || hasActiveTransfers) && <App onClose={() => setView('desktop')} />}
+          {(windowState.openedViews.includes('files') || hasActiveTransfers) && <App onClose={() => dispatchWindow({ type: 'close', view: 'files' })} />}
         </div>
       </motion.div>
 
@@ -195,10 +302,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'settings' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-20 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'settings' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('settings', 'z-20')}
+        onClickCapture={(event) => handleChromeCapture('settings', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {view === 'settings' && <SettingsApp onClose={() => setView('desktop')} />}
+          {windowState.openedViews.includes('settings') && <SettingsApp onClose={() => dispatchWindow({ type: 'close', view: 'settings' })} />}
         </div>
       </motion.div>
 
@@ -207,10 +315,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'terminal' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-30 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'terminal' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('terminal', 'z-30')}
+        onClickCapture={(event) => handleChromeCapture('terminal', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
-          {view === 'terminal' && <TerminalApp onClose={() => setView('desktop')} />}
+          {windowState.openedViews.includes('terminal') && <TerminalApp onClose={() => dispatchWindow({ type: 'close', view: 'terminal' })} />}
         </div>
       </motion.div>
 
@@ -219,10 +328,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'activity' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-40 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'activity' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('activity', 'z-40')}
+        onClickCapture={(event) => handleChromeCapture('activity', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
-          {view === 'activity' && <ActivityApp onClose={() => setView('desktop')} isActive />}
+          {windowState.openedViews.includes('activity') && <ActivityApp onClose={() => dispatchWindow({ type: 'close', view: 'activity' })} isActive={view === 'activity'} />}
         </div>
       </motion.div>
 
@@ -231,10 +341,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'notes' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'notes' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('notes', 'z-50')}
+        onClickCapture={(event) => handleChromeCapture('notes', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {view === 'notes' && <NotesApp onClose={() => setView('desktop')} />}
+          {windowState.openedViews.includes('notes') && <NotesApp onClose={() => dispatchWindow({ type: 'close', view: 'notes' })} />}
         </div>
       </motion.div>
 
@@ -243,10 +354,11 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'photos' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'photos' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('photos', 'z-50')}
+        onClickCapture={(event) => handleChromeCapture('photos', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {view === 'photos' && <PhotosApp onClose={() => setView('desktop')} isActive />}
+          {windowState.openedViews.includes('photos') && <PhotosApp onClose={() => dispatchWindow({ type: 'close', view: 'photos' })} isActive={view === 'photos'} />}
         </div>
       </motion.div>
 
@@ -255,10 +367,15 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'vscode' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'vscode' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('vscode', 'z-50')}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
-          {view === 'vscode' && <VSCodeApp onClose={() => setView('desktop')} isActive />}
+          <WindowTrafficLights
+            onClose={() => dispatchWindow({ type: 'close', view: 'vscode' })}
+            onMinimize={() => dispatchWindow({ type: 'minimize', view: 'vscode' })}
+            onZoom={() => dispatchWindow({ type: 'toggle-fullscreen', view: 'vscode' })}
+          />
+          {windowState.openedViews.includes('vscode') && <VSCodeApp onClose={() => dispatchWindow({ type: 'close', view: 'vscode' })} isActive={view === 'vscode'} />}
         </div>
       </motion.div>
 
@@ -267,10 +384,15 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'codex' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'codex' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('codex', 'z-50')}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0a0a0a] shadow-2xl relative">
-          {view === 'codex' && <CodexApp onClose={() => setView('desktop')} isActive />}
+          <WindowTrafficLights
+            onClose={() => dispatchWindow({ type: 'close', view: 'codex' })}
+            onMinimize={() => dispatchWindow({ type: 'minimize', view: 'codex' })}
+            onZoom={() => dispatchWindow({ type: 'toggle-fullscreen', view: 'codex' })}
+          />
+          {windowState.openedViews.includes('codex') && <CodexApp onClose={() => dispatchWindow({ type: 'close', view: 'codex' })} isActive={view === 'codex'} />}
         </div>
       </motion.div>
 
@@ -279,13 +401,22 @@ export default function WindowManager({ initialView = 'desktop', username = 'Use
         initial={false}
         animate={view === 'browser' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={`absolute z-50 max-md:inset-0 md:top-8 md:bottom-[120px] md:left-16 md:right-16 md:origin-bottom shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === 'browser' ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={frameClass('browser', 'z-50')}
+        onClickCapture={(event) => handleChromeCapture('browser', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {view === 'browser' && <BrowserApp onClose={() => setView('desktop')} />}
+          {windowState.openedViews.includes('browser') && <BrowserApp onClose={() => dispatchWindow({ type: 'close', view: 'browser' })} />}
         </div>
       </motion.div>
 
     </div>
+  );
+}
+
+export default function WindowManager(props: WindowManagerProps) {
+  return (
+    <JobActivityProvider>
+      <WindowManagerShell {...props} />
+    </JobActivityProvider>
   );
 }

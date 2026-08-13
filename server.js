@@ -434,6 +434,11 @@ app.prepare().then(async () => {
       const { stopSyncScheduler } = await import('./lib/sync.ts');
       stopSyncScheduler();
     } catch {}
+    try {
+      const { drainJobWorker } = await import('./lib/jobs.ts');
+      const drain = await drainJobWorker(Number(process.env.SHUTDOWN_JOB_DRAIN_MS || 10_000));
+      if (!drain.drained) console.warn(`[shutdown] ${drain.running} job(s) will recover on next start`);
+    } catch {}
 
     for (const term of global.openfinderTerminalSessions?.values() || []) {
       try { term.kill(); } catch {}

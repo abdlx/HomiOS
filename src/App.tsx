@@ -516,15 +516,31 @@ export default function App({ onClose }: AppProps = {}) {
     }
   };
 
-  const notifyTransfer = async (title: string, message: string, tone: 'success' | 'danger' | 'info' = 'info', sourceId?: string) => {
-    try {
-      await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, tone, sourceType: 'transfer', sourceId }),
-      });
-    } catch {
-      // Notification center updates must not block file work.
+  const waitForServerJob = async (jobId: string, taskId: string, signal?: AbortSignal) => {
+    let delay = 600;
+    while (true) {
+      if (signal?.aborted) throw new DOMException('Polling stopped', 'AbortError');
+      const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
+      if (!res.ok) throw new Error(`Could not read transfer status (${res.status})`);
+      const job = await res.json();
+      const status: TransferTask['status'] =
+        job.status === 'running' ? 'uploading'
+          : job.status === 'paused' ? 'paused'
+            : job.status === 'completed' ? 'completed'
+              : job.status === 'failed' || job.status === 'cancelled' ? 'error'
+                : 'pending';
+      updateTransferThrottled(taskId, {
+        status,
+        progress: job.progress || 0,
+        description: job.status === 'queued' && job.runAt ? `Scheduled for ${new Date(job.runAt).toLocaleString()}` : job.error || job.name,
+        error: job.status === 'failed' || job.status === 'cancelled' ? job.error || job.status : undefined,
+      }, true);
+      if (job.status === 'completed') return job;
+      if (job.status === 'failed' || job.status === 'cancelled') {
+        throw new Error(job.error || `Transfer ${job.status}`);
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, delay));
+      delay = Math.min(2000, Math.round(delay * 1.25));
     }
   };
 
@@ -557,19 +573,23 @@ export default function App({ onClose }: AppProps = {}) {
       const res = await fetch(`/api/files/${options.action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourcePath: options.sourcePath, destinationPath: options.destinationPath }),
+        body: JSON.stringify({
+          sourcePath: options.sourcePath,
+          destinationPath: options.destinationPath,
+          idempotencyKey: taskId,
+        }),
         signal: controller.signal,
       });
 
       if (!res.ok) throw new Error(`${options.action} failed with status ${res.status}`);
-
-      await readMoveProgress(res, taskId);
-      await notifyTransfer(
-        options.action === 'copy' ? 'Copy completed' : 'Move completed',
-        options.file.name,
-        'success',
-        taskId
-      );
+      const queued = await res.json();
+      const jobId = queued.jobId || queued.id;
+      updateTransferThrottled(taskId, {
+        serverJobId: jobId,
+        status: 'pending',
+        description: 'Queued on server · safe to close or reload this window',
+      }, true);
+      await waitForServerJob(jobId, taskId, controller.signal);
       toast({ message: `${options.action === 'copy' ? 'Copied' : 'Moved'} ${options.file.name}`, tone: 'success' });
       return true;
     } catch (err: any) {
@@ -579,12 +599,6 @@ export default function App({ onClose }: AppProps = {}) {
         error: aborted ? 'Cancelled' : err.message || `${options.action} failed`,
         description: aborted ? 'Cancelled' : `${options.action} failed`,
       }, true);
-      await notifyTransfer(
-        aborted ? 'Transfer cancelled' : `${options.action === 'copy' ? 'Copy' : 'Move'} failed`,
-        `${options.file.name}${aborted ? '' : `: ${err.message || 'Unknown error'}`}`,
-        'danger',
-        taskId
-      );
       toast({ message: aborted ? 'Transfer cancelled' : `${options.action === 'copy' ? 'Copy' : 'Move'} failed`, description: aborted ? undefined : err.message, tone: 'danger' });
       return false;
     }
@@ -1022,6 +1036,13 @@ export default function App({ onClose }: AppProps = {}) {
         onClearFinished={() => setTransfers(prev => prev.filter(t => t.status === 'uploading' || t.status === 'paused' || t.status === 'pending'))}
         onCancel={(id) => {
           const task = transfers.find((item) => item.id === id);
+          if (task?.serverJobId) {
+            void fetch(`/api/jobs/${encodeURIComponent(task.serverJobId)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'cancel' }),
+            });
+          }
           task?.controller?.abort();
           task?.tusUpload?.abort?.();
           setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: 'Cancelled', description: 'Cancelled' } : t));

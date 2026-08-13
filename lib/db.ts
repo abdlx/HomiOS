@@ -391,6 +391,23 @@ export function getDb(): any {
   ensureColumn('shares', 'expires_at', 'DATETIME');
   ensureColumn('share_users', 'access', "TEXT DEFAULT 'write'");
   ensureColumn('api_tokens', 'expires_at', 'DATETIME');
+  // Durable queue metadata. These are additive migrations so existing OpenFinder
+  // installations keep their job history while gaining scheduling and recovery.
+  ensureColumn('jobs', 'run_at', 'DATETIME');
+  ensureColumn('jobs', 'updated_at', 'DATETIME');
+  ensureColumn('jobs', 'heartbeat_at', 'DATETIME');
+  ensureColumn('jobs', 'attempts', 'INTEGER DEFAULT 0');
+  ensureColumn('jobs', 'max_attempts', 'INTEGER DEFAULT 3');
+  ensureColumn('jobs', 'idempotency_key', 'TEXT');
+  ensureColumn('jobs', 'cancel_requested_at', 'DATETIME');
+  ensureColumn('jobs', 'progress_data', "TEXT DEFAULT '{}'");
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_jobs_dispatch
+      ON jobs(status, run_at, priority, created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_idempotency
+      ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL;
+  `);
 
   backfillInstanceAdmin();
 
