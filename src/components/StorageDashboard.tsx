@@ -1,8 +1,8 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup, Pencil } from 'lucide-react';
+import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup, Pencil, Unplug } from 'lucide-react';
 import { DriveItem } from '../types';
 import BackupsPanel from './BackupsPanel';
-import { promptDialog, toast } from './SystemUI';
+import { confirmDialog, promptDialog, toast } from './SystemUI';
 
 interface StorageDashboardProps {
   onNavigateDrive: (path: string) => void;
@@ -14,6 +14,7 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
   const [drives, setDrives] = useState<DriveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [mountingDevice, setMountingDevice] = useState<string | null>(null);
+  const [unmountingDevice, setUnmountingDevice] = useState<string | null>(null);
   const [mountMessage, setMountMessage] = useState<{ device: string; msg: string; ok: boolean } | null>(null);
 
   const loadDrives = async () => {
@@ -84,6 +85,38 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
     setMountingDevice(null);
   };
 
+  const handleUnmount = async (drive: DriveItem) => {
+    if (!drive.path) return;
+    const confirmed = await confirmDialog({
+      title: `Unmount ${drive.label}?`,
+      message: 'Open files and terminal sessions using this drive must be closed. Active Samba shares on it must be disabled first.',
+      confirmLabel: 'Unmount',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setUnmountingDevice(drive.name);
+    setMountMessage(null);
+    try {
+      const res = await fetch('/api/drives/unmount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: drive.name, mountPoint: drive.path }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMountMessage({ device: drive.name, msg: `Unmounted ${result.mountPoint}`, ok: true });
+        await loadDrives();
+      } else {
+        setMountMessage({ device: drive.name, msg: result.error || 'Unmount failed', ok: false });
+      }
+    } catch {
+      setMountMessage({ device: drive.name, msg: 'Connection error', ok: false });
+    } finally {
+      setUnmountingDevice(null);
+    }
+  };
+
   const usageColor = (pct?: number) => {
     if (pct === undefined) return 'from-blue-500 to-cyan-400';
     if (pct >= 90) return 'from-red-500 to-orange-400';
@@ -136,6 +169,7 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {drives.map((drive) => {
             const isMounting = mountingDevice === drive.name;
+            const isUnmounting = unmountingDevice === drive.name;
             const feedback = mountMessage?.device === drive.name ? mountMessage : null;
             const pct = drive.usagePercent;
 
@@ -234,12 +268,27 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
                 {/* Action buttons */}
                 <div className="flex items-center space-x-3 pt-2 mt-auto">
                   {drive.isMounted ? (
-                    <button
-                      onClick={() => onNavigateDrive(drive.path)}
-                      className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
-                    >
-                      Browse Files
-                    </button>
+                    <>
+                      <button
+                        onClick={() => onNavigateDrive(drive.path)}
+                        disabled={isUnmounting}
+                        className="flex-1 text-xs font-semibold py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all disabled:opacity-50"
+                      >
+                        Browse Files
+                      </button>
+                      <button
+                        onClick={() => handleUnmount(drive)}
+                        disabled={isUnmounting}
+                        className="text-xs font-semibold py-2.5 px-3 rounded-xl bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Unmount drive"
+                      >
+                        {isUnmounting ? (
+                          <><RefreshCw size={14} className="animate-spin" /><span>Unmounting...</span></>
+                        ) : (
+                          <><Unplug size={14} /><span>Unmount</span></>
+                        )}
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={() => handleMount(drive)}
@@ -302,4 +351,3 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
     </div>
   );
 }
-
