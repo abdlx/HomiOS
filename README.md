@@ -72,6 +72,64 @@ Immich stores its library and PostgreSQL data under `/data/immich` by default
 and appears as a native OpenFinder desktop/mobile app at `/immich`. Enabled
 updates refresh its official release Compose bundle and recreate its containers.
 
+#### Use an OpenFinder-mounted drive as an Immich external library
+
+If the drive is mounted correctly and its media is stored inside the `IMMICH`
+folder, mount that folder specifically rather than exposing the whole drive to
+Immich.
+
+Edit the Immich Compose file:
+
+```bash
+sudo nano /data/immich/docker-compose.yml
+```
+
+Inside the existing `immich-server` service's `volumes` list, add:
+
+```yaml
+- /mnt/openfinder-storage/sda1/IMMICH:/external/sda1:ro
+```
+
+The relevant Compose configuration should resemble:
+
+```yaml
+services:
+  immich-server:
+    volumes:
+      - ${UPLOAD_LOCATION}:/data
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/openfinder-storage/sda1/IMMICH:/external/sda1:ro
+```
+
+Validate the resolved configuration:
+
+```bash
+sudo docker compose \
+  --env-file /data/immich/.env \
+  -f /data/immich/docker-compose.yml \
+  config | grep -A5 -B5 '/external/sda1'
+```
+
+Then recreate the Immich Server container:
+
+```bash
+sudo docker compose \
+  --env-file /data/immich/.env \
+  -f /data/immich/docker-compose.yml \
+  up -d --force-recreate immich-server
+```
+
+Verify that Immich can read the mounted folder:
+
+```bash
+sudo docker exec immich_server ls -la /external/sda1
+```
+
+Once verification succeeds, open **Immich → Administration → External
+Libraries**, create or select a library, add `/external/sda1` as its import
+path, and scan the library. The `:ro` suffix keeps the source media read-only
+inside Immich.
+
 Once the script finishes, your dashboard will be instantly available at `http://<your-server-ip>`.
 
 ---
