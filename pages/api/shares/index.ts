@@ -79,15 +79,24 @@ export default withAuth(async function handler(req: any, res: any, session: any)
         'SELECT * FROM shares WHERE user_id = ? ORDER BY created_at DESC'
       ).all(session.userId) as any[];
 
-      return res.json(shares.map((share) => ({
-        ...share,
-        sambaUsers: db.prepare(`
+      return res.json(shares.map((share) => {
+        let publishError: string | null = null;
+        try {
+          if (share.enabled) resolveWithinRoot(share.path);
+        } catch (error: any) {
+          publishError = error?.message || 'This share is not publishable';
+        }
+        const sambaUsers = db.prepare(`
           SELECT su.id, su.username, su.enabled, COALESCE(shu.access, 'write') as access
           FROM samba_users su
           JOIN share_users shu ON shu.samba_user_id = su.id
           WHERE shu.share_id = ?
-        `).all(share.id),
-      })));
+        `).all(share.id) as any[];
+        if (share.enabled && sambaUsers.filter((user) => user.enabled).length === 0) {
+          publishError ||= 'Assign at least one enabled Samba user';
+        }
+        return { ...share, sambaUsers, published: !!share.enabled && !publishError, publishError };
+      }));
     }
 
     if (req.method === 'POST') {

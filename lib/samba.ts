@@ -5,6 +5,7 @@
 import { copyFileSync, existsSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { resolveWithinRoot, sanitizeSambaText, validateSambaShareName } from './safe-paths.ts';
+import { ValidationError } from './validate.ts';
 
 // ─── smb.conf regeneration ────────────────────────────────────────────────────
 
@@ -56,15 +57,8 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
 `;
 
     for (const share of shares) {
-      let shareName = '';
-      let sharePath = '';
-      try {
-        shareName = validateSambaShareName(share.name);
-        sharePath = resolveWithinRoot(share.path);
-      } catch (e) {
-        console.warn(`[samba] skipping invalid share ${share.id}:`, e);
-        continue;
-      }
+      const shareName = validateSambaShareName(share.name);
+      const sharePath = resolveWithinRoot(share.path);
       // Resolve the valid users for this share from share_users join
       const rows = db.prepare(`
         SELECT su.username, COALESCE(shu.access, 'write') as access FROM samba_users su
@@ -127,6 +121,7 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
   } catch (error: any) {
     try { unlinkSync(tmp); } catch {}
     if (error instanceof SambaConfigError) throw error;
+    if (error instanceof ValidationError) throw new SambaConfigError('validation', error.message);
     const code: SambaConfigError['code'] = error?.code === 'EACCES' || error?.code === 'EPERM' ? 'write' : 'unavailable';
     throw new SambaConfigError(code, error?.message || 'Samba configuration could not be applied');
   }

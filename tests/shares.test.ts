@@ -97,4 +97,18 @@ describe('/api/shares', () => {
     expect(response.body.repaired).toBe(true);
     expect(fs.readFileSync(confPath, 'utf8')).toContain('[Legacy]');
   });
+
+  it('marks a legacy invalid-path share as not published instead of claiming it is active', async () => {
+    const userId = getDb().prepare('SELECT user_id as userId FROM sessions WHERE id = ?').get(sessionId).userId;
+    const shareId = getDb().prepare('INSERT INTO shares (user_id, name, path, enabled) VALUES (?, ?, ?, 1)')
+      .run(userId, 'DATA', path.join(root, 'legacy-outside')).lastInsertRowid;
+    getDb().prepare('INSERT INTO share_users (share_id, samba_user_id, access) VALUES (?, ?, ?)')
+      .run(shareId, sambaUserId, 'write');
+
+    const response = mockRes();
+    await sharesHandler(mockReq({ method: 'GET', sessionId }), response);
+    const dataShare = response.body.find((share: any) => share.name === 'DATA');
+    expect(dataShare.published).toBe(false);
+    expect(dataShare.publishError).toContain(sambaRoot);
+  });
 });
