@@ -280,13 +280,14 @@ While the OpenFinder auto-installer fully supports these Ubuntu-based distributi
 
 ### External Coolify: "OpenFinder port 3000 not reachable from Coolify proxy"
 
-When using `--existing-coolify`, OpenFinder runs on port 3000 on the host.
-Coolify's Traefik/Caddy proxy runs inside a Docker container, so `127.0.0.1:3000`
-from inside that container refers to the **container itself**, not the host.
+When using `--existing-coolify`, OpenFinder runs on port 3000 on the host and listens on `0.0.0.0`.
 
-To expose OpenFinder through Coolify, either:
-- Connect the OpenFinder service/container to a Docker network reachable by the Coolify proxy, or
-- Use the host-gateway address (typically `172.17.0.1` or `host-gateway`) in Coolify's reverse proxy target.
+Do not use `localhost:3000` as the Coolify proxy target because localhost inside the Coolify proxy container refers to that container.
+
+Use an address through which the Coolify proxy can reach the OpenFinder host, for example the server LAN IP such as:
+`http://<SERVER_LAN_IP>:3000`
+
+or an appropriate Docker host-gateway/network configuration.
 
 ---
 

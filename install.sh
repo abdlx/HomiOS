@@ -443,9 +443,21 @@ fi
 # to any local user — which would hand over the key that decrypts every stored SSH
 # private key and S3 credential.
 SAMBA_ALLOWED_ROOTS=""
+OPENFINDER_BIND_HOST=""
 if [ -f "$ENV_FILE" ]; then
   SAMBA_ALLOWED_ROOTS=$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "$ENV_FILE" | tail -n 1)
+  OPENFINDER_BIND_HOST=$(sed -n 's/^OPENFINDER_BIND_HOST=//p' "$ENV_FILE" | tail -n 1)
 fi
+
+# Fallback derivation if not explicitly saved
+if [ -z "$OPENFINDER_BIND_HOST" ]; then
+  if [ "$OPENFINDER_PROXY_MODE" = "nginx" ]; then
+    OPENFINDER_BIND_HOST="127.0.0.1"
+  else
+    OPENFINDER_BIND_HOST="0.0.0.0"
+  fi
+fi
+
 umask 077
 cat > "$ENV_FILE" <<EOF
 APP_KEY=$APP_KEY
@@ -463,6 +475,7 @@ IMMICH_APP_PORT=$IMMICH_APP_PORT
 IMMICH_DATA_DIR=$IMMICH_DATA_DIR
 IMMICH_VERSION=$IMMICH_VERSION
 IMMICH_COMPOSE_URL=$IMMICH_COMPOSE_URL
+OPENFINDER_BIND_HOST=$OPENFINDER_BIND_HOST
 EOF
 chmod 600 "$ENV_FILE"
 umask 022
@@ -480,7 +493,7 @@ User=root
 WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
 Environment=PORT=3000
-Environment=HOST=127.0.0.1
+Environment=HOST=$OPENFINDER_BIND_HOST
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
@@ -781,6 +794,16 @@ IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
 IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
 IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
 IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
+OPENFINDER_BIND_HOST=\$(read_setting OPENFINDER_BIND_HOST "")
+
+# Fallback derivation if not explicitly saved
+if [ -z "\$OPENFINDER_BIND_HOST" ]; then
+  if [ "\$OPENFINDER_PROXY_MODE" = "nginx" ]; then
+    OPENFINDER_BIND_HOST="127.0.0.1"
+  else
+    OPENFINDER_BIND_HOST="0.0.0.0"
+  fi
+fi
 
 # Legacy fallback for installs that only have COOLIFY_ENABLED
 if [ "\$COOLIFY_MODE" = "disabled" ]; then
@@ -962,11 +985,11 @@ if [ -f "\$APP_KEY_FILE" ]; then
   fi
 
   umask 077
-  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_OPENFINDER=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nOPENFINDER_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\n' \
+  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_OPENFINDER=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nOPENFINDER_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nOPENFINDER_BIND_HOST=%s\n' \
     "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" \
     "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_OPENFINDER" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
     "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$OPENFINDER_PROXY_MODE" "\$CODEX_UI_ENABLED" \
-    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" \
+    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$OPENFINDER_BIND_HOST" \
     > "\$ENV_FILE"
   chmod 600 "\$ENV_FILE"
   umask 022
@@ -990,8 +1013,9 @@ echo -e "${GREEN}${BOLD}║   OpenFinder installed successfully! 🎉      ║${
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════╣${NC}"
 if [ "$OPENFINDER_PROXY_MODE" = "nginx" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  Internal OpenFinder: ${BOLD}127.0.0.1:3000${NC}"
 else
-  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP:3000${NC} (direct, no host proxy)"
+  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP:3000${NC}"
 fi
 if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"

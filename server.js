@@ -129,9 +129,11 @@ app.prepare().then(async () => {
 
   // Codex internal app: session-gated reverse proxy to the loopback codex-web-ui
   // service. Mounted before TUS/Next so /codex* never falls through to the SPA.
-  const codexProxy = createCodexProxy({ originAllowed });
-  server.use(codexProxy.handleRequest);
-  console.log(`Codex Web UI proxy mounted at /codex → ${CODEX_UPSTREAM} (admin session required)`);
+  if (process.env.CODEX_UI_ENABLED === 'true') {
+    const codexProxy = createCodexProxy({ originAllowed });
+    server.use(codexProxy.handleRequest);
+    console.log(`Codex Web UI proxy mounted at /codex → ${CODEX_UPSTREAM} (admin session required)`);
+  }
 
   try {
     const { Server: TusServer } = await import('@tus/server');
