@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  LayoutGrid, 
-  LayoutList, 
-  Columns, 
-  Image, 
-  ArrowUpDown, 
-  Share2, 
-  Tag, 
-  MoreHorizontal, 
-  Search,
+import {
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  LayoutList,
+  Columns,
+  Image,
+  Share2,
+  Tag,
+  MoreHorizontal,
   Plus,
-  FolderPlus,
-  ArrowDownCircle,
   X,
-  Sparkles,
   ChevronDown
 } from 'lucide-react';
 import { ViewMode } from '../types';
 import { toast } from './SystemUI';
+import { GooeyInput } from './ui/gooey-input';
 
 interface ToolbarProps {
   currentPath: string[];
@@ -54,7 +50,6 @@ export default function Toolbar({
   setSortOption,
   onUploadFiles
 }: ToolbarProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -321,40 +316,20 @@ export default function Toolbar({
         </div>
 
         {/* 4. Dedicated Isolated Search button capsule */}
-        <div className="relative flex items-center space-x-1.5">
-          {isSearchOpen && (
-            <div className="relative flex items-center animate-in slide-in-from-right-3 duration-200">
-              <input
-                type="text"
-                placeholder="Filter current directory..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="text-xs px-3 py-1 pr-7 border border-neutral-200 dark:border-white/10 rounded-full w-40 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 shadow-inner"
-                autoFocus
-              />
-              {searchTerm ? (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-                >
-                  <X size={12} />
-                </button>
-              ) : null}
-            </div>
-          )}
-
-          <button
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`flex items-center justify-center rounded-full border shadow-sm transition-all cursor-pointer w-8 h-8 ${
-              isSearchOpen || searchTerm 
-                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                : 'bg-neutral-100/60 dark:bg-white/5 text-gray-600 dark:text-gray-300 border-neutral-200/40 dark:border-white/10 hover:bg-white dark:hover:bg-white/10'
-            }`}
-            title="Toggle Search Input"
-            id="search-toggle-btn"
-          >
-            <Search size={15} className="stroke-[2]" />
-          </button>
+        <div className="relative flex items-center h-8">
+          <GooeyInput 
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            placeholder="Filter current directory..."
+            expandedWidth={220}
+            collapsedWidth={32}
+            className="h-8"
+            classNames={{
+              root: "h-8",
+              filterWrap: "h-8",
+              bubbleSurface: "shadow-sm border border-neutral-200/40 dark:border-white/10"
+            }}
+          />
         </div>
 
       </div>
