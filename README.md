@@ -43,34 +43,122 @@ We compared OpenFinder against the leading home server dashboards:
 - Node.js (v18+)
 - Samba (Optional, if you wish to use the network sharing features: `sudo apt install samba`)
 
-### Quick Install (Recommended)
+### Quick Install — Default (no Coolify)
 
-The easiest way to install OpenFinder on a fresh Ubuntu/Debian server is using our automated installation script. This script automatically handles Node.js setup, Nginx reverse proxying, systemd service creation, and Samba configurations.
-
-Run this command as your primary user (or root):
+The simplest install: OpenFinder only, no Coolify, no Codex UI.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --without-coolify --non-interactive
 ```
 
-Coolify and Immich are independent optional services. Interactive installs ask
-about each one; unattended installs leave both disabled unless requested:
+> **Note:** `--without-coolify` does **not** stop or uninstall Coolify if it is already installed on your server. It only disables OpenFinder's Coolify integration.
+
+---
+
+### OpenFinder-Managed Coolify
+
+OpenFinder installs and manages the full Coolify lifecycle (install, start, update):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | sudo bash -s -- --with-coolify --with-immich --non-interactive
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --with-coolify --non-interactive
 ```
 
-The choices persist across upgrades and can be changed later without deleting
-service data:
+> OpenFinder will only do this on a fresh server with no existing Coolify installation. If Coolify is already running, the installer will refuse and ask you to use `--existing-coolify` instead.
+
+---
+
+### Existing (External) Coolify
+
+Use this if Coolify is **already installed and running** on your server. OpenFinder will integrate with it without touching its lifecycle, configuration, or host proxy:
 
 ```bash
-sudo openfinder-update --with-immich
-sudo openfinder-update --without-coolify
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --existing-coolify --non-interactive
+```
+
+- Coolify is **not** started, stopped, restarted, or reconfigured.
+- `/data/coolify` is **not** modified.
+- Host ports 80/443 remain under Coolify's proxy ownership.
+- Host Nginx is **not** installed or reconfigured.
+- OpenFinder will be available on port 3000 — route it through Coolify's proxy manually.
+
+---
+
+### Existing Coolify + Codex UI
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --existing-coolify --with-codex-ui --non-interactive
+```
+
+---
+
+### Codex UI (opt-in)
+
+Codex Web UI is **not installed by default**. Add `--with-codex-ui` to any install command to enable it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --without-coolify --with-codex-ui --non-interactive
+```
+
+---
+
+### Immich Photo Library
+
+Immich is an optional, independently managed service:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+sudo bash -s -- --with-immich --non-interactive
 ```
 
 Immich stores its library and PostgreSQL data under `/data/immich` by default
-and appears as a native OpenFinder desktop/mobile app at `/immich`. Enabled
-updates refresh its official release Compose bundle and recreate its containers.
+and appears as a native OpenFinder desktop/mobile app at `/immich`.
+
+---
+
+### Changing Optional Services After Installation
+
+All choices persist across upgrades. Change them later without deleting service data:
+
+```bash
+# Enable Coolify management (only if no Coolify exists yet)
+sudo openfinder-update --with-coolify
+
+# Switch to external Coolify integration
+sudo openfinder-update --existing-coolify
+
+# Disable Coolify integration (does NOT stop Coolify)
+sudo openfinder-update --without-coolify
+
+# Enable Codex UI
+sudo openfinder-update --with-codex-ui
+
+# Immich
+sudo openfinder-update --with-immich
+sudo openfinder-update --without-immich
+```
+
+---
+
+### CLI Reference
+
+| Flag | Effect |
+| :--- | :--- |
+| `--with-coolify` | OpenFinder installs & manages Coolify (fresh servers only) |
+| `--existing-coolify` | Read-only integration with a running Coolify; no lifecycle ops |
+| `--without-coolify` | Disable integration; does NOT stop existing Coolify |
+| `--with-codex-ui` | Install Codex Web UI (opt-in) |
+| `--with-immich` | Enable Immich photo library |
+| `--without-immich` | Disable Immich |
+| `--non-interactive` | Skip all prompts (required for piped installs) |
+
+`--with-coolify`, `--existing-coolify`, and `--without-coolify` are mutually exclusive.
+
+---
 
 #### Use an OpenFinder-mounted drive as an Immich external library
 
@@ -189,6 +277,16 @@ While the OpenFinder auto-installer fully supports these Ubuntu-based distributi
    ```bash
    sudo mv /etc/os-release.bak /etc/os-release
    ```
+
+### External Coolify: "OpenFinder port 3000 not reachable from Coolify proxy"
+
+When using `--existing-coolify`, OpenFinder runs on port 3000 on the host.
+Coolify's Traefik/Caddy proxy runs inside a Docker container, so `127.0.0.1:3000`
+from inside that container refers to the **container itself**, not the host.
+
+To expose OpenFinder through Coolify, either:
+- Connect the OpenFinder service/container to a Docker network reachable by the Coolify proxy, or
+- Use the host-gateway address (typically `172.17.0.1` or `host-gateway`) in Coolify's reverse proxy target.
 
 ---
 

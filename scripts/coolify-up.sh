@@ -1,4 +1,17 @@
 #!/bin/bash
+# ============================================================
+#  scripts/coolify-up.sh — Start/configure the OpenFinder-managed Coolify sidecar
+#
+#  FAIL-CLOSED: This script refuses to execute unless:
+#    COOLIFY_MODE=managed  AND  COOLIFY_OWNED_BY_OPENFINDER=true
+#
+#  The orchestrator (install.sh) is the sole authority on whether an
+#  installation is fresh. This script never decides ownership — it only
+#  executes when the orchestrator has already confirmed both preconditions.
+#
+#  Defaults are set to the most restrictive values to prevent accidental
+#  execution from a shell where these variables are unset.
+# ============================================================
 set -euo pipefail
 
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
@@ -14,35 +27,55 @@ ENV_DIR="$COOLIFY_DATA_DIR/source"
 ENV_FILE="$ENV_DIR/.env"
 ENV_TEMPLATE="$COOLIFY_SOURCE_DIR/.env.production"
 
-log() { echo "[coolify] $1"; }
+log()  { echo "[coolify] $1"; }
 fail() { echo "[coolify] ERROR: $1" >&2; exit 1; }
 
+# ── Root check ────────────────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
   fail "Please run as root: sudo bash scripts/coolify-up.sh"
 fi
+
+# ── Ownership guard — fail-closed ─────────────────────────────
+# COOLIFY_MODE defaults to 'disabled', not 'managed', so unintentional execution
+# from an unconfigured environment is always a hard failure, never a silent proceed.
+#
+# Both conditions must be true before any Coolify installation or lifecycle
+# operation is performed. The orchestrator (install.sh) sets these before invoking
+# this script. If they are not set, refuse.
+if [ "${COOLIFY_MODE:-disabled}" != "managed" ]; then
+  fail "Coolify lifecycle operations require COOLIFY_MODE=managed.
+Got: '${COOLIFY_MODE:-disabled}'.
+This script must only be called by install.sh in managed Coolify mode."
+fi
+if [ "${COOLIFY_OWNED_BY_OPENFINDER:-false}" != "true" ]; then
+  fail "OpenFinder does not own this Coolify installation (COOLIFY_OWNED_BY_OPENFINDER is not true).
+Refusing to install or reconfigure Coolify.
+Use --existing-coolify to integrate with an externally installed Coolify instance."
+fi
+# Both guards passed — proceeding with managed installation.
 
 if [ ! -d "$COOLIFY_SOURCE_DIR" ]; then
   fail "Coolify source directory not found at $COOLIFY_SOURCE_DIR"
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
+if ! command -v docker > /dev/null 2>&1; then
   log "Installing Docker for the bundled Coolify sidecar..."
   curl -fsSL https://get.docker.com | sh >/dev/null 2>&1
   systemctl enable docker --quiet 2>/dev/null || true
   systemctl start docker --quiet 2>/dev/null || true
 fi
 
-if docker compose version >/dev/null 2>&1; then
+if docker compose version > /dev/null 2>&1; then
   COMPOSE=(docker compose)
-elif command -v docker-compose >/dev/null 2>&1; then
+elif command -v docker-compose > /dev/null 2>&1; then
   COMPOSE=(docker-compose)
 else
   fail "Docker Compose is not available after Docker installation"
 fi
 
-if ! docker network inspect coolify >/dev/null 2>&1; then
+if ! docker network inspect coolify > /dev/null 2>&1; then
   log "Creating Coolify Docker network..."
-  docker network create coolify >/dev/null
+  docker network create coolify > /dev/null
 fi
 
 mkdir -p \
@@ -113,11 +146,11 @@ fi
 # Coolify connects to "This Machine" via SSH on localhost.
 # Without sshd running, the localhost validation always fails.
 log "Ensuring openssh-server is installed and active..."
-if ! command -v sshd >/dev/null 2>&1; then
-  apt-get install -y openssh-server >/dev/null 2>&1
+if ! command -v sshd > /dev/null 2>&1; then
+  apt-get install -y openssh-server > /dev/null 2>&1
 fi
-systemctl enable ssh  >/dev/null 2>&1 || true
-systemctl start  ssh  >/dev/null 2>&1 || true
+systemctl enable ssh  > /dev/null 2>&1 || true
+systemctl start  ssh  > /dev/null 2>&1 || true
 
 # Allow root login via key (required for Coolify's localhost validation).
 SSHD_CFG="/etc/ssh/sshd_config"
@@ -170,7 +203,7 @@ log "Starting Coolify on port $COOLIFY_APP_PORT..."
 log "Coolify is available at http://$(default_host):$COOLIFY_APP_PORT"
 
 log "Testing Coolify SSH access to localhost..."
-if docker exec coolify bash -c "ssh -i /var/www/html/storage/app/ssh/keys/id.root@host.docker.internal -p 22 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 root@host.docker.internal echo 'SSH test successful'" >/dev/null 2>&1; then
+if docker exec coolify bash -c "ssh -i /var/www/html/storage/app/ssh/keys/id.root@host.docker.internal -p 22 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 root@host.docker.internal echo 'SSH test successful'" > /dev/null 2>&1; then
   log "✅ Localhost SSH validation passed! 'This Machine' will work."
 else
   log "❌ WARNING: Localhost SSH validation failed. Coolify may not be able to connect to 'This Machine'."
