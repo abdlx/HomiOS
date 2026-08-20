@@ -677,7 +677,7 @@ export default function FileArea({
           }`}>
             <span className="flex items-center space-x-1.5">
               <Folder size={14} className="text-sky-400" />
-              <span>Nextcloud (Root)</span>
+              <span>HomiOS (Root)</span>
             </span>
             <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
           </button>

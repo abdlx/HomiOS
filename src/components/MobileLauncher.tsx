@@ -16,7 +16,7 @@ const ALL_APPS = [
   { id: 'activity', label: 'Activity',  icon: Activity,   color: 'from-[#32ADE6] to-[#12648A]' },
   { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#22D3EE] to-[#2563EB]' },
   { id: 'immich',   label: 'Immich',    icon: Images,     color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  { id: 'finder',   label: 'Finder',    icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
+  { id: 'finder',   label: 'HomiOS',    icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'vscode',   label: 'VS Code',   icon: Code,       color: 'from-[#0066b8] to-[#007acc]' },
   { id: 'codex',    label: 'Codex',     icon: Sparkles,   color: 'from-[#17BE92] to-[#0A6F55]' },
 ];

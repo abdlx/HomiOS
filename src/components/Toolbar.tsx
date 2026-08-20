@@ -56,7 +56,7 @@ export default function Toolbar({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   // Dynamic directory title display
-  const currentDirName = currentPath[currentPath.length - 1] || 'Nextcloud';
+  const currentDirName = currentPath[currentPath.length - 1] || 'HomiOS';
 
   const handleCreateSubmitted = (e: React.FormEvent) => {
     e.preventDefault();
