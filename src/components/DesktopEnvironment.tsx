@@ -12,7 +12,7 @@ import { FloatingDock } from './ui/floating-dock';
 import { AppIcon } from './icons/AppIcons';
 import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
-import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
+import PWAInstallChooser from './PWAInstallChooser';
 
 interface DesktopEnvironmentProps {
   onHomiOS: () => void;
@@ -422,7 +422,6 @@ export default function DesktopEnvironment({
           <button type="button" onClick={onOpenSettings} className="font-medium text-white/70 hover:text-white transition">Settings</button>
         </div>
         <div className="flex items-center space-x-4">
-          <PWAInstallButton />
           <Wifi size={15} strokeWidth={2} className="text-white/80" />
           <BatteryFull size={17} strokeWidth={2} className="text-white/80" />
           <button
