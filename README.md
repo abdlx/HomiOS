@@ -1,324 +1,594 @@
+<div align="center">
+
 # HomiOS
 
-<div align="center">
-  <p><strong>A hyper-premium, Apple-inspired Web GUI for your Linux Server.</strong></p>
+### Your hardware is good enough.
+
+**Turn any Linux PC and any mix of drives into a beautiful home server.**
+
+Mount drives. Share them. Protect them. Browse everything from one interface.
+
+<br />
+
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/desktop.png" alt="HomiOS Desktop" width="100%" />
+
 </div>
 
-HomiOS is a drop-in web dashboard and file manager that brings a beautiful, desktop-class experience to any headless Linux machine. It installs directly on top of your existing bare-metal Linux OS (like Ubuntu or Debian), allowing you to manage files, create authenticated network drives, and execute terminal commands—all from a stunning web interface.
+---
+
+## What is HomiOS?
+
+HomiOS is a self-hosted home server environment built around a simple idea:
+
+> **Your homie doesn't judge what hardware you've got. Neither does HomiOS.**
+
+You shouldn't need a purpose-built NAS, matching drives, a rack server, or an expensive storage setup just to build a useful home server.
+
+Have an old laptop? Use it.
+
+A cheap mini PC? Perfect.
+
+A SATA HDD, two random USB SSDs and an NVMe boot drive? HomiOS is designed for exactly that.
+
+HomiOS sits on top of Linux and turns the hardware you already own into an approachable home server with a desktop-style interface for files, storage, sharing, local protection, system activity and optional self-hosted applications.
+
+Instead of learning:
+
+```text
+lsblk
+blkid
+mount
+fstab
+smb.conf
+rsync
+cron
+systemctl
+```
+
+you get:
+
+```text
+Mount
+Share
+Protect
+Browse
+```
+
+HomiOS doesn't hide Linux.
+
+**It abstracts the parts you shouldn't have to manage manually.**
 
 ---
 
-## 🌟 Why HomiOS?
+## Storage without the storage-admin work
 
-We compared HomiOS against the leading home server dashboards:
+HomiOS discovers connected storage and lets you manage it visually.
 
-| Feature | CasaOS | Umbrel | ZimaOS | HomiOS |
-| :--- | :---: | :---: | :---: | :---: |
-| **Installs on existing Linux** | ✅ | ✅ | ❌ | ✅ |
-| **Premium UI** | ❌ | ✅ | ✅ | ✅ |
-| **Samba user auth (UI)** | ❌ | ❌ | ✅ | ✅ |
-| **File manager** | ✅ | ✅ | ✅ | ✅ |
-| **Browser terminal** | ✅ | ✅ | ✅ | ✅ |
+USB SSDs, SATA HDDs, NVMe drives and other Linux block storage can live together without forcing you into a traditional NAS architecture.
 
-*HomiOS is the only solution that gives you granular Samba user authentication and a truly premium interface while still allowing you to keep your existing Linux installation completely intact.*
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/drives.png" alt="HomiOS Storage and Drive Management" width="100%" />
 
----
+From the Storage interface you can:
 
-## ✨ Features
+- Detect connected drives
+- Identify drives using persistent filesystem/partition UUIDs
+- Mount and unmount storage
+- Inspect capacity and usage
+- See mount points
+- Create Samba shares
+- See whether a drive is protected
+- Configure local protection policies
+- Manage mismatched storage from one place
 
-- 🍏 **Apple-Inspired Design:** Fluid animations, glassmorphism, responsive grid/list views, and a meticulously crafted UI.
-- 📁 **Advanced File Management:** Drag-and-drop operations, context menus, tags, favorites, and detailed file properties.
-- 🌐 **Samba Share Management:** A dedicated dashboard to create network shares, toggle read-only access, and explicitly manage individual Samba user credentials right from the UI.
-- 👁️ **QuickLook Previews:** Spacebar-to-preview functionality supporting images, videos, markdown, JSON, and syntax-highlighted code.
-- 💻 **Browser Terminal:** Full system-level command execution with a beautiful built-in web terminal wrapper.
-- 💽 **Storage & Mounts:** Monitor system storage, RAM usage, and manage mounted physical drives effortlessly.
-- 📱 **Mobile Ready:** A fully responsive mobile layout with iOS-style bottom navigation.
+HomiOS tracks storage by persistent identity rather than relying on transient names such as `/dev/sdb` or `/dev/sdc`.
+
+That means Linux can reorder devices after a reboot without changing which physical drive a HomiOS protection policy belongs to.
 
 ---
 
-## 🚀 Getting Started
+## Browse your server like a desktop
 
-### Prerequisites
-- A Linux host (Ubuntu, Debian, Alpine, etc.)
-- Node.js (v18+)
-- Samba (Optional, if you wish to use the network sharing features: `sudo apt install samba`)
+Your home server has a filesystem.
 
-### Quick Install — Default (no Coolify)
+It should have a proper file manager too.
 
-The simplest install: HomiOS only, no Coolify, no Codex UI.
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/files.png" alt="HomiOS File Manager" width="100%" />
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --without-coolify --non-interactive
-```
+HomiOS provides a Finder-style environment for browsing and managing your server:
 
-> **Note:** `--without-coolify` does **not** stop or uninstall Coolify if it is already installed on your server. It only disables HomiOS's Coolify integration.
+- Root filesystem access
+- Connected drives in the sidebar
+- Grid and alternative view modes
+- File and folder operations
+- Tags
+- Quick navigation
+- Storage integration
+- Samba access
+- Background transfer activity
+- Search
+- Desktop-style interaction
 
----
+Advanced users still have Linux underneath.
 
-### HomiOS-Managed Coolify
-
-HomiOS installs and manages the full Coolify lifecycle (install, start, update):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --with-coolify --non-interactive
-```
-
-> HomiOS will only do this on a fresh server with no existing Coolify installation. If Coolify is already running, the installer will refuse and ask you to use `--existing-coolify` instead.
+Everyone else gets a filesystem they can actually use.
 
 ---
 
-### Existing (External) Coolify
+## Protect the drives that matter
 
-Use this if Coolify is **already installed and running** on your server. HomiOS will integrate with it without touching its lifecycle, configuration, or host proxy:
+Not every home server needs RAID.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --existing-coolify --non-interactive
+Sometimes you have:
+
+```text
+240 GB USB SSD
+        +
+240 GB USB SSD
+        ↓
+500 GB SATA HDD
 ```
 
-- Coolify is **not** started, stopped, restarted, or reconfigured.
-- `/data/coolify` is **not** modified.
-- Host ports 80/443 remain under Coolify's proxy ownership.
-- Host Nginx is **not** installed or reconfigured.
-- HomiOS will be available on port **8740** — route it through Coolify's proxy manually.
+and you simply want the important data copied somewhere safer.
+
+HomiOS provides **Scheduled Local Protection** between drives.
+
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/protection.png" alt="HomiOS Local Drive Protection" width="100%" />
+
+Choose a source, destination, protection mode and schedule.
+
+### Backup
+
+Copies source data to another drive while preserving files already present at the destination.
+
+Deleting something from the source does **not** automatically delete its existing backup.
+
+### Mirror
+
+Maintains an exact replica of the source.
+
+Changes **and deletions** propagate to the destination.
+
+### Versioned Backup
+
+Protects current data while retaining replaced and deleted versions under HomiOS-managed version storage.
+
+Retention can be configured so old versions are eventually pruned.
+
+### Protection health
+
+HomiOS doesn't treat the existence of a backup configuration as proof that your data is protected.
+
+Protection has explicit health states:
+
+```text
+Healthy
+Syncing
+Overdue
+At Risk
+Not Yet Protected
+Unprotected
+```
+
+For example, a configured protection plan whose destination drive has disappeared is **At Risk**, not Healthy.
 
 ---
 
-### Existing Coolify + Codex UI
+## Designed for interrupted, imperfect hardware
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --existing-coolify --with-codex-ui --non-interactive
+Home servers aren't datacenters.
+
+USB drives disconnect.
+
+Disks fill up.
+
+Machines reboot.
+
+Device names change.
+
+HomiOS's protection engine is designed around those realities.
+
+File writes use temporary partial files before final promotion:
+
+```text
+source
+   ↓
+.homios-partial-<job>-<uuid>
+   ↓
+copy
+   ↓
+verify
+   ↓
+atomic rename
+   ↓
+destination
+```
+
+A failed or interrupted copy therefore isn't intentionally promoted as a successfully completed destination file.
+
+HomiOS also handles:
+
+- Destination-full failures
+- Mid-transfer drive disconnects
+- Interrupted backup jobs
+- Stale partial cleanup
+- Persistent UUID-based drive identity
+- Failed-job reporting
+- Scheduled retry through the next protection run
+
+> HomiOS local protection is **not RAID and not an off-site backup**.
+
+A local copy cannot protect you from every failure scenario. Theft, catastrophic hardware damage, malware, filesystem corruption or other machine-wide failures can affect multiple locally attached drives.
+
+HomiOS describes these features as **local protection** rather than pretending that a second local disk makes your data indestructible.
+
+---
+
+## Samba without editing `smb.conf`
+
+Turn your HomiOS storage into network-accessible shares from the UI.
+
+### Create a share
+
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/samba_new_sahre.png" alt="Create a Samba Share in HomiOS" width="100%" />
+
+Select what you want to share, configure access and let HomiOS handle the underlying Samba configuration.
+
+### Manage shares
+
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/samba_shares.png" alt="HomiOS Samba Shares" width="100%" />
+
+See and manage your server's shares without manually maintaining Samba configuration files.
+
+### Manage Samba users
+
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/docs/images/screenshots/samba_users.png" alt="HomiOS Samba Users" width="100%" />
+
+Manage the users that can access your network storage from the same interface.
+
+The goal is simple:
+
+```text
+Plug in a drive
+      ↓
+Mount
+      ↓
+Share
+      ↓
+Use it from your other devices
 ```
 
 ---
 
-### Codex UI (opt-in)
+## More than a storage dashboard
 
-Codex Web UI is **not installed by default**. Add `--with-codex-ui` to any install command to enable it:
+HomiOS is designed as an actual home-server environment rather than a collection of configuration pages.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --without-coolify --with-codex-ui --non-interactive
+The desktop provides live system telemetry for:
+
+- CPU
+- Memory
+- Storage
+- System load
+
+Telemetry is actionable rather than decorative. System information connects back into the relevant management interfaces.
+
+HomiOS also includes a Spotlight-style command interface for quickly reaching applications, drives, settings and actions.
+
+Background work appears through a persistent Job Center with lifecycle information such as:
+
+```text
+Scanning
+   ↓
+Comparing
+   ↓
+Copying
+   ↓
+Verifying
+   ↓
+Completed
 ```
+
+Transfers can expose progress, file counts, throughput, ETA and actionable failures without forcing you into a terminal to figure out what the server is doing.
 
 ---
 
-### Immich Photo Library
+## Applications are capabilities, not the product
 
-Immich is an optional, independently managed service:
+HomiOS can coexist with services such as Coolify and other self-hosted applications.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
-sudo bash -s -- --with-immich --non-interactive
+But HomiOS is **not trying to become another homelab app-store dashboard**.
+
+There are already excellent tools for deploying containers.
+
+HomiOS focuses on the layer underneath them:
+
+**the machine itself.**
+
+```text
+Hardware
+   ↓
+Drives
+   ↓
+Mounting
+   ↓
+Files
+   ↓
+Sharing
+   ↓
+Protection
+   ↓
+Applications
 ```
 
-Immich stores its library and PostgreSQL data under `/data/immich` by default
-and appears as a native HomiOS desktop/mobile app at `/immich`.
+Optional integrations are capability-aware.
+
+If an optional application isn't enabled, HomiOS doesn't pretend it exists. Its launcher, route and runtime integration can follow the same capability state.
 
 ---
 
-### Changing Optional Services After Installation
+## Plays nicely with an existing homelab
 
-All choices persist across upgrades. Change them later without deleting service data:
+Already running Coolify?
 
-```bash
-# Enable Coolify management (only if no Coolify exists yet)
-sudo homios-update --with-coolify
+HomiOS doesn't need to take it over.
 
-# Switch to external Coolify integration
-sudo homios-update --existing-coolify
+The installer supports explicit Coolify ownership modes:
 
-# Disable Coolify integration (does NOT stop Coolify)
-sudo homios-update --without-coolify
-
-# Enable Codex UI
-sudo homios-update --with-codex-ui
-
-# Immich
-sudo homios-update --with-immich
-sudo homios-update --without-immich
+```text
+managed
+external
+disabled
 ```
+
+### Managed
+
+HomiOS manages the Coolify lifecycle.
+
+### External
+
+An existing Coolify installation belongs to **you**, not HomiOS.
+
+HomiOS will not silently:
+
+- reinstall it
+- stop it
+- modify its lifecycle
+- take over its proxy
+- reconfigure external networking
+
+### Disabled
+
+HomiOS operates without Coolify integration.
+
+This ownership model lets HomiOS live alongside an existing production homelab instead of assuming it owns the entire machine.
 
 ---
 
-### CLI Reference
+## Networking
 
-| Flag | Effect |
-| :--- | :--- |
-| `--with-coolify` | HomiOS installs & manages Coolify (fresh servers only) |
-| `--existing-coolify` | Read-only integration with a running Coolify; no lifecycle ops |
-| `--without-coolify` | Disable integration; does NOT stop existing Coolify |
-| `--with-codex-ui` | Install Codex Web UI (opt-in) |
-| `--with-immich` | Enable Immich photo library |
-| `--without-immich` | Disable Immich |
-| `--non-interactive` | Skip all prompts (required for piped installs) |
+The default HomiOS application port is:
 
-`--with-coolify`, `--existing-coolify`, and `--without-coolify` are mutually exclusive.
-
----
-
-#### Use an HomiOS-mounted drive as an Immich external library
-
-If the drive is mounted correctly and its media is stored inside the `IMMICH`
-folder, mount that folder specifically rather than exposing the whole drive to
-Immich.
-
-Edit the Immich Compose file:
-
-```bash
-sudo nano /data/immich/docker-compose.yml
+```text
+8740
 ```
 
-Inside the existing `immich-server` service's `volumes` list, add:
+For direct LAN access:
 
-```yaml
-- /mnt/homios-storage/sda1/IMMICH:/external/sda1:ro
+```text
+http://YOUR_SERVER_IP:8740
 ```
 
-The relevant Compose configuration should resemble:
+A typical reverse-proxy deployment looks like:
 
-```yaml
-services:
-  immich-server:
-    volumes:
-      - ${UPLOAD_LOCATION}:/data
-      - /etc/localtime:/etc/localtime:ro
-      - /mnt/homios-storage/sda1/IMMICH:/external/sda1:ro
-```
-
-Validate the resolved configuration:
-
-```bash
-sudo docker compose \
-  --env-file /data/immich/.env \
-  -f /data/immich/docker-compose.yml \
-  config | grep -A5 -B5 '/external/sda1'
-```
-
-Then recreate the Immich Server container:
-
-```bash
-sudo docker compose \
-  --env-file /data/immich/.env \
-  -f /data/immich/docker-compose.yml \
-  up -d --force-recreate immich-server
-```
-
-Verify that Immich can read the mounted folder:
-
-```bash
-sudo docker exec immich_server ls -la /external/sda1
-```
-
-Once verification succeeds, open **Immich → Administration → External
-Libraries**, create or select a library, add `/external/sda1` as its import
-path, and scan the library. The `:ro` suffix keeps the source media read-only
-inside Immich.
-
-Once the script finishes, your dashboard will be instantly available at `http://<your-server-ip>`.
-
----
-
-### Manual Installation (Advanced)
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/abdlx/HomiOS.git
-   cd HomiOS
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment:**
-   Copy the example environment file and set your credentials.
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` to set your desired `ADMIN_USER` and `ADMIN_PASS`.
-
-4. **Run the server:**
-   ```bash
-   # Development mode
-   npm run dev
-
-   # Production build
-   npm run build
-   npm run start
-   ```
-
-5. **Access the Dashboard:**
-   Open your browser and navigate to `http://<your-server-ip>:8740`. Log in using the credentials you set in the `.env` file.
-
----
-
-## 🔧 Troubleshooting Coolify
-
-### "Server OS type is not supported" on Linux Mint, Pop!_OS, or Zorin OS
-While the HomiOS auto-installer fully supports these Ubuntu-based distributions, Coolify's web UI (when validating the "Localhost" server) strictly checks for `ubuntu` or `debian` in your system's `/etc/os-release` file and will throw an error if it sees `linuxmint`, `pop`, or `zorin`.
-
-**The Fix:** Temporarily spoof your OS to Ubuntu just for the validation step:
-
-1. Connect to your server terminal and backup your current OS release file:
-   ```bash
-   sudo cp /etc/os-release /etc/os-release.bak
-   ```
-2. Change the ID to Ubuntu:
-   ```bash
-   sudo sed -i 's/^ID=.*/ID=ubuntu/' /etc/os-release
-   ```
-3. Go back to the Coolify Dashboard and click **Validate & Save**. It should now succeed.
-4. Restore your original OS file so your system updates don't break:
-   ```bash
-   sudo mv /etc/os-release.bak /etc/os-release
-   ```
-
-### External Coolify: "HomiOS port 8740 not reachable from Coolify proxy"
-
-When using `--existing-coolify`, HomiOS binds to `0.0.0.0:8740` on the host — this is HomiOS's own bind address, not Coolify's.
-
-The architecture is:
-
-```
+```text
 Internet
    ↓
-Coolify proxy :80 / :443
+HTTPS / Cloudflare
    ↓
-HomiOS host :8740
+Reverse proxy
    ↓
-HomiOS listening on 0.0.0.0:8740
+HomiOS :8740
 ```
 
-Coolify is the **reverse proxy**. HomiOS owns port 8740.
+The unusual port is for avoiding common homelab/dev-service collisions — **not as a security mechanism**.
 
-Do not use `localhost:8740` as the Coolify proxy target because `localhost` inside the Coolify proxy container refers to that container, not this host.
-
-Use an address through which the Coolify proxy can reach the HomiOS host, for example the server LAN IP:
-
-```
-http://<SERVER_LAN_IP>:8740
-```
-
-or an appropriate Docker host-gateway/network configuration.
-
-> **Note:** Changing from port 3000 to 8740 is for collision avoidance, clear product identity, and predictable service discovery — not a security boundary. HomiOS still depends on authentication, TLS/reverse proxy, firewall rules, and authorization for safe exposure.
+Authentication, network isolation, firewalling and HTTPS should still be configured appropriately.
 
 ---
 
-## 🛠️ Tech Stack
+## Installation
 
-- **Framework:** Next.js & React
-- **Styling:** Tailwind CSS & Lucide Icons
-- **Backend:** Node.js API Routes & Better-SQLite3
-- **System Integration:** Direct execution of core Linux utilities (`bash`, `smbpasswd`, `useradd`, etc.)
+### Requirements
+
+HomiOS is intended for Linux home servers, particularly Ubuntu/Debian-based systems.
+
+You'll need:
+
+- A Linux machine
+- Root/sudo access
+- Network connectivity
+- Whatever storage you already have
+
+### Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | sudo bash
+```
+
+The installer is designed to be part of the product experience:
+
+```text
+One command
+   ↓
+Detect environment
+   ↓
+Preserve existing services
+   ↓
+Install HomiOS
+   ↓
+Start the service
+   ↓
+Open the UI
+```
+
+### Existing Coolify installation
+
+If Coolify already exists and HomiOS should **not** manage it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | sudo bash -s -- --existing-coolify
+```
+
+This puts Coolify into external ownership mode.
+
+### Non-interactive
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | sudo bash -s -- --non-interactive
+```
+
+Combine flags when required:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | sudo bash -s -- --existing-coolify --non-interactive
+```
 
 ---
 
-## 📝 License
+## Why HomiOS?
 
-HomiOS is open-source software licensed under the MIT license.
+Traditional NAS software often assumes you're willing to build your machine around storage.
+
+HomiOS starts from the opposite direction.
+
+**What hardware do you already have?**
+
+Maybe it's:
+
+```text
+Old mini PC
+├── 128 GB NVMe
+├── 500 GB SATA HDD
+├── 240 GB USB SSD
+└── 240 GB USB SSD
+```
+
+That's enough.
+
+Maybe next month you add another USB HDD.
+
+That's fine too.
+
+HomiOS is built around heterogeneous home-server hardware rather than demanding that the hardware conform to HomiOS.
+
+That is where the name comes from.
+
+### HomiOS
+
+**Home + Homie + OS.**
+
+A homie doesn't judge what you've got.
+
+Neither should your home server.
+
+---
+
+## Philosophy
+
+### Your hardware is good enough.
+
+HomiOS exists for the pile of perfectly usable hardware sitting in people's homes.
+
+Old laptops.
+
+Office mini PCs.
+
+External USB drives.
+
+Leftover SATA disks.
+
+Small SSDs.
+
+Mismatched capacities.
+
+Hardware that doesn't make sense for a pristine NAS build can still make an excellent home server.
+
+### Abstract Linux. Don't remove it.
+
+HomiOS doesn't try to pretend Linux isn't there.
+
+It gives common infrastructure operations human interfaces:
+
+| Linux | HomiOS |
+|---|---|
+| `lsblk` / `blkid` | Drives |
+| `mount` / `fstab` | Mount |
+| `smb.conf` | Share |
+| `rsync` + scheduling | Protect |
+| filesystem commands | Files |
+| process inspection | Activity |
+
+Power users can still reach the underlying system.
+
+Normal users don't need to start there.
+
+---
+
+## What HomiOS is not
+
+HomiOS is not:
+
+- A RAID implementation
+- A replacement for off-site backups
+- A reason to expose your server directly to the public internet
+- A hypervisor
+- Just another Docker application launcher
+- A requirement to replace your existing homelab stack
+
+It is the layer that makes ordinary Linux hardware easier to turn into a useful home server.
+
+---
+
+## Project status
+
+HomiOS is under active development.
+
+Storage software deserves a higher reliability bar than ordinary dashboard software. Automated testing covers core behavior, but new releases should still be treated appropriately while real-world hardware validation expands.
+
+If you're testing HomiOS, keep irreplaceable data backed up independently.
+
+Issues, hardware reports and reproducible failure cases are especially valuable.
+
+---
+
+## The goal
+
+There are millions of machines that are already powerful enough to be home servers.
+
+The problem isn't always hardware.
+
+It's friction.
+
+HomiOS is trying to turn:
+
+```text
+"I have an old PC and some random drives."
+```
+
+into:
+
+```text
+"I have a home server."
+```
+
+without requiring the user to become a storage administrator first.
+
+---
+
+<div align="center">
+
+### Your hardware is good enough.
+
+**Mount it. Share it. Protect it. Make it useful.**
+
+</div>
