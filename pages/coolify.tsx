@@ -1,5 +1,6 @@
 import WindowManager from '../src/components/WindowManager';
 import { getSession, isAppInitialized } from '../lib/auth';
+import { getCapabilities } from '../lib/capabilities';
 
 export async function getServerSideProps(context: any) {
   if (!isAppInitialized()) {
@@ -9,6 +10,11 @@ export async function getServerSideProps(context: any) {
   const session = await getSession(context.req);
   if (!session) {
     return { redirect: { destination: '/login', permanent: false } };
+  }
+
+  const capabilities = await getCapabilities();
+  if (capabilities.coolify.state === 'disabled') {
+    return { redirect: { destination: '/dashboard', permanent: false } };
   }
 
   let username = 'User';

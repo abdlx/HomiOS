@@ -4,9 +4,106 @@ import os from 'os';
 import { exec } from 'child_process';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { applyDriveNicknames } from '../../../lib/drive-labels.ts';
+import { getDb } from '../../../lib/db.ts';
 
-/** Overlay user-set nicknames, then respond. Single exit for every platform branch. */
-const sendDrives = (res: any, drives: any[]) => res.json(applyDriveNicknames(drives));
+/** Overlay user-set nicknames and attach tri-state introspection metadata, then respond. */
+const sendDrives = (res: any, drives: any[]) => {
+  const namedDrives = applyDriveNicknames(drives);
+  const enriched = attachTriStateIntrospection(namedDrives);
+  return res.json(enriched);
+};
+
+function attachTriStateIntrospection(drives: any[]) {
+  try {
+    const db = getDb();
+    const shares = db.prepare('SELECT name, path FROM shares WHERE enabled = 1').all() as Array<{ name: string; path: string }>;
+    const syncPlans = db.prepare('SELECT * FROM sync_plans WHERE enabled = 1').all() as Array<any>;
+    const latestRuns = db.prepare(`
+      SELECT plan_id, status, created_at FROM sync_runs
+      WHERE id IN (SELECT MAX(id) FROM sync_runs GROUP BY plan_id)
+    `).all() as Array<{ plan_id: string; status: string; created_at: string }>;
+    const runMap = new Map(latestRuns.map(r => [r.plan_id, r]));
+
+    return drives.map((drive) => {
+      // 1. Check Samba Sharing State
+      const matchingShares = shares.filter((s) => {
+        if (!drive.path) return false;
+        const normDrive = path.resolve(drive.path);
+        const normShare = path.resolve(s.path);
+        return normShare === normDrive || normShare.startsWith(normDrive + path.sep) || normDrive.startsWith(normShare + path.sep);
+      });
+
+      const isShared = matchingShares.length > 0;
+      const shareNames = matchingShares.map((s) => s.name);
+
+      // 2. Check Backup / Protection State
+      let isProtected = false;
+      let protectionPlanId: string | undefined;
+      let protectionPlanName: string | undefined;
+      let protectionMode: 'mirror' | 'backup' | 'versioned' | undefined;
+      let protectionHealth: 'healthy' | 'at_risk' | 'degraded' | 'unprotected' = 'unprotected';
+      let lastBackupAt: string | null = null;
+      let lastBackupStatus: string | null = null;
+
+      for (const plan of syncPlans) {
+        let sources: string[] = [];
+        let sourceUuids: string[] = [];
+        try { sources = JSON.parse(plan.sources || '[]'); } catch {}
+        try { sourceUuids = JSON.parse(plan.source_uuids || '[]'); } catch {}
+
+        const matchesPath = drive.path && sources.some((src) => path.resolve(src) === path.resolve(drive.path));
+        const matchesUuid = drive.uuid && sourceUuids.includes(drive.uuid);
+
+        if (matchesPath || matchesUuid) {
+          isProtected = true;
+          protectionPlanId = plan.id;
+          protectionPlanName = plan.name;
+          protectionMode = (plan.mode || (plan.mirror_deletes ? 'mirror' : 'backup')) as any;
+          lastBackupAt = plan.last_run_at;
+          lastBackupStatus = plan.last_status;
+
+          const lastRun = runMap.get(plan.id);
+          if (lastRun) {
+            lastBackupAt = lastRun.created_at;
+            lastBackupStatus = lastRun.status;
+          }
+
+          if (!drive.isMounted) {
+            protectionHealth = 'at_risk';
+          } else if (lastBackupStatus === 'failed') {
+            protectionHealth = 'degraded';
+          } else if (lastBackupAt) {
+            const elapsedHours = (Date.now() - new Date(`${lastBackupAt.replace(' ', 'T')}Z`).getTime()) / (1000 * 3600);
+            if (elapsedHours > 48) {
+              protectionHealth = 'at_risk';
+            } else {
+              protectionHealth = 'healthy';
+            }
+          } else {
+            protectionHealth = 'healthy';
+          }
+          break;
+        }
+      }
+
+      return {
+        ...drive,
+        isShared,
+        shareNames,
+        isProtected,
+        protectionPlanId,
+        protectionPlanName,
+        protectionMode,
+        protectionHealth: isProtected ? protectionHealth : 'unprotected',
+        lastBackupAt,
+        lastBackupStatus,
+      };
+    });
+  } catch (err) {
+    console.error('[drives] Failed to attach tri-state introspection:', err);
+    return drives;
+  }
+}
 
 const execAsync = (cmd: string): Promise<{ stdout: string; stderr: string }> => {
   return new Promise((resolve, reject) => {
@@ -39,7 +136,15 @@ const humanBytes = (bytes: number): string => {
  */
 const dfUsage = async (
   mountPoint: string
-): Promise<{ usedBytes?: string; totalBytes?: string; usagePercent?: number }> => {
+): Promise<{
+  usedBytes?: string;
+  totalBytes?: string;
+  freeBytes?: string;
+  usagePercent?: number;
+  usedBytesNumber?: number;
+  totalBytesNumber?: number;
+  freeBytesNumber?: number;
+}> => {
   try {
     const { stdout } = await execAsync(`df -PB1 ${JSON.stringify(mountPoint)}`);
     const line = stdout.trim().split('\n')[1];
@@ -47,11 +152,16 @@ const dfUsage = async (
     const cols = line.trim().split(/\s+/);
     const total = parseInt(cols[1], 10);
     const used = parseInt(cols[2], 10);
+    const free = parseInt(cols[3], 10);
     if (isNaN(total) || isNaN(used) || total <= 0) return {};
     return {
       usedBytes: humanBytes(used),
       totalBytes: humanBytes(total),
+      freeBytes: humanBytes(free),
       usagePercent: Math.round((used / total) * 100),
+      usedBytesNumber: used,
+      totalBytesNumber: total,
+      freeBytesNumber: free,
     };
   } catch {
     return {};
@@ -64,10 +174,9 @@ export default withAuth(async function handler(req: any, res: any) {
 
   if (platform === 'linux') {
     try {
-      // lsblk with MOUNTPOINTS (plural) works on both old and new kernels.
-      // FSUSED / FSUSE% give live usage where the kernel can report it.
+      // lsblk with UUID, PARTUUID, MOUNTPOINTS works across Linux kernels.
       const { stdout } = await execAsync(
-        'lsblk -J -b -o NAME,MOUNTPOINTS,TYPE,SIZE,FSTYPE,FSUSED,FSSIZE,FSUSE%,LABEL,MODEL,RM,RO,HOTPLUG'
+        'lsblk -J -b -o NAME,UUID,PARTUUID,MOUNTPOINTS,TYPE,SIZE,FSTYPE,FSUSED,FSSIZE,FSUSE%,LABEL,MODEL,RM,RO,HOTPLUG'
       );
       const parsed = JSON.parse(stdout);
 
@@ -117,13 +226,25 @@ export default withAuth(async function handler(req: any, res: any) {
 
               let usedBytes: string | undefined;
               let totalBytes: string | undefined = size;
+              let freeBytes: string | undefined;
               let usagePercent: number | undefined;
+              let usedBytesNumber: number | undefined;
+              let totalBytesNumber: number | undefined = isNaN(sizeBytes) ? undefined : sizeBytes;
+              let freeBytesNumber: number | undefined;
 
               const fsUsed = typeof dev.fsused === 'number' ? dev.fsused : parseInt(dev.fsused, 10);
               const fsSize = typeof dev.fssize === 'number' ? dev.fssize : parseInt(dev.fssize, 10);
-              if (!isNaN(fsUsed)) usedBytes = humanBytes(fsUsed);
-              if (!isNaN(fsSize) && fsSize > 0) totalBytes = humanBytes(fsSize);
-              if (!isNaN(fsUsed) && !isNaN(fsSize) && fsSize > 0) {
+              if (!isNaN(fsUsed)) {
+                usedBytes = humanBytes(fsUsed);
+                usedBytesNumber = fsUsed;
+              }
+              if (!isNaN(fsSize) && fsSize > 0) {
+                totalBytes = humanBytes(fsSize);
+                totalBytesNumber = fsSize;
+              }
+              if (!isNaN(fsUsed) && !isNaN(fsSize) && fsSize >= fsUsed) {
+                freeBytesNumber = fsSize - fsUsed;
+                freeBytes = humanBytes(freeBytesNumber);
                 usagePercent = Math.round((fsUsed / fsSize) * 100);
               } else if (dev['fsuse%']) {
                 const pct = parseFloat(String(dev['fsuse%']).replace('%', '').trim());
@@ -134,6 +255,8 @@ export default withAuth(async function handler(req: any, res: any) {
                 label: size ? `${label} (${size})` : label,
                 path: mountPoint || '',
                 name: dev.name,
+                uuid: dev.uuid || undefined,
+                partUuid: dev.partuuid || undefined,
                 fstype: dev.fstype || undefined,
                 isMounted,
                 isSystem: mountPoint === '/' || mountPoint === '/boot' || mountPoint === '/boot/efi',
@@ -142,6 +265,10 @@ export default withAuth(async function handler(req: any, res: any) {
                 model: model || undefined,
                 usedBytes,
                 totalBytes,
+                freeBytes,
+                usedBytesNumber,
+                totalBytesNumber,
+                freeBytesNumber,
                 usagePercent,
                 size,
                 _mountPoint: mountPoint,
@@ -167,7 +294,11 @@ export default withAuth(async function handler(req: any, res: any) {
             if (usage.usagePercent !== undefined) {
               d.usedBytes = usage.usedBytes;
               d.totalBytes = usage.totalBytes;
+              d.freeBytes = usage.freeBytes;
               d.usagePercent = usage.usagePercent;
+              d.usedBytesNumber = usage.usedBytesNumber;
+              d.totalBytesNumber = usage.totalBytesNumber;
+              d.freeBytesNumber = usage.freeBytesNumber;
             }
           }
           delete d._mountPoint;
@@ -184,13 +315,11 @@ export default withAuth(async function handler(req: any, res: any) {
       return sendDrives(res, drives);
     } catch (e) {
       console.error('Failed to get Linux drives via lsblk:', e);
-      // If lsblk fails entirely, fall through to the readdir fallback below.
     }
   }
 
   if (platform === 'darwin') {
     try {
-      // -l restricts to local filesystems; skip pseudo-filesystems below.
       const { stdout } = await execAsync('df -PkTl');
       const drives = stdout
         .trim()
@@ -198,10 +327,10 @@ export default withAuth(async function handler(req: any, res: any) {
         .slice(1)
         .map((line) => {
           const cols = line.trim().split(/\s+/);
-          // Mount points can contain spaces, so take everything after column 6.
           const mountPoint = cols.slice(6).join(' ');
           const totalKb = parseInt(cols[2], 10);
           const usedKb = parseInt(cols[3], 10);
+          const freeKb = parseInt(cols[4], 10);
           if (!mountPoint || isNaN(totalKb) || totalKb <= 0) return null;
           if (mountPoint.startsWith('/System/Volumes/') && mountPoint !== '/System/Volumes/Data') {
             return null;
@@ -214,6 +343,7 @@ export default withAuth(async function handler(req: any, res: any) {
             label: `${label} (${size})`,
             path: mountPoint,
             name,
+            uuid: `darwin-${name}`,
             fstype: cols[1],
             isMounted: true,
             isSystem: mountPoint === '/',
@@ -221,6 +351,10 @@ export default withAuth(async function handler(req: any, res: any) {
             isReadOnly: false,
             usedBytes: humanBytes(usedKb * 1024),
             totalBytes: size,
+            freeBytes: humanBytes(freeKb * 1024),
+            usedBytesNumber: usedKb * 1024,
+            totalBytesNumber: totalKb * 1024,
+            freeBytesNumber: freeKb * 1024,
             usagePercent: Math.round((usedKb / totalKb) * 100),
             size,
           };
@@ -234,10 +368,9 @@ export default withAuth(async function handler(req: any, res: any) {
 
   if (platform === 'win32') {
     try {
-      // Volume covers lettered drives and mount points; DriveType 3 = fixed, 2 = removable, 5 = optical.
       const ps =
         'powershell -NoProfile -NonInteractive -Command "Get-CimInstance Win32_LogicalDisk | ' +
-        'Select-Object DeviceID,VolumeName,FileSystem,Size,FreeSpace,DriveType | ConvertTo-Json -Compress"';
+        'Select-Object DeviceID,VolumeName,FileSystem,Size,FreeSpace,DriveType,VolumeSerialNumber | ConvertTo-Json -Compress"';
       const { stdout } = await execAsync(ps);
       const raw = JSON.parse(stdout);
       const list = Array.isArray(raw) ? raw : [raw];
@@ -252,9 +385,9 @@ export default withAuth(async function handler(req: any, res: any) {
           const label = d.VolumeName || (d.DriveType === 5 ? 'Optical Drive' : 'Local Disk');
           return {
             label: size ? `${label} ${name} (${size})` : `${label} ${name}`,
-            // Trailing separator so the path is a drive root, not a relative ref.
             path: total > 0 ? `${name}\\` : '',
             name,
+            uuid: d.VolumeSerialNumber || `win-${name.replace(':', '')}`,
             fstype: d.FileSystem || undefined,
             isMounted: total > 0,
             isSystem: name.toUpperCase() === (process.env.SystemDrive || 'C:').toUpperCase(),
@@ -262,6 +395,10 @@ export default withAuth(async function handler(req: any, res: any) {
             isReadOnly: d.DriveType === 5,
             usedBytes: total > 0 ? humanBytes(used) : undefined,
             totalBytes: size,
+            freeBytes: total > 0 ? humanBytes(free) : undefined,
+            usedBytesNumber: total > 0 ? used : undefined,
+            totalBytesNumber: total > 0 ? total : undefined,
+            freeBytesNumber: total > 0 ? free : undefined,
             usagePercent: total > 0 ? Math.round((used / total) * 100) : undefined,
             size,
           };
@@ -276,16 +413,27 @@ export default withAuth(async function handler(req: any, res: any) {
 
   try {
     const drives = await readdir(drivesPath, { withFileTypes: true });
-    res.json(
-      drives
-        .filter((d) => d.isDirectory())
-        .map((d) => ({
-          label: d.name,
-          path: isDev ? d.name : `/${d.name}`
-        }))
-    );
+    const mockDrives = drives
+      .filter((d) => d.isDirectory())
+      .map((d) => ({
+        label: d.name,
+        path: isDev ? d.name : `/${d.name}`,
+        name: d.name,
+        uuid: `mock-${d.name}`,
+        isMounted: true,
+        size: '250G',
+        usedBytes: '120G',
+        totalBytes: '250G',
+        freeBytes: '130G',
+        usedBytesNumber: 120 * 1024 * 1024 * 1024,
+        totalBytesNumber: 250 * 1024 * 1024 * 1024,
+        freeBytesNumber: 130 * 1024 * 1024 * 1024,
+        usagePercent: 48,
+      }));
+    return sendDrives(res, mockDrives);
   } catch (err) {
     console.error(`Failed to read drives from ${drivesPath}:`, err);
-    res.json([]);
+    return res.json([]);
   }
 }, { adminOnly: true });
+

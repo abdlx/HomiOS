@@ -74,11 +74,19 @@ export interface TransferTask {
   bytesTotal?: number;
 }
 
+export type ProtectionMode = 'mirror' | 'backup' | 'versioned';
+export type ProtectionHealth = 'healthy' | 'at_risk' | 'degraded' | 'unprotected';
+export type JobLifecyclePhase = 'scanning' | 'comparing' | 'copying' | 'verifying' | 'finalizing' | 'completed' | 'failed';
+
 export interface DriveItem {
   label: string;
   path: string;
   name: string;
   isMounted: boolean;
+  /** Persistent filesystem UUID (e.g. 550e8400-e29b-41d4-a716-446655440000 or FAT serial) */
+  uuid?: string;
+  /** Persistent partition UUID (PARTUUID) */
+  partUuid?: string;
   /** e.g. "120G" */
   size?: string;
   /** Filesystem type, e.g. "ext4" */
@@ -87,6 +95,10 @@ export interface DriveItem {
   usagePercent?: number;
   usedBytes?: string;
   totalBytes?: string;
+  freeBytes?: string;
+  usedBytesNumber?: number;
+  totalBytesNumber?: number;
+  freeBytesNumber?: number;
   /** Root, /boot, /boot/efi or the Windows system drive */
   isSystem?: boolean;
   /** USB / hotplug / removable media */
@@ -98,6 +110,19 @@ export interface DriveItem {
   nickname?: string;
   /** The label before any nickname was applied — used to offer a reset. */
   defaultLabel?: string;
+
+  /** Tri-State Introspection */
+  /** Available through Samba (SMB) */
+  isShared?: boolean;
+  shareNames?: string[];
+  /** Covered by an active backup or mirror sync policy */
+  isProtected?: boolean;
+  protectionPlanId?: string;
+  protectionPlanName?: string;
+  protectionMode?: ProtectionMode;
+  protectionHealth?: ProtectionHealth;
+  lastBackupAt?: string | null;
+  lastBackupStatus?: string | null;
 }
 
 export type JobType =
@@ -117,6 +142,18 @@ export type JobResourceClass = 'cpu' | 'io' | 'media' | 'backup';
 export type ResourceProfile = 'beautiful' | 'balanced' | 'server_saver';
 export type ThumbnailVariant = 'grid' | 'preview';
 
+export interface JobProgressData {
+  phase?: JobLifecyclePhase;
+  phaseMessage?: string;
+  bytesTransferred?: number;
+  bytesTotal?: number;
+  filesTransferred?: number;
+  filesTotal?: number;
+  speedBps?: number;
+  etaSeconds?: number;
+  currentFile?: string;
+}
+
 export interface Job {
   id: string;
   type: JobType;
@@ -126,12 +163,7 @@ export interface Job {
   name: string;
   payload?: any;
   result?: any;
-  progressData?: {
-    bytesTransferred?: number;
-    bytesTotal?: number;
-    filesTransferred?: number;
-    filesTotal?: number;
-  };
+  progressData?: JobProgressData;
   error?: string;
   priority?: number;
   attempts?: number;
@@ -160,6 +192,27 @@ export interface SearchResult {
   snippet?: string;
   score?: number;
   modified?: string;
+}
+
+export type SyncSchedule = 'manual' | 'hourly' | 'six_hourly' | 'daily' | 'weekly';
+
+export interface SyncPlan {
+  id: string;
+  name: string;
+  sources: string[];
+  destinations: string[];
+  sourceUuids?: string[];
+  destinationUuids?: string[];
+  mode: ProtectionMode;
+  mirrorDeletes?: boolean;
+  retentionDays?: number;
+  schedule: SyncSchedule;
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  running?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BackupPlan {

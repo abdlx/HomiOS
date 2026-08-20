@@ -8,7 +8,7 @@ export async function getServerSideProps(context: any) {
   if (!session) return { redirect: { destination: '/login', permanent: false } };
 
   const capabilities = await getCapabilities();
-  if (capabilities.immich.state === 'disabled') {
+  if (capabilities.codex.state === 'disabled') {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }
 
@@ -16,6 +16,6 @@ export async function getServerSideProps(context: any) {
   return { props: { username: rawName.charAt(0).toUpperCase() + rawName.slice(1) } };
 }
 
-export default function Immich({ username }: { username: string }) {
-  return <WindowManager initialView="immich" username={username} />;
+export default function Codex({ username }: { username: string }) {
+  return <WindowManager initialView="codex" username={username} />;
 }

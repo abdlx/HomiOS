@@ -1,7 +1,12 @@
-﻿import React, { useEffect, useState } from 'react';
-import { HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw, CheckCircle2, DatabaseBackup, Pencil, Unplug } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw,
+  CheckCircle2, DatabaseBackup, Pencil, Unplug, Shield, Share2, Info, ChevronDown, ChevronUp
+} from 'lucide-react';
 import { DriveItem } from '../types';
 import BackupsPanel from './BackupsPanel';
+import ProtectDriveModal from './ProtectDriveModal';
+import ProtectionStatus from './ProtectionStatus';
 import { confirmDialog, promptDialog, toast } from './SystemUI';
 
 interface StorageDashboardProps {
@@ -10,12 +15,13 @@ interface StorageDashboardProps {
 
 type StorageTab = 'drives' | 'backups';
 
-function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
+function DrivesPanel({ onNavigateDrive, onOpenBackupsTab }: { onNavigateDrive: (path: string) => void; onOpenBackupsTab: () => void }) {
   const [drives, setDrives] = useState<DriveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [mountingDevice, setMountingDevice] = useState<string | null>(null);
   const [unmountingDevice, setUnmountingDevice] = useState<string | null>(null);
-  const [mountMessage, setMountMessage] = useState<{ device: string; msg: string; ok: boolean } | null>(null);
+  const [mountMessage, setMountMessage] = useState<{ device: string; msg: string; rawError?: string; ok: boolean; showDetails?: boolean } | null>(null);
+  const [protectingDrive, setProtectingDrive] = useState<DriveItem | null>(null);
 
   const loadDrives = async () => {
     setLoading(true);
@@ -43,7 +49,6 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
       defaultValue: current,
       confirmLabel: 'Save',
     });
-    // Dialog cancelled (null), or nothing actually changed.
     if (next === null || next.trim() === current) return;
     try {
       const res = await fetch('/api/drives/rename', {
@@ -77,10 +82,15 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
         setMountMessage({ device: drive.name, msg: `Mounted at ${result.mountPoint}`, ok: true });
         loadDrives();
       } else {
-        setMountMessage({ device: drive.name, msg: result.error || 'Mount failed', ok: false });
+        setMountMessage({
+          device: drive.name,
+          msg: `This drive couldn't be mounted. ${result.error?.includes('filesystem') ? 'Filesystem requires check/repair.' : 'Check disk format and connection.'}`,
+          rawError: result.error || 'Mount command failed',
+          ok: false,
+        });
       }
-    } catch {
-      setMountMessage({ device: drive.name, msg: 'Connection error', ok: false });
+    } catch (e: any) {
+      setMountMessage({ device: drive.name, msg: 'Connection error while communicating with host server', rawError: e?.message, ok: false });
     }
     setMountingDevice(null);
   };
@@ -108,10 +118,15 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
         setMountMessage({ device: drive.name, msg: `Unmounted ${result.mountPoint}`, ok: true });
         await loadDrives();
       } else {
-        setMountMessage({ device: drive.name, msg: result.error || 'Unmount failed', ok: false });
+        setMountMessage({
+          device: drive.name,
+          msg: `Unmount failed. ${result.error?.includes('busy') || result.error?.includes('target is busy') ? 'Drive is currently in use by a process or share.' : ''}`,
+          rawError: result.error || 'Unmount command failed',
+          ok: false,
+        });
       }
-    } catch {
-      setMountMessage({ device: drive.name, msg: 'Connection error', ok: false });
+    } catch (e: any) {
+      setMountMessage({ device: drive.name, msg: 'Connection error while unmounting drive', rawError: e?.message, ok: false });
     } finally {
       setUnmountingDevice(null);
     }
@@ -124,7 +139,6 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
     return 'from-blue-500 to-cyan-400';
   };
 
-  /** Windows reports "C:", Linux/macOS report a device node under /dev. */
   const deviceId = (drive: DriveItem) =>
     /^[A-Za-z]:$/.test(drive.name) ? drive.name : `/dev/${drive.name}`;
 
@@ -135,12 +149,14 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-center justify-center shadow-sm">
             <HardDrive size={20} className="text-blue-500" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Storage Overview</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Block devices &amp; mounted filesystems</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Every drive: Mounted, Shared via Samba, and Protected by backup policy
+            </p>
           </div>
         </div>
         <button
@@ -163,10 +179,10 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
             <HardDrive size={24} className="text-slate-400 dark:text-slate-500" />
           </div>
           <p className="text-sm font-medium">No drives detected</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">Connect a device to your server to see it here.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">Connect a USB or SATA device to your server to see it here.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {drives.map((drive) => {
             const isMounting = mountingDevice === drive.name;
             const isUnmounting = unmountingDevice === drive.name;
@@ -175,70 +191,76 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
 
             return (
               <div
-                key={drive.name || drive.label}
+                key={drive.uuid || drive.name || drive.label}
                 className="relative bg-white dark:bg-[#1f1f22] border border-slate-200 dark:border-white/10 rounded-2xl p-5 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-all group"
               >
                 {/* Drive Header */}
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${drive.isMounted ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 ${drive.isMounted ? 'bg-blue-50 border-blue-100 dark:bg-blue-500/10 dark:border-blue-500/30' : 'bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10'}`}>
                       {React.createElement(DriveIcon(drive), {
-                        size: 18,
+                        size: 20,
                         className: drive.isMounted ? 'text-blue-500' : 'text-slate-400',
                       })}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center space-x-1.5">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">{drive.label}</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight truncate">{drive.label}</p>
                         <button
                           onClick={() => handleRename(drive)}
-                          title="Rename drive"
-                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all"
+                          title="Rename drive display name"
+                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all shrink-0"
                         >
                           <Pencil size={12} />
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{deviceId(drive)} {drive.fstype ? `- ${drive.fstype}` : ''}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate">
+                        {deviceId(drive)} {drive.fstype ? `· ${drive.fstype}` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Status badges */}
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
+                  {/* Drive Tri-State Badges */}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {/* State 1: Mounted */}
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
                       drive.isMounted
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400'
                     }`}>
                       {drive.isMounted ? 'Mounted' : 'Unmounted'}
                     </span>
-                    {drive.isSystem && (
-                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-violet-50 border-violet-200 text-violet-600">
-                        System
-                      </span>
-                    )}
-                    {drive.isRemovable && (
-                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-amber-50 border-amber-200 text-amber-600">
-                        Removable
-                      </span>
-                    )}
-                    {drive.isReadOnly && (
-                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-slate-50 border-slate-200 text-slate-500">
-                        Read-only
-                      </span>
-                    )}
+
+                    {/* State 2: Shared via Samba */}
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                      drive.isShared
+                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-slate-500/10 border-slate-500/20 text-slate-400 dark:text-slate-500'
+                    }`} title={drive.shareNames?.join(', ')}>
+                      <Share2 size={10} />
+                      <span>{drive.isShared ? `Shared (${drive.shareNames?.[0] || 'SMB'})` : 'Not Shared'}</span>
+                    </span>
+
+                    {/* State 3: Protected by Backup */}
+                    <ProtectionStatus
+                      health={drive.protectionHealth}
+                      mode={drive.protectionMode}
+                      isProtected={drive.isProtected}
+                      compact
+                    />
                   </div>
                 </div>
 
                 {/* Capacity bar */}
                 {drive.isMounted && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
                       <span>
                         {drive.usedBytes
                           ? `${drive.usedBytes} of ${drive.totalBytes || drive.size || '?'} used`
                           : 'Usage unknown'}
                       </span>
-                      <span className="font-mono">{pct !== undefined ? `${pct}%` : drive.size || '?'}</span>
+                      <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{pct !== undefined ? `${pct}%` : drive.size || '?'}</span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                       <div
@@ -246,27 +268,48 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
                         style={{ width: `${pct ?? 50}%` }}
                       />
                     </div>
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Free: <strong className="text-slate-600 dark:text-slate-300 font-semibold">{drive.freeBytes || 'Unknown'}</strong></span>
+                      {drive.uuid && <span className="font-mono text-[9px] opacity-75" title={`UUID: ${drive.uuid}`}>UUID: {drive.uuid.slice(0, 10)}...</span>}
+                    </div>
                   </div>
                 )}
 
                 {/* Mount path */}
                 {drive.isMounted && drive.path && (
-                  <div className="flex items-center space-x-2 text-[11px] bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-100 dark:border-white/10 font-mono text-slate-600 dark:text-slate-300">
-                    <Cpu size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                  <div className="flex items-center space-x-2 text-[11px] bg-slate-50 dark:bg-white/5 rounded-xl px-3 py-2 border border-slate-100 dark:border-white/10 font-mono text-slate-600 dark:text-slate-300">
+                    <Cpu size={12} className="text-slate-400 dark:text-slate-500 shrink-0" />
                     <span className="truncate">{drive.path}</span>
                   </div>
                 )}
 
-                {/* Feedback message */}
+                {/* Feedback message with technical details toggle */}
                 {feedback && (
-                  <div className={`flex items-center space-x-1.5 text-xs px-3 py-2 rounded-lg ${feedback.ok ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                    {feedback.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                    <span>{feedback.msg}</span>
+                  <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${feedback.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300' : 'bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-1.5">
+                        {feedback.ok ? <CheckCircle2 size={15} className="mt-0.5 shrink-0" /> : <AlertTriangle size={15} className="mt-0.5 shrink-0" />}
+                        <span>{feedback.msg}</span>
+                      </div>
+                      {feedback.rawError && (
+                        <button
+                          onClick={() => setMountMessage({ ...feedback, showDetails: !feedback.showDetails })}
+                          className="text-[10px] underline font-semibold shrink-0"
+                        >
+                          {feedback.showDetails ? 'Hide details' : 'View details'}
+                        </button>
+                      )}
+                    </div>
+                    {feedback.showDetails && feedback.rawError && (
+                      <pre className="p-2 rounded bg-black/40 font-mono text-[10px] text-white/80 overflow-x-auto whitespace-pre-wrap">
+                        {feedback.rawError}
+                      </pre>
+                    )}
                   </div>
                 )}
 
                 {/* Action buttons */}
-                <div className="flex items-center space-x-3 pt-2 mt-auto">
+                <div className="flex items-center space-x-2.5 pt-2 mt-auto">
                   {drive.isMounted ? (
                     <>
                       <button
@@ -276,16 +319,35 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
                       >
                         Browse Files
                       </button>
+                      {!drive.isProtected ? (
+                        <button
+                          onClick={() => setProtectingDrive(drive)}
+                          className="px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 transition-all flex items-center gap-1.5"
+                          title="Configure scheduled local protection"
+                        >
+                          <Shield size={14} />
+                          <span>Protect</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={onOpenBackupsTab}
+                          className="px-3 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 transition-all flex items-center gap-1.5"
+                          title="View in Backups"
+                        >
+                          <Shield size={14} className="text-emerald-500" />
+                          <span>Policy</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleUnmount(drive)}
                         disabled={isUnmounting}
-                        className="text-xs font-semibold py-2.5 px-3 rounded-xl bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-xs font-semibold py-2.5 px-3 rounded-xl bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-500/20 transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Unmount drive"
                       >
                         {isUnmounting ? (
-                          <><RefreshCw size={14} className="animate-spin" /><span>Unmounting...</span></>
+                          <RefreshCw size={14} className="animate-spin" />
                         ) : (
-                          <><Unplug size={14} /><span>Unmount</span></>
+                          <Unplug size={14} />
                         )}
                       </button>
                     </>
@@ -309,12 +371,27 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
         </div>
       )}
 
-      {/* Info banner */}
+      {/* Protect Drive Wizard Modal */}
+      {protectingDrive && (
+        <ProtectDriveModal
+          sourceDrive={protectingDrive}
+          allDrives={drives}
+          onClose={() => setProtectingDrive(null)}
+          onPlanCreated={() => {
+            loadDrives();
+          }}
+        />
+      )}
+
+      {/* Info banner with realistic positioning */}
       <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-xl px-4 py-3.5 shadow-sm">
-        <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          HomiOS runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely.
-        </p>
+        <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1">
+          <p className="font-semibold text-slate-800 dark:text-slate-200">Hardware-Agnostic Storage Architecture</p>
+          <p>
+            HomiOS identifies disks persistently via UUID/PARTUUID. You can safely connect USB drives, SATA disks, or NVMe volumes of any mixed sizes.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -347,7 +424,14 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
         ))}
       </div>
 
-      {activeTab === 'backups' ? <BackupsPanel /> : <DrivesPanel onNavigateDrive={onNavigateDrive} />}
+      {activeTab === 'backups' ? (
+        <BackupsPanel />
+      ) : (
+        <DrivesPanel
+          onNavigateDrive={onNavigateDrive}
+          onOpenBackupsTab={() => setActiveTab('backups')}
+        />
+      )}
     </div>
   );
 }

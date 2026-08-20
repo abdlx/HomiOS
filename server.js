@@ -129,8 +129,9 @@ app.prepare().then(async () => {
 
   // Codex internal app: session-gated reverse proxy to the loopback codex-web-ui
   // service. Mounted before TUS/Next so /codex* never falls through to the SPA.
+  let codexProxy = null;
   if (process.env.CODEX_UI_ENABLED === 'true') {
-    const codexProxy = createCodexProxy({ originAllowed });
+    codexProxy = createCodexProxy({ originAllowed });
     server.use(codexProxy.handleRequest);
     console.log(`Codex Web UI proxy mounted at /codex → ${CODEX_UPSTREAM} (admin session required)`);
   }
@@ -250,7 +251,12 @@ app.prepare().then(async () => {
     let pathname = '';
     try { pathname = new URL(req.url || '', 'http://localhost').pathname; } catch {}
     if (!isCodexPath(pathname)) return;
-    codexProxy.handleUpgrade(req, socket, head);
+    if (codexProxy) {
+      codexProxy.handleUpgrade(req, socket, head);
+    } else {
+      try { socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n'); } catch {}
+      socket.destroy();
+    }
   });
 
   let io = null;

@@ -8,8 +8,9 @@ import {
   Settings, Monitor, Users, Wifi, Info, CheckCircle2,
   HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server, Menu,
   Key, Bell, Smartphone, Copy, Trash2, Plus, RefreshCw, Eye, EyeOff, Send,
-  Sun, Moon, Image as ImageIcon, Folder
+  Sun, Moon, Image as ImageIcon, Folder, Share2
 } from 'lucide-react';
+import SambaPanel from './SambaPanel';
 
 interface SettingsAppProps {
   onClose?: () => void;
@@ -147,13 +148,14 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   const tabs = [
     { id: 'general', label: 'General', icon: Settings },
     { id: 'appearance', label: 'Appearance', icon: Monitor },
+    { id: 'storage', label: 'Storage', icon: HardDrive },
+    { id: 'samba', label: 'Samba Sharing', icon: Share2 },
     { id: 'users', label: 'Users & Groups', icon: Users },
     { id: 'members', label: 'Team Members', icon: UserPlus },
     { id: 'tokens', label: 'API Tokens', icon: Key },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: '2fa', label: 'Two-Factor Auth', icon: Smartphone },
     { id: 'network', label: 'Network', icon: Wifi },
-    { id: 'storage', label: 'Storage', icon: HardDrive },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'about', label: 'About', icon: Info },
   ];
@@ -714,6 +716,15 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* SAMBA SHARING TAB */}
+          {activeTab === 'samba' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
+                <SambaPanel />
               </div>
             </div>
           )}

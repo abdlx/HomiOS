@@ -1,20 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, CheckCircle2, Clock, HardDrive, Loader2, Pause, Play, Plus,
-  RefreshCw, Trash2, TriangleAlert, X,
+  RefreshCw, Trash2, TriangleAlert, X, Shield, Layers, Copy, AlertTriangle,
+  Info, AlertCircle, Calendar
 } from 'lucide-react';
-import { DriveItem } from '../types';
+import { DriveItem, ProtectionMode, SyncSchedule } from '../types';
 import { confirmDialog, toast } from './SystemUI';
-
-type Schedule = 'manual' | 'hourly' | 'six_hourly' | 'daily' | 'weekly';
 
 interface SyncPlan {
   id: string;
   name: string;
   sources: string[];
   destinations: string[];
+  sourceUuids?: string[];
+  destinationUuids?: string[];
+  mode: ProtectionMode;
   mirrorDeletes: boolean;
-  schedule: Schedule;
+  retentionDays?: number;
+  schedule: SyncSchedule;
   enabled: boolean;
   lastRunAt: string | null;
   lastStatus: string | null;
@@ -36,17 +39,20 @@ interface SyncRun {
   id: string;
   planId: string;
   status: string;
+  phase?: string;
   filesCopied: number;
   filesSkipped: number;
   filesDeleted: number;
   bytesCopied: number;
+  filesTotal?: number;
+  bytesTotal?: number;
   pairs: SyncRunPair[];
   error: string | null;
   createdAt: string;
   finishedAt: string | null;
 }
 
-const SCHEDULE_LABELS: Record<Schedule, string> = {
+const SCHEDULE_LABELS: Record<SyncSchedule, string> = {
   manual: 'Manual only',
   hourly: 'Every hour',
   six_hourly: 'Every 6 hours',
@@ -54,8 +60,23 @@ const SCHEDULE_LABELS: Record<Schedule, string> = {
   weekly: 'Weekly',
 };
 
-const formatBytes = (bytes: number) => {
-  if (!bytes) return '0 B';
+const MODE_DESCRIPTIONS: Record<ProtectionMode, { title: string; subtitle: string }> = {
+  backup: {
+    title: 'Backup (Preserve)',
+    subtitle: 'Preserves destination files; source deletions are not removed from the backup copy.',
+  },
+  mirror: {
+    title: 'Mirror (Exact)',
+    subtitle: 'Exact replica; changes and deletions from the source are reflected in the destination.',
+  },
+  versioned: {
+    title: 'Versioned Backup',
+    subtitle: 'Retains modified and deleted versions in timestamped snapshots with automatic pruning.',
+  },
+};
+
+const formatBytes = (bytes?: number) => {
+  if (!bytes || bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = bytes;
   let idx = 0;
@@ -66,7 +87,6 @@ const formatBytes = (bytes: number) => {
   return `${value >= 10 || idx === 0 ? Math.round(value) : value.toFixed(1)} ${units[idx]}`;
 };
 
-/** SQLite stores CURRENT_TIMESTAMP as UTC without a zone marker. */
 const formatWhen = (value: string | null) => {
   if (!value) return 'Never';
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
@@ -74,17 +94,31 @@ const formatWhen = (value: string | null) => {
   return parsed.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const nextScheduledRun = (schedule: SyncSchedule, lastRunAt: string | null): string => {
+  if (schedule === 'manual') return 'Manual trigger only';
+  const last = lastRunAt ? new Date(`${lastRunAt.replace(' ', 'T')}Z`).getTime() : Date.now();
+  const intervals: Record<SyncSchedule, number> = {
+    manual: 0,
+    hourly: 60 * 60 * 1000,
+    six_hourly: 6 * 60 * 60 * 1000,
+    daily: 24 * 60 * 60 * 1000,
+    weekly: 7 * 24 * 60 * 60 * 1000,
+  };
+  const next = new Date(last + (intervals[schedule] || 0));
+  return next.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 const statusStyles: Record<string, string> = {
-  completed: 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300',
-  partial: 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300',
-  failed: 'bg-red-50 border-red-200 text-red-600 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300',
-  running: 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300',
+  completed: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+  partial: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+  failed: 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400',
+  running: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
 };
 
 function StatusBadge({ status }: { status: string | null }) {
   if (!status) return null;
   return (
-    <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border capitalize ${statusStyles[status] || 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/10 dark:text-slate-400'}`}>
+    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border capitalize ${statusStyles[status] || 'bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400'}`}>
       {status}
     </span>
   );
@@ -115,20 +149,23 @@ function DrivePicker({
             onClick={() => onToggle(drive.path)}
             className={`flex items-center space-x-3 text-left px-3 py-2.5 rounded-xl border transition-all ${
               isSelected
-                ? 'bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/40'
+                ? 'bg-blue-500/10 border-blue-500/40 text-blue-600 dark:text-blue-400'
                 : isDisabled
                   ? 'bg-slate-50 border-slate-200 opacity-40 cursor-not-allowed dark:bg-white/5 dark:border-white/10'
                   : 'bg-white border-slate-200 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:hover:border-white/20'
             }`}
           >
-            <span className={`w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 ${
+            <span className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
               isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-white/20'
             }`}>
               {isSelected && <CheckCircle2 size={12} className="text-white" />}
             </span>
-            <span className="min-w-0">
-              <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{drive.label}</span>
-              <span className="block text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">{drive.path}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{drive.label}</span>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-0.5">
+                <span className="truncate">{drive.path}</span>
+                <span>Free: {drive.freeBytes || 'Unknown'}</span>
+              </div>
             </span>
           </button>
         );
@@ -149,8 +186,9 @@ export default function BackupsPanel() {
   const [name, setName] = useState('');
   const [sources, setSources] = useState<string[]>([]);
   const [destinations, setDestinations] = useState<string[]>([]);
-  const [schedule, setSchedule] = useState<Schedule>('daily');
-  const [mirrorDeletes, setMirrorDeletes] = useState(false);
+  const [mode, setMode] = useState<ProtectionMode>('backup');
+  const [schedule, setSchedule] = useState<SyncSchedule>('daily');
+  const [retentionDays, setRetentionDays] = useState<number>(30);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -173,7 +211,10 @@ export default function BackupsPanel() {
     setLoading(true);
     try {
       const driveRes = await fetch('/api/drives/available');
-      if (driveRes.ok) setDrives((await driveRes.json()).filter((d: DriveItem) => d.isMounted && d.path));
+      if (driveRes.ok) {
+        const data = await driveRes.json();
+        setDrives(data.filter((d: DriveItem) => d.isMounted && d.path));
+      }
     } catch (e) {
       console.error('Failed to load drives:', e);
     }
@@ -183,7 +224,6 @@ export default function BackupsPanel() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // While anything is syncing, keep the run list and progress fresh.
   useEffect(() => {
     const active = plans.some((plan) => plan.running);
     if (!active) return;
@@ -197,8 +237,9 @@ export default function BackupsPanel() {
     setName('');
     setSources([]);
     setDestinations([]);
+    setMode('backup');
     setSchedule('daily');
-    setMirrorDeletes(false);
+    setRetentionDays(30);
     setFormError('');
   };
 
@@ -213,8 +254,9 @@ export default function BackupsPanel() {
     setName(plan.name);
     setSources(plan.sources);
     setDestinations(plan.destinations);
+    setMode(plan.mode || 'backup');
     setSchedule(plan.schedule);
-    setMirrorDeletes(plan.mirrorDeletes);
+    setRetentionDays(plan.retentionDays || 30);
     setFormError('');
   };
 
@@ -224,12 +266,20 @@ export default function BackupsPanel() {
 
   const savePlan = async () => {
     setFormError('');
-    if (!name.trim()) return setFormError('Give this backup a name');
-    if (sources.length === 0) return setFormError('Select at least one source drive');
+    if (!name.trim()) return setFormError('Give this backup policy a name');
+    if (sources.length === 0) return setFormError('Select at least one source drive to protect');
     if (destinations.length === 0) return setFormError('Select at least one destination drive');
 
     setSaving(true);
-    const body = { name: name.trim(), sources, destinations, schedule, mirrorDeletes };
+    const body = {
+      name: name.trim(),
+      sources,
+      destinations,
+      mode,
+      mirrorDeletes: mode === 'mirror',
+      retentionDays: mode === 'versioned' ? retentionDays : undefined,
+      schedule,
+    };
     try {
       const res = await fetch(editingId ? `/api/sync/${editingId}` : '/api/sync', {
         method: editingId ? 'PATCH' : 'POST',
@@ -238,9 +288,9 @@ export default function BackupsPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setFormError(data.error || 'Could not save this backup');
+        setFormError(data.error || 'Could not save this protection plan');
       } else {
-        toast({ message: editingId ? 'Backup updated' : 'Backup created', tone: 'success' });
+        toast({ message: editingId ? 'Policy updated' : 'Protection policy created', tone: 'success' });
         resetForm();
         await loadPlans();
       }
@@ -260,9 +310,9 @@ export default function BackupsPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast({ message: 'Sync started', description: `${plan.name} is syncing in the background`, tone: 'success' });
+        toast({ message: 'Backup started', description: `${plan.name} is copying in the background`, tone: 'success' });
       } else {
-        toast({ message: data.error || 'Could not start sync', tone: 'danger' });
+        toast({ message: data.error || 'Could not start backup', tone: 'danger' });
       }
     } catch {
       toast({ message: 'Connection error', tone: 'danger' });
@@ -285,29 +335,32 @@ export default function BackupsPanel() {
   const deletePlan = async (plan: SyncPlan) => {
     const ok = await confirmDialog({
       title: `Delete "${plan.name}"?`,
-      message: 'The schedule and history are removed. Files already copied to the destination drives are left untouched.',
+      message: 'The schedule and history are removed. Files already copied to destination drives are preserved.',
       tone: 'danger',
-      confirmLabel: 'Delete',
+      confirmLabel: 'Delete Policy',
     });
     if (!ok) return;
     setBusyPlan(plan.id);
     await fetch(`/api/sync/${plan.id}`, { method: 'DELETE' }).catch(() => {});
     setBusyPlan(null);
     if (editingId === plan.id) resetForm();
-    toast({ message: 'Backup deleted', tone: 'success' });
+    toast({ message: 'Protection policy deleted', tone: 'success' });
     loadPlans();
   };
 
+  const driveFor = (drivePath: string) =>
+    drives.find((drive) => drive.path === drivePath);
+
   const labelFor = (drivePath: string) =>
-    drives.find((drive) => drive.path === drivePath)?.label || drivePath;
+    driveFor(drivePath)?.label || drivePath;
 
   return (
     <div className="flex-1 bg-transparent p-8 overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Backups</h2>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Scheduled Local Protection</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Mirror source drives onto backup drives in the background
+            Keep scheduled local copies of your drives on another disk
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -324,7 +377,7 @@ export default function BackupsPanel() {
               className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all text-xs font-semibold"
             >
               <Plus size={14} />
-              <span>New Backup</span>
+              <span>New Protection Policy</span>
             </button>
           )}
         </div>
@@ -332,10 +385,10 @@ export default function BackupsPanel() {
 
       {/* Create / edit form */}
       {isCreating && (
-        <div className="mb-6 bg-white dark:bg-[#1f1f22] border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              {editingId ? 'Edit backup' : 'New backup'}
+        <div className="mb-6 bg-white dark:bg-[#1f1f22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              {editingId ? 'Edit Protection Policy' : 'Create Protection Policy'}
             </h3>
             <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               <X size={16} />
@@ -343,19 +396,19 @@ export default function BackupsPanel() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Name</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Policy Name</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Media drives to backup array"
+              placeholder="e.g. Media drives to backup array"
               className="w-full text-sm rounded-xl px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400"
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                Source drives <span className="font-normal text-slate-400">— data to protect</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Source Drives <span className="font-normal text-slate-400">— data to protect</span>
               </label>
               <DrivePicker
                 drives={drives}
@@ -366,8 +419,8 @@ export default function BackupsPanel() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                Destination drives <span className="font-normal text-slate-400">— where copies land</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Destination Drives <span className="font-normal text-slate-400">— where copies land</span>
               </label>
               <DrivePicker
                 drives={drives}
@@ -379,33 +432,96 @@ export default function BackupsPanel() {
             </div>
           </div>
 
+          {/* Mode Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Protection Mode</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setMode('backup')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  mode === 'backup'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white mb-1">
+                  <Shield size={14} className="text-emerald-500" />
+                  <span>Backup (Preserve)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Preserves destination files; source deletions are not removed.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('mirror')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  mode === 'mirror'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white mb-1">
+                  <Copy size={14} className="text-blue-500" />
+                  <span>Mirror (Exact)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Exact replica; changes and deletions propagate to destination.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('versioned')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  mode === 'versioned'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white mb-1">
+                  <Layers size={14} className="text-purple-500" />
+                  <span>Versioned Backup</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Retains modified/deleted files in dated snapshots with retention policy.
+                </p>
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Schedule</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Schedule</label>
               <select
                 value={schedule}
-                onChange={(e) => setSchedule(e.target.value as Schedule)}
+                onChange={(e) => setSchedule(e.target.value as SyncSchedule)}
                 className="w-full text-sm rounded-xl px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400"
               >
-                {(Object.keys(SCHEDULE_LABELS) as Schedule[]).map((value) => (
+                {(Object.keys(SCHEDULE_LABELS) as SyncSchedule[]).map((value) => (
                   <option key={value} value={value}>{SCHEDULE_LABELS[value]}</option>
                 ))}
               </select>
             </div>
-            <label className="flex items-start space-x-2.5 text-xs text-slate-600 dark:text-slate-300 sm:pt-6 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mirrorDeletes}
-                onChange={(e) => setMirrorDeletes(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded"
-              />
-              <span>
-                <span className="font-semibold block">Mirror deletions</span>
-                <span className="text-slate-400 dark:text-slate-500">
-                  Remove files from the backup copy once they are gone from the source.
-                </span>
-              </span>
-            </label>
+
+            {mode === 'versioned' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Snapshot Retention</label>
+                <select
+                  value={retentionDays}
+                  onChange={(e) => setRetentionDays(Number(e.target.value))}
+                  className="w-full text-sm rounded-xl px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400"
+                >
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days (Recommended)</option>
+                  <option value={90}>90 days</option>
+                  <option value={365}>1 year</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {formError && (
@@ -415,7 +531,7 @@ export default function BackupsPanel() {
             </div>
           )}
 
-          <div className="flex items-center justify-end space-x-2">
+          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-white/10">
             <button
               onClick={resetForm}
               className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
@@ -425,35 +541,35 @@ export default function BackupsPanel() {
             <button
               onClick={savePlan}
               disabled={saving}
-              className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 flex items-center space-x-2 shadow-sm"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              <span>{editingId ? 'Save changes' : 'Create backup'}</span>
+              <span>{editingId ? 'Save changes' : 'Create Policy'}</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Plans */}
+      {/* Policy list */}
       {loading && plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-slate-500 dark:text-slate-400 text-sm bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           <RefreshCw size={22} className="animate-spin text-blue-500 mb-3" />
-          <p>Loading backups...</p>
+          <p>Loading protection policies...</p>
         </div>
       ) : plans.length === 0 && !isCreating ? (
         <div className="flex flex-col items-center justify-center h-56 space-y-3 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
-            <HardDrive size={22} className="text-slate-400 dark:text-slate-500" />
+            <Shield size={22} className="text-slate-400 dark:text-slate-500" />
           </div>
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No backups configured</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No protection policies configured</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm text-center">
-            Pick the drives holding your data and the drives that should hold the copies. Syncs run in the background.
+            Pick the drives holding your data and destination drives to receive scheduled local copies.
           </p>
           <button
             onClick={startCreate}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+            className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
           >
-            Create your first backup
+            Create your first protection policy
           </button>
         </div>
       ) : (
@@ -462,6 +578,13 @@ export default function BackupsPanel() {
             const planRuns = runs.filter((run) => run.planId === plan.id);
             const latest = planRuns[0];
             const isBusy = busyPlan === plan.id;
+
+            // Capacity calculation
+            const sourceDrives = plan.sources.map(driveFor).filter(Boolean) as DriveItem[];
+            const destDrives = plan.destinations.map(driveFor).filter(Boolean) as DriveItem[];
+            const sourceUsedBytes = sourceDrives.reduce((acc, d) => acc + (d.usedBytesNumber || 0), 0);
+            const destFreeBytes = destDrives.reduce((acc, d) => acc + (d.freeBytesNumber || 0), 0);
+            const isDestLowSpace = destFreeBytes > 0 && (sourceUsedBytes > destFreeBytes || destDrives.some((d) => (d.usagePercent || 0) >= 85));
 
             return (
               <div
@@ -473,15 +596,18 @@ export default function BackupsPanel() {
                     <div className="flex items-center flex-wrap gap-2">
                       <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{plan.name}</h3>
                       {plan.running ? (
-                        <span className="flex items-center space-x-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300">
+                        <span className="flex items-center space-x-1.5 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400">
                           <Loader2 size={10} className="animate-spin" />
-                          <span>Syncing</span>
+                          <span>Syncing...</span>
                         </span>
                       ) : (
                         <StatusBadge status={plan.lastStatus} />
                       )}
+                      <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400">
+                        {MODE_DESCRIPTIONS[plan.mode]?.title || plan.mode}
+                      </span>
                       {!plan.enabled && (
-                        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-slate-50 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/10 dark:text-slate-400">
+                        <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400">
                           Paused
                         </span>
                       )}
@@ -491,17 +617,22 @@ export default function BackupsPanel() {
                         <Clock size={11} />
                         <span>{SCHEDULE_LABELS[plan.schedule]}</span>
                       </span>
-                      <span>Last run {formatWhen(plan.lastRunAt)}</span>
-                      {plan.mirrorDeletes && <span>Mirrors deletions</span>}
+                      <span>Last backup: {formatWhen(plan.lastRunAt)}</span>
+                      {plan.enabled && (
+                        <span className="flex items-center gap-1 text-slate-400">
+                          <Calendar size={11} />
+                          <span>Next run: {nextScheduledRun(plan.schedule, plan.lastRunAt)}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-1.5 flex-shrink-0">
+                  <div className="flex items-center space-x-1.5 shrink-0">
                     <button
                       onClick={() => runPlan(plan)}
                       disabled={isBusy || plan.running}
                       title="Sync now"
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 flex items-center space-x-1.5"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 flex items-center space-x-1.5 shadow-sm"
                     >
                       {plan.running ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
                       <span>{plan.running ? 'Syncing' : 'Sync now'}</span>
@@ -510,38 +641,53 @@ export default function BackupsPanel() {
                       onClick={() => togglePlanEnabled(plan)}
                       disabled={isBusy}
                       title={plan.enabled ? 'Pause schedule' : 'Resume schedule'}
-                      className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50"
+                      className="p-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50"
                     >
                       {plan.enabled ? <Pause size={13} /> : <Play size={13} />}
                     </button>
                     <button
                       onClick={() => startEdit(plan)}
-                      className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deletePlan(plan)}
                       disabled={isBusy}
-                      title="Delete backup"
-                      className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-500/40 disabled:opacity-50"
+                      title="Delete policy"
+                      className="p-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-500/40 disabled:opacity-50"
                     >
                       <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
 
-                {/* Sources -> destinations */}
+                {/* Capacity Forecasting & Warnings */}
+                {isDestLowSpace && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                    <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                    <div>
+                      <p className="font-semibold">Capacity Warning</p>
+                      <p className="text-[11px] opacity-90">
+                        Protected capacity: {formatBytes(sourceUsedBytes)} · Destination free space: {formatBytes(destFreeBytes)}. Protection is at risk of exhaustion.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sources -> Destinations Map */}
                 <div className="flex items-center flex-wrap gap-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mr-1">Source:</span>
                     {plan.sources.map((source) => (
-                      <span key={source} className="text-[10px] font-mono px-2 py-1 rounded-lg bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300">
+                      <span key={source} className="text-[10px] font-mono px-2 py-1 rounded-lg bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200">
                         {labelFor(source)}
                       </span>
                     ))}
                   </div>
-                  <ArrowRight size={14} className="text-slate-400 flex-shrink-0" />
-                  <div className="flex flex-wrap gap-1.5">
+                  <ArrowRight size={14} className="text-slate-400 shrink-0" />
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mr-1">Destination:</span>
                     {plan.destinations.map((destination) => (
                       <span key={destination} className="text-[10px] font-mono px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 text-blue-600 dark:text-blue-300">
                         {labelFor(destination)}
@@ -550,9 +696,9 @@ export default function BackupsPanel() {
                   </div>
                 </div>
 
-                {/* Latest run */}
+                {/* Latest run stats */}
                 {latest && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                       <span className="flex items-center space-x-2">
                         <StatusBadge status={latest.status} />
@@ -564,14 +710,14 @@ export default function BackupsPanel() {
                       </span>
                     </div>
                     {latest.error && (
-                      <div className="flex items-start space-x-2 text-[11px] px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-500/30">
-                        <TriangleAlert size={12} className="mt-0.5 flex-shrink-0" />
+                      <div className="flex items-start space-x-2 text-[11px] px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-500/30">
+                        <AlertCircle size={13} className="mt-0.5 shrink-0" />
                         <span>{latest.error}</span>
                       </div>
                     )}
                     {latest.pairs?.filter((pair) => pair.error).map((pair, index) => (
-                      <div key={`${pair.source}-${index}`} className="flex items-start space-x-2 text-[11px] px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-500/30">
-                        <TriangleAlert size={12} className="mt-0.5 flex-shrink-0" />
+                      <div key={`${pair.source}-${index}`} className="flex items-start space-x-2 text-[11px] px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-500/30">
+                        <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                         <span className="font-mono">{pair.source}: {pair.error}</span>
                       </div>
                     ))}
@@ -583,16 +729,16 @@ export default function BackupsPanel() {
         </div>
       )}
 
-      <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-xl px-4 py-3.5 shadow-sm">
-        <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          Each source is mirrored into{' '}
-          <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">
-            &lt;destination&gt;/HomiOS-Backups/&lt;drive&gt;
-          </span>{' '}
-          on every destination drive. Syncs are incremental — unchanged files are skipped — and run as background jobs you
-          can follow in Activity.
-        </p>
+      {/* Local Protection Explanation Panel */}
+      <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-2xl px-5 py-4 shadow-sm">
+        <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1">
+          <p className="font-bold text-slate-800 dark:text-slate-100">Local Protection Guarantee</p>
+          <p>
+            Your selected source drives are copied to the backup destination on the configured schedule.
+            This protects against failure of a source drive. Because this is a local copy, remember that off-site backups are recommended for complete disaster recovery.
+          </p>
+        </div>
       </div>
     </div>
   );

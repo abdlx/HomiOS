@@ -43,7 +43,11 @@ export default withAuth(async (req: any, res: any, session: any) => {
         name: body.name,
         sources: body.sources,
         destinations: body.destinations,
+        sourceUuids: body.sourceUuids,
+        destinationUuids: body.destinationUuids,
+        mode: body.mode,
         mirrorDeletes: body.mirrorDeletes,
+        retentionDays: body.retentionDays,
         schedule: body.schedule,
         enabled: body.enabled,
       });

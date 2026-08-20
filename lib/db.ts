@@ -402,6 +402,17 @@ export function getDb(): any {
   ensureColumn('jobs', 'cancel_requested_at', 'DATETIME');
   ensureColumn('jobs', 'progress_data', "TEXT DEFAULT '{}'");
 
+  ensureColumn('sync_plans', 'source_uuids', "TEXT DEFAULT '[]'");
+  ensureColumn('sync_plans', 'destination_uuids', "TEXT DEFAULT '[]'");
+  ensureColumn('sync_plans', 'mode', "TEXT DEFAULT 'mirror'");
+  ensureColumn('sync_plans', 'retention_days', 'INTEGER DEFAULT 30');
+  ensureColumn('sync_runs', 'phase', "TEXT DEFAULT 'completed'");
+  ensureColumn('sync_runs', 'speed_bytes_sec', 'REAL DEFAULT 0');
+  ensureColumn('sync_runs', 'eta_seconds', 'INTEGER DEFAULT 0');
+  ensureColumn('sync_runs', 'files_total', 'INTEGER DEFAULT 0');
+  ensureColumn('sync_runs', 'bytes_total', 'INTEGER DEFAULT 0');
+  ensureColumn('jobs', 'phase', "TEXT DEFAULT 'queued'");
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_jobs_dispatch
       ON jobs(status, run_at, priority, created_at);
