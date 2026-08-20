@@ -60,9 +60,9 @@ COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 CODEX_UI_ENABLED="${CODEX_UI_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-}"
 IMMICH_ENABLED="${IMMICH_ENABLED:-}"
-# HOMIOS_PORT is the canonical HomiOS application port.
-# It can be overridden by the user; the default is 8740.
-HOMIOS_PORT="${HOMIOS_PORT:-}"
+# Preserve any HOMIOS_PORT explicitly passed in the calling environment before defaults/files
+_USER_SUPPLIED_PORT="${HOMIOS_PORT:-}"
+HOMIOS_PORT=""
 NON_INTERACTIVE=false
 
 # Track which Coolify flags were explicitly supplied for mutual-exclusion checks.
@@ -91,6 +91,7 @@ Optional components:
   --without-immich      Disable optional Immich service.
 
 General:
+  --migrate-homios-port Force migration of legacy port (3000) to 8740.
   --non-interactive     Skip all interactive prompts. Unset optional services
                         default to disabled.
   -h, --help            Show this help message and exit.
@@ -101,6 +102,9 @@ Examples:
 
   # Existing external Coolify already running on this host:
   sudo bash install.sh --existing-coolify --non-interactive
+
+  # Migrate existing external installation from legacy port 3000 to 8740:
+  sudo bash install.sh --existing-coolify --migrate-homios-port --non-interactive
 
   # Existing external Coolify + optional Codex UI:
   sudo bash install.sh --existing-coolify --with-codex-ui --non-interactive
@@ -300,8 +304,10 @@ force ownership by setting: COOLIFY_OWNED_BY_HOMIOS=true bash install.sh --with-
 
 # ── Preserve prior choices when re-running over an existing host ─────────────
 PREVIOUS_ENV_FILE="$INSTALL_DIR/data/homios.env"
+_saved_port=""
+_saved_cfg_version=""
 if [ -f "$PREVIOUS_ENV_FILE" ]; then
-  # Read new-style keys first (they take precedence over CLI defaults)
+  # Read new-style keys first (CLI flags override saved settings)
   [ -n "$COOLIFY_MODE" ] || \
     COOLIFY_MODE=$(sed -n 's/^COOLIFY_MODE=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   [ -n "$COOLIFY_OWNED_BY_HOMIOS" ] || \
@@ -313,31 +319,9 @@ if [ -f "$PREVIOUS_ENV_FILE" ]; then
   [ -n "$IMMICH_ENABLED" ] || \
     IMMICH_ENABLED=$(sed -n 's/^IMMICH_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
 
-  # Preserve any explicitly user-configured HOMIOS_PORT from a previous install.
-  # If the user set a custom port, we never overwrite it.
-  [ -n "$HOMIOS_PORT" ] || \
-    HOMIOS_PORT=$(sed -n 's/^HOMIOS_PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-
-  # Migration: if no HOMIOS_PORT is stored and the config was written before
-  # HOMIOS_CONFIG_VERSION=2 (port 8740), migrate the default 3000 → 8740.
-  # Installations that had an explicit custom PORT are not touched here because
-  # the user would have set HOMIOS_PORT explicitly.
-  _config_version=$(sed -n 's/^HOMIOS_CONFIG_VERSION=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-  if [ -z "$HOMIOS_PORT" ] && [ "${_config_version:-1}" -lt 2 ] 2>/dev/null; then
-    if [ "$HOMIOS_PROXY_MODE" = "external" ] || [ "$COOLIFY_MODE" = "external" ]; then
-      if [ "$MIGRATE_HOMIOS_PORT" = "true" ]; then
-        HOMIOS_PORT=8740
-        log "Migrating external proxy port: 3000 → 8740 (explicit opt-in)"
-      else
-        HOMIOS_PORT=3000
-        log "External proxy detected. Preserving legacy port 3000."
-        log "Run with --migrate-homios-port to explicitly migrate to 8740."
-      fi
-    else
-      HOMIOS_PORT=8740
-      log "Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
-    fi
-  fi
+  _saved_port=$(sed -n 's/^HOMIOS_PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  [ -n "$_saved_port" ] || _saved_port=$(sed -n 's/^PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  _saved_cfg_version=$(sed -n 's/^HOMIOS_CONFIG_VERSION=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
 
   # Legacy fallback: if COOLIFY_MODE was not in env file, derive from COOLIFY_ENABLED.
   # Map true → managed/unowned (safest migration — cannot retroactively prove ownership).
@@ -378,8 +362,56 @@ COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-nginx}"
 CODEX_UI_ENABLED=$(normalize_bool "${CODEX_UI_ENABLED:-false}")
 IMMICH_ENABLED=$(normalize_bool "${IMMICH_ENABLED:-false}")
-# Default application port is 8740. User-supplied value (CLI or env file) wins.
-HOMIOS_PORT="${HOMIOS_PORT:-8740}"
+
+# ── Port Resolution ───────────────────────────────────────────
+# Precedence:
+# 1. Explicit --migrate-homios-port (highest migration priority → forces 8740)
+# 2. Explicit user-configured HOMIOS_PORT in invocation environment
+# 3. Existing installation:
+#    - Custom port (not 3000 and not 8740) → preserve custom value
+#    - Already on 8740 → preserve 8740
+#    - Legacy port 3000 (or unversioned default):
+#        - External proxy without migration flag: preserve 3000
+#        - Managed nginx: migrate default 3000 → 8740
+# 4. New/default installation → 8740
+
+if [ "$MIGRATE_HOMIOS_PORT" = "true" ]; then
+  HOMIOS_PORT=8740
+  if [ "$HOMIOS_PROXY_MODE" = "external" ] || [ "$COOLIFY_MODE" = "external" ]; then
+    log "HomiOS migrated to port 8740."
+    log "Your external reverse proxy was NOT modified."
+    log "Update its upstream from <host>:3000 to <host>:8740."
+  else
+    log "Migrating default port: 3000 → 8740 (explicit opt-in)"
+  fi
+elif [ -n "$_USER_SUPPLIED_PORT" ]; then
+  HOMIOS_PORT="$_USER_SUPPLIED_PORT"
+  log "Using explicitly configured HOMIOS_PORT=${HOMIOS_PORT}"
+elif [ -n "$_saved_port" ]; then
+  if [ "$_saved_port" = "3000" ]; then
+    if [ "$HOMIOS_PROXY_MODE" = "external" ] || [ "$COOLIFY_MODE" = "external" ]; then
+      HOMIOS_PORT=3000
+      log "External proxy detected. Preserving legacy port 3000."
+      log "Run with --migrate-homios-port to explicitly migrate to 8740."
+    else
+      HOMIOS_PORT=8740
+      log "Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+    fi
+  else
+    HOMIOS_PORT="$_saved_port"
+  fi
+elif [ -f "$PREVIOUS_ENV_FILE" ] && [ "${_saved_cfg_version:-1}" -lt 2 ] 2>/dev/null; then
+  if [ "$HOMIOS_PROXY_MODE" = "external" ] || [ "$COOLIFY_MODE" = "external" ]; then
+    HOMIOS_PORT=3000
+    log "External proxy detected. Preserving legacy port 3000."
+    log "Run with --migrate-homios-port to explicitly migrate to 8740."
+  else
+    HOMIOS_PORT=8740
+    log "Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+  fi
+else
+  HOMIOS_PORT=8740
+fi
 
 log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_HOMIOS) | Proxy: $HOMIOS_PROXY_MODE | Codex UI: $CODEX_UI_ENABLED | Immich: $IMMICH_ENABLED"
 
@@ -862,89 +894,38 @@ read_setting() {
   printf '%s' "\${value:-\$fallback}"
 }
 
-# Read persisted state (new keys take precedence)
-COOLIFY_MODE=\$(read_setting COOLIFY_MODE "disabled")
-COOLIFY_OWNED_BY_HOMIOS=\$(read_setting COOLIFY_OWNED_BY_HOMIOS "false")
-COOLIFY_INTEGRATION_ENABLED=\$(read_setting COOLIFY_INTEGRATION_ENABLED "false")
-COOLIFY_APP_PORT=\$(read_setting COOLIFY_APP_PORT "$COOLIFY_APP_PORT")
-COOLIFY_DATA_DIR=\$(read_setting COOLIFY_DATA_DIR "$COOLIFY_DATA_DIR")
-HOMIOS_PROXY_MODE=\$(read_setting HOMIOS_PROXY_MODE "nginx")
-CODEX_UI_ENABLED=\$(read_setting CODEX_UI_ENABLED "false")
-IMMICH_ENABLED=\$(read_setting IMMICH_ENABLED "false")
-IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
-IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
-IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
-IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
-HOMIOS_BIND_HOST=\$(read_setting HOMIOS_BIND_HOST "")
-
-# Preserve user-configured HOMIOS_PORT; migrate old default 3000 →  8740 if needed.
-HOMIOS_PORT=\$(read_setting HOMIOS_PORT "")
-_cfg_ver=\$(read_setting HOMIOS_CONFIG_VERSION "1")
-if [ -z "\$HOMIOS_PORT" ]; then
-  if [ "\${_cfg_ver:-1}" -lt 2 ] 2>/dev/null; then
-    if [ "\$HOMIOS_PROXY_MODE" = "external" ] || [ "\$COOLIFY_MODE" = "external" ]; then
-      if [ "\$MIGRATE_HOMIOS_PORT" = "true" ]; then
-        HOMIOS_PORT=8740
-        echo "[update] Migrating external proxy port: 3000 → 8740 (explicit opt-in)"
-      else
-        HOMIOS_PORT=3000
-        echo "[update] External proxy detected. Preserving legacy port 3000."
-        echo "[update] Run update with --migrate-homios-port to explicitly migrate to 8740."
-      fi
-    else
-      HOMIOS_PORT=8740
-      echo "[update] Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
-    fi
-  else
-    HOMIOS_PORT=8740
-  fi
-fi
-
-# Fallback derivation if not explicitly saved
-if [ -z "\$HOMIOS_BIND_HOST" ]; then
-  if [ "\$HOMIOS_PROXY_MODE" = "nginx" ]; then
-    HOMIOS_BIND_HOST="127.0.0.1"
-  else
-    HOMIOS_BIND_HOST="0.0.0.0"
-  fi
-fi
-
-# Legacy fallback for installs that only have COOLIFY_ENABLED
-if [ "\$COOLIFY_MODE" = "disabled" ]; then
-  _legacy=\$(read_setting COOLIFY_ENABLED "")
-  if [ "\$_legacy" = "true" ]; then
-    COOLIFY_MODE=managed
-    COOLIFY_OWNED_BY_HOMIOS=false
-  fi
-fi
-
+# 1. Parse CLI options first
 _FLAG_WITH_COOLIFY=false
 _FLAG_EXISTING_COOLIFY=false
 _FLAG_WITHOUT_COOLIFY=false
 MIGRATE_HOMIOS_PORT=false
+COOLIFY_MODE_CLI=""
+HOMIOS_PROXY_MODE_CLI=""
+IMMICH_ENABLED_CLI=""
+CODEX_UI_ENABLED_CLI=""
 
 while [ "\$#" -gt 0 ]; do
   case "\$1" in
     --with-coolify)
-      COOLIFY_MODE=managed
+      COOLIFY_MODE_CLI=managed
       _FLAG_WITH_COOLIFY=true
       ;;
     --existing-coolify)
-      COOLIFY_MODE=external
-      HOMIOS_PROXY_MODE=external
+      COOLIFY_MODE_CLI=external
+      HOMIOS_PROXY_MODE_CLI=external
       _FLAG_EXISTING_COOLIFY=true
       ;;
     --without-coolify)
-      COOLIFY_MODE=disabled
+      COOLIFY_MODE_CLI=disabled
       _FLAG_WITHOUT_COOLIFY=true
       ;;
-    --with-immich)    IMMICH_ENABLED=true ;;
-    --without-immich) IMMICH_ENABLED=false ;;
-    --with-codex-ui)  CODEX_UI_ENABLED=true ;;
+    --with-immich)    IMMICH_ENABLED_CLI=true ;;
+    --without-immich) IMMICH_ENABLED_CLI=false ;;
+    --with-codex-ui)  CODEX_UI_ENABLED_CLI=true ;;
     --migrate-homios-port) MIGRATE_HOMIOS_PORT=true ;;
     -h|--help)
       echo "Usage: sudo homios-update [--with-coolify|--existing-coolify|--without-coolify]"
-      echo "                              [--with-immich|--without-immich] [--with-codex-ui]"
+      echo "                              [--with-immich|--without-immich] [--with-codex-ui] [--migrate-homios-port]"
       exit 0
       ;;
     *) echo "Unknown option: \$1" >&2; exit 2 ;;
@@ -960,6 +941,93 @@ if [ "\$_FLAG_WITHOUT_COOLIFY" = "true" ] && [ "\$_FLAG_EXISTING_COOLIFY" = "tru
 fi
 if [ "\$_FLAG_WITH_COOLIFY" = "true" ] && [ "\$_FLAG_WITHOUT_COOLIFY" = "true" ]; then
   echo "ERROR: --with-coolify and --without-coolify are mutually exclusive." >&2; exit 2
+fi
+
+# 2. Read persisted state (CLI flags take precedence over saved values)
+COOLIFY_MODE="\${COOLIFY_MODE_CLI:-\$(read_setting COOLIFY_MODE "disabled")}"
+COOLIFY_OWNED_BY_HOMIOS=\$(read_setting COOLIFY_OWNED_BY_HOMIOS "false")
+COOLIFY_INTEGRATION_ENABLED=\$(read_setting COOLIFY_INTEGRATION_ENABLED "false")
+COOLIFY_APP_PORT=\$(read_setting COOLIFY_APP_PORT "$COOLIFY_APP_PORT")
+COOLIFY_DATA_DIR=\$(read_setting COOLIFY_DATA_DIR "$COOLIFY_DATA_DIR")
+HOMIOS_PROXY_MODE="\${HOMIOS_PROXY_MODE_CLI:-\$(read_setting HOMIOS_PROXY_MODE "nginx")}"
+CODEX_UI_ENABLED="\${CODEX_UI_ENABLED_CLI:-\$(read_setting CODEX_UI_ENABLED "false")}"
+IMMICH_ENABLED="\${IMMICH_ENABLED_CLI:-\$(read_setting IMMICH_ENABLED "false")}"
+IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
+IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
+IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
+IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
+HOMIOS_BIND_HOST=\$(read_setting HOMIOS_BIND_HOST "")
+
+# Legacy fallback for installs that only have COOLIFY_ENABLED
+if [ "\$COOLIFY_MODE" = "disabled" ]; then
+  _legacy=\$(read_setting COOLIFY_ENABLED "")
+  if [ "\$_legacy" = "true" ]; then
+    COOLIFY_MODE=managed
+    COOLIFY_OWNED_BY_HOMIOS=false
+  fi
+fi
+
+# 3. Port Resolution
+# Precedence:
+# 1. Explicit --migrate-homios-port (highest priority)
+# 2. Explicit user-configured HOMIOS_PORT in invocation environment
+# 3. Saved port in existing env file:
+#    - Custom port (not 3000 and not 8740) → preserve custom value
+#    - Already on 8740 → preserve 8740
+#    - Legacy port 3000 (or unversioned default):
+#        - External proxy without migration flag: preserve 3000
+#        - Managed nginx: migrate default 3000 → 8740
+# 4. Default → 8740
+
+_saved_port=\$(read_setting HOMIOS_PORT "")
+[ -n "\$_saved_port" ] || _saved_port=\$(read_setting PORT "")
+_cfg_ver=\$(read_setting HOMIOS_CONFIG_VERSION "1")
+
+if [ "\$MIGRATE_HOMIOS_PORT" = "true" ]; then
+  HOMIOS_PORT=8740
+  if [ "\$HOMIOS_PROXY_MODE" = "external" ] || [ "\$COOLIFY_MODE" = "external" ]; then
+    echo "[update] HomiOS migrated to port 8740."
+    echo "[update] Your external reverse proxy was NOT modified."
+    echo "[update] Update its upstream from <host>:3000 to <host>:8740."
+  else
+    echo "[update] Migrating default port: 3000 → 8740 (explicit opt-in)"
+  fi
+elif [ -n "\${HOMIOS_PORT:-}" ]; then
+  HOMIOS_PORT="\${HOMIOS_PORT}"
+  echo "[update] Using explicitly configured HOMIOS_PORT=\${HOMIOS_PORT}"
+elif [ -n "\$_saved_port" ]; then
+  if [ "\$_saved_port" = "3000" ]; then
+    if [ "\$HOMIOS_PROXY_MODE" = "external" ] || [ "\$COOLIFY_MODE" = "external" ]; then
+      HOMIOS_PORT=3000
+      echo "[update] External proxy detected. Preserving legacy port 3000."
+      echo "[update] Run update with --migrate-homios-port to explicitly migrate to 8740."
+    else
+      HOMIOS_PORT=8740
+      echo "[update] Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+    fi
+  else
+    HOMIOS_PORT="\$_saved_port"
+  fi
+elif [ -f "\$ENV_FILE" ] && [ "\${_cfg_ver:-1}" -lt 2 ] 2>/dev/null; then
+  if [ "\$HOMIOS_PROXY_MODE" = "external" ] || [ "\$COOLIFY_MODE" = "external" ]; then
+    HOMIOS_PORT=3000
+    echo "[update] External proxy detected. Preserving legacy port 3000."
+    echo "[update] Run update with --migrate-homios-port to explicitly migrate to 8740."
+  else
+    HOMIOS_PORT=8740
+    echo "[update] Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+  fi
+else
+  HOMIOS_PORT=8740
+fi
+
+# Fallback derivation if not explicitly saved
+if [ -z "\$HOMIOS_BIND_HOST" ]; then
+  if [ "\$HOMIOS_PROXY_MODE" = "nginx" ]; then
+    HOMIOS_BIND_HOST="127.0.0.1"
+  else
+    HOMIOS_BIND_HOST="0.0.0.0"
+  fi
 fi
 
 detect_running_coolify() {
@@ -1071,52 +1139,55 @@ CODEXUNIT
   systemctl restart codex-web
 fi
 
-# Re-sync APP_KEY from the persisted key file into the 0600 EnvironmentFile.
+# Re-sync APP_KEY and persist configuration into EnvironmentFile.
 # It must never be written into the unit itself — unit files are world-readable
 # and `systemctl show` exposes Environment= to any local user.
 APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
 ENV_FILE="$INSTALL_DIR/data/homios.env"
+CURRENT_KEY=""
 if [ -f "\$APP_KEY_FILE" ]; then
   CURRENT_KEY=\$(cat "\$APP_KEY_FILE")
-  CURRENT_SAMBA_ALLOWED_ROOTS=""
-  if [ -f "\$ENV_FILE" ]; then
-    CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^HOMIOS_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
-  fi
+elif [ -f "\$ENV_FILE" ]; then
+  CURRENT_KEY=\$(sed -n 's/^APP_KEY=//p' "\$ENV_FILE" | tail -n 1)
+fi
 
-  # Derive COOLIFY_ENABLED for backward compat
-  if [ "\$COOLIFY_MODE" = "managed" ] && [ "\$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
-    COOLIFY_ENABLED_DERIVED=true
-  else
-    COOLIFY_ENABLED_DERIVED=false
-  fi
+CURRENT_SAMBA_ALLOWED_ROOTS=""
+if [ -f "\$ENV_FILE" ]; then
+  CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^HOMIOS_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
+fi
 
-  umask 077
-  printf 'APP_KEY=%s\nHOMIOS_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_HOMIOS=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nHOMIOS_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nHOMIOS_BIND_HOST=%s\n' \
-    "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" \
-    "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_HOMIOS" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
-    "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$HOMIOS_PROXY_MODE" "\$CODEX_UI_ENABLED" \
-    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$HOMIOS_BIND_HOST" \
-    > "\$ENV_FILE"
-  chmod 600 "\$ENV_FILE"
-  umask 022
-  # Inject port settings that the printf above doesn't include yet
-  # (avoids rewriting the printf format string inside a heredoc-within-heredoc).
-  grep -q '^HOMIOS_PORT=' "\$ENV_FILE" || printf 'HOMIOS_PORT=%s\n' "\$HOMIOS_PORT" >> "\$ENV_FILE"
-  grep -q '^HOMIOS_CONFIG_VERSION=' "\$ENV_FILE" || printf 'HOMIOS_CONFIG_VERSION=2\n' >> "\$ENV_FILE"
-  sed -i "s|^HOMIOS_PORT=.*|HOMIOS_PORT=\${HOMIOS_PORT}|" "\$ENV_FILE"
-  sed -i "s|^HOMIOS_CONFIG_VERSION=.*|HOMIOS_CONFIG_VERSION=2|" "\$ENV_FILE"
-  chmod 600 "\$ENV_FILE"
-  # Scrub any APP_KEY left in the unit by a pre-hardening install.
-  sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/homios.service
-  # Patch port lines in the live unit (handles pre-8740 installs that had PORT=3000).
-  if grep -q '^Environment=PORT=' /etc/systemd/system/homios.service; then
-    sed -i "s|^Environment=PORT=.*|Environment=PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
-  fi
-  if grep -q '^Environment=HOMIOS_PORT=' /etc/systemd/system/homios.service; then
-    sed -i "s|^Environment=HOMIOS_PORT=.*|Environment=HOMIOS_PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
-  else
-    sed -i "/^Environment=PORT=/a Environment=HOMIOS_PORT=\${HOMIOS_PORT}" /etc/systemd/system/homios.service
-  fi
+# Derive COOLIFY_ENABLED for backward compat
+if [ "\$COOLIFY_MODE" = "managed" ] && [ "\$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
+  COOLIFY_ENABLED_DERIVED=true
+else
+  COOLIFY_ENABLED_DERIVED=false
+fi
+
+umask 077
+printf 'APP_KEY=%s\nHOMIOS_SAMBA_ALLOWED_ROOTS=%s\nHOMIOS_PORT=%s\nHOMIOS_CONFIG_VERSION=2\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_HOMIOS=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nHOMIOS_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nHOMIOS_BIND_HOST=%s\n' \
+  "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" "\$HOMIOS_PORT" \
+  "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_HOMIOS" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
+  "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$HOMIOS_PROXY_MODE" "\$CODEX_UI_ENABLED" \
+  "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$HOMIOS_BIND_HOST" \
+  > "\$ENV_FILE"
+chmod 600 "\$ENV_FILE"
+umask 022
+
+# Scrub any APP_KEY left in the unit by a pre-hardening install.
+sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/homios.service 2>/dev/null || true
+# Patch port and host lines in the live unit (handles pre-8740 installs that had PORT=3000).
+if grep -q '^Environment=PORT=' /etc/systemd/system/homios.service 2>/dev/null; then
+  sed -i "s|^Environment=PORT=.*|Environment=PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
+fi
+if grep -q '^Environment=HOMIOS_PORT=' /etc/systemd/system/homios.service 2>/dev/null; then
+  sed -i "s|^Environment=HOMIOS_PORT=.*|Environment=HOMIOS_PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
+elif [ -f /etc/systemd/system/homios.service ]; then
+  sed -i "/^Environment=PORT=/a Environment=HOMIOS_PORT=\${HOMIOS_PORT}" /etc/systemd/system/homios.service
+fi
+if grep -q '^Environment=HOST=' /etc/systemd/system/homios.service 2>/dev/null; then
+  sed -i "s|^Environment=HOST=.*|Environment=HOST=\${HOMIOS_BIND_HOST}|" /etc/systemd/system/homios.service
+fi
+if [ -f /etc/systemd/system/homios.service ]; then
   grep -q '^EnvironmentFile=' /etc/systemd/system/homios.service || \
     sed -i "/^Environment=ROOT_DIR=/a EnvironmentFile=\$ENV_FILE" /etc/systemd/system/homios.service
   systemctl daemon-reload
