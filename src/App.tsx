@@ -955,7 +955,7 @@ export default function App({ onClose }: AppProps = {}) {
             />
 
         {/* Dynamic Body */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#161618] w-full md:pt-3 md:pr-3 md:pb-3">
+        <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
           {/* Mobile hamburger for body */}
           <div className="md:hidden flex items-center p-4 bg-white dark:bg-[#1c1c1e] border-b border-neutral-100 dark:border-white/10">
             <button onClick={() => setIsDrawerOpen(true)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition mr-3">
@@ -966,58 +966,56 @@ export default function App({ onClose }: AppProps = {}) {
             </h1>
           </div>
 
-          <div className="flex flex-col h-full bg-white dark:bg-[#1c1c1e] md:rounded-[32px] md:border border-neutral-200/50 dark:border-white/10 shadow-sm overflow-hidden transform-gpu">
-              {showStorage ? (
-                <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
-              ) : showShared ? (
-                <SambaPanel defaultPath={shareTarget} />
-              ) : (
-                <>
-                  <Toolbar
-                    currentPath={currentPath}
-                    onNavigateBack={handleNavigateBack}
-                    onNavigateForward={handleNavigateForward}
-                    canNavigateBack={historyIndex > 0}
-                    canNavigateForward={historyIndex < pathHistory.length - 1}
-                    viewMode={viewMode}
-                    setViewMode={setViewMode}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    onAddNewFile={handleAddNewFile}
-                    onAddNewFolder={handleAddNewFolder}
-                    sortOption={sortOption}
-                    setSortOption={setSortOption}
-                    onUploadFiles={handleUploadFiles}
-                  />
-                  <FileArea
-                    files={processedFiles}
-                    selectedFileId={selectedFileId}
-                    setSelectedFileId={setSelectedFileId}
-                    selectedIds={selectedIds}
-                    onSelectFile={handleSelectFile}
-                    onClearSelection={clearSelection}
-                    onFileDoubleClick={handleFileDoubleClick}
-                    onDeleteFile={handleDeleteFile}
-                    onDeleteMany={handleDeleteMany}
-                    onRenameFile={handleRenameFile}
-                    onUploadFiles={handleUploadFiles}
-                    viewMode={viewMode}
-                    currentPath={currentPath}
-                    onUpdateMetadata={updateFileMetadata}
-                    clipboardState={clipboard}
-                    setClipboard={setClipboard}
-                    onAddNewFile={handleAddNewFile}
-                    onAddNewFolder={handleAddNewFolder}
-                    onShare={handleShare}
-                    onPasteClipboard={handlePasteClipboard}
-                    onMoveFileToFolder={handleMoveFileToFolder}
-                    onZip={handleZip}
-                    onUnzip={handleUnzip}
-                    onDownloadMany={handleDownloadMany}
-                  />
-                </>
-              )}
-          </div>
+          {showStorage ? (
+            <StorageDashboard onNavigateDrive={(drivePath) => { setShowStorage(false); setActiveSection('root'); pushPath(['Root', drivePath]); }} />
+          ) : showShared ? (
+            <SambaPanel defaultPath={shareTarget} />
+          ) : (
+            <>
+              <Toolbar
+                currentPath={currentPath}
+                onNavigateBack={handleNavigateBack}
+                onNavigateForward={handleNavigateForward}
+                canNavigateBack={historyIndex > 0}
+                canNavigateForward={historyIndex < pathHistory.length - 1}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                onAddNewFile={handleAddNewFile}
+                onAddNewFolder={handleAddNewFolder}
+                sortOption={sortOption}
+                setSortOption={setSortOption}
+                onUploadFiles={handleUploadFiles}
+              />
+              <FileArea
+                files={processedFiles}
+                selectedFileId={selectedFileId}
+                setSelectedFileId={setSelectedFileId}
+                selectedIds={selectedIds}
+                onSelectFile={handleSelectFile}
+                onClearSelection={clearSelection}
+                onFileDoubleClick={handleFileDoubleClick}
+                onDeleteFile={handleDeleteFile}
+                onDeleteMany={handleDeleteMany}
+                onRenameFile={handleRenameFile}
+                onUploadFiles={handleUploadFiles}
+                viewMode={viewMode}
+                currentPath={currentPath}
+                onUpdateMetadata={updateFileMetadata}
+                clipboardState={clipboard}
+                setClipboard={setClipboard}
+                onAddNewFile={handleAddNewFile}
+                onAddNewFolder={handleAddNewFolder}
+                onShare={handleShare}
+                onPasteClipboard={handlePasteClipboard}
+                onMoveFileToFolder={handleMoveFileToFolder}
+                onZip={handleZip}
+                onUnzip={handleUnzip}
+                onDownloadMany={handleDownloadMany}
+              />
+            </>
+          )}
         </div>
       </main>
 
