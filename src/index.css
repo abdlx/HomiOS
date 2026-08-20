@@ -15,19 +15,19 @@ body {
 }
 
 ::selection {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(140, 140, 145, 0.28);
 }
 
 /* ── Keyboard focus: a single, consistent ring everywhere ──
    focus-visible (not focus) so it only shows for keyboard users, never on
    mouse click. Individual controls can still opt out with focus-visible:outline-none. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid rgb(59 130 246 / 0.9);
+  outline: 2px solid rgb(120 120 125 / 0.85);
   outline-offset: 2px;
   border-radius: 6px;
 }
 .dark :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline-color: rgb(96 165 250 / 0.95);
+  outline-color: rgb(220 220 225 / 0.9);
 }
 
 /* ── OS-style scrollbars, theme aware ── */

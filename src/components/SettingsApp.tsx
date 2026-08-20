@@ -936,7 +936,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <div className="space-y-5">
                     <p className="text-sm text-slate-600 dark:text-slate-400">Add an extra layer of security using an authenticator app like Google Authenticator or 1Password.</p>
                     {!twoFA?.qrDataUrl && (
-                      <button onClick={init2FA} disabled={tfaLoading} className="bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60">
+                      <button onClick={init2FA} disabled={tfaLoading} className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 px-5 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-60">
                         {tfaLoading ? 'Generating…' : 'Set up 2FA'}
                       </button>
                     )}
@@ -949,8 +949,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                         </div>
                         <div className="flex gap-3">
                           <input placeholder="6-digit code" value={totpCode} onChange={e => setTotpCode(e.target.value)} maxLength={6}
-                            className="flex-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 rounded-xl px-3 py-2 text-sm text-center tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-500" />
-                          <button onClick={enable2FA} disabled={tfaLoading || totpCode.length < 6} className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-600 transition disabled:opacity-50">
+                            className="flex-1 border border-slate-200 dark:border-white/10 dark:bg-white/5 rounded-xl px-3 py-2 text-sm text-center tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-neutral-400 dark:focus:ring-white/30" />
+                          <button onClick={enable2FA} disabled={tfaLoading || totpCode.length < 6} className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 px-5 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50">
                             {tfaLoading ? 'Verifying…' : 'Enable'}
                           </button>
                         </div>
@@ -966,8 +966,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
           {activeTab === 'about' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-10 shadow-sm border border-neutral-200/50 dark:border-white/10 flex flex-col items-center text-center relative overflow-hidden">
-                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl mb-6 flex items-center justify-center text-white relative z-10">
-                  <Cpu size={48} />
+                <div className="w-24 h-24 rounded-3xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 shadow-xl mb-6 flex items-center justify-center p-3.5 relative z-10">
+                  <img src="/icon/homios-icon.svg" alt="HomiOS" className="w-full h-full object-contain drop-shadow" />
                 </div>
                 <h3 className="text-3xl font-bold text-slate-800 dark:text-white mb-1 relative z-10">HomiOS</h3>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-8 relative z-10">Version 1.0.4 (Build 24E214)</p>

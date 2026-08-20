@@ -40,7 +40,7 @@ type DesktopAppConfig = {
 };
 
 const BASE_APPS: Record<string, DesktopAppConfig> = {
-  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
+  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#3A3A3E] to-[#1C1C1E]' },
   settings: { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
   activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
   terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
@@ -411,13 +411,15 @@ export default function DesktopEnvironment({
       {/* Top Menu Bar */}
       <div className="relative hidden md:flex items-center justify-between h-7 px-4 bg-black/30 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none shrink-0">
         <div className="flex items-center space-x-5">
-          <Command size={14} strokeWidth={2.5} className="drop-shadow-sm" />
-          <span className="font-semibold tracking-tight">HomiOS</span>
-          <span className="font-medium text-white/70">Files</span>
-          <span className="font-medium text-white/70">Storage</span>
-          <span className="font-medium text-white/70">Backups</span>
-          <span className="font-medium text-white/70">Activity</span>
-          <span className="font-medium text-white/70">Settings</span>
+          <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition" onClick={onHomiOS} title="HomiOS">
+            <img src="/icon/homios-icon.svg" alt="HomiOS" className="w-4 h-4 object-contain drop-shadow-sm" />
+            <span className="font-semibold tracking-tight">HomiOS</span>
+          </div>
+          <button type="button" onClick={onHomiOS} className="font-medium text-white/70 hover:text-white transition">Files</button>
+          <button type="button" onClick={onOpenSettings} className="font-medium text-white/70 hover:text-white transition">Storage</button>
+          <button type="button" onClick={onOpenSettings} className="font-medium text-white/70 hover:text-white transition">Backups</button>
+          <button type="button" onClick={onOpenActivity} className="font-medium text-white/70 hover:text-white transition">Activity</button>
+          <button type="button" onClick={onOpenSettings} className="font-medium text-white/70 hover:text-white transition">Settings</button>
         </div>
         <div className="flex items-center space-x-4">
           <PWAInstallButton />

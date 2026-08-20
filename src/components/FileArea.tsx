@@ -275,7 +275,9 @@ export default function FileArea({
 
   // Flat, two-tone folder that scales cleanly and reads in both themes.
   const FOLDER_COLORS: Record<string, { from: string; to: string; tab: string }> = {
-    blue:   { from: '#38bdf8', to: '#2563eb', tab: '#7dd3fc' },
+    blue:   { from: '#48484A', to: '#1C1C1E', tab: '#7C7C80' },
+    gray:   { from: '#5C5C60', to: '#2C2C2E', tab: '#8E8E93' },
+    black:  { from: '#38383A', to: '#121214', tab: '#636366' },
     orange: { from: '#fbbf24', to: '#f59e0b', tab: '#fcd34d' },
     green:  { from: '#34d399', to: '#059669', tab: '#6ee7b7' },
     purple: { from: '#c084fc', to: '#7c3aed', tab: '#d8b4fe' },
@@ -289,7 +291,7 @@ export default function FileArea({
     // Two overlapping layers — a lighter back panel + tab behind a gradient front
     // pocket — give the folder real depth instead of a single flat shape.
     return (
-      <svg width={px} height={px} viewBox="0 0 64 64" fill="none" className="drop-shadow-[0_4px_7px_rgba(0,0,0,0.2)]">
+      <svg width={px} height={px} viewBox="0 0 64 64" fill="none" className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)]">
         <defs>
           <linearGradient id={`${u}-b`} x1="32" y1="25" x2="32" y2="49" gradientUnits="userSpaceOnUse">
             <stop stopColor={c.from} />
@@ -298,10 +300,14 @@ export default function FileArea({
         </defs>
         {/* back panel + tab (lighter tone, peeks above) */}
         <path d="M7 17a5 5 0 0 1 5-5h9.4a4 4 0 0 1 2.83 1.17L26.8 16a4 4 0 0 0 2.83 1.17H52a5 5 0 0 1 5 5v20a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5z" fill={c.tab} />
+        {/* subtle back panel rim light */}
+        <path d="M7 17a5 5 0 0 1 5-5h9.4a4 4 0 0 1 2.83 1.17L26.8 16a4 4 0 0 0 2.83 1.17H52a5 5 0 0 1 5 5v20a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5z" fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.8" />
         {/* front pocket (main gradient) */}
         <path d="M6 26a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v15a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z" fill={`url(#${u}-b)`} />
+        {/* front pocket hairline rim */}
+        <path d="M6 26a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v15a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z" fill="none" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="0.8" />
         {/* front top-edge highlight */}
-        <path d="M10.5 24.5h43" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M10.5 24.5h43" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     );
   };
@@ -403,7 +409,7 @@ export default function FileArea({
                 dropFolderId === file.id
                   ? 'bg-emerald-500/12 border-emerald-400/50 ring-2 ring-emerald-400/20'
                   : isSelected
-                  ? `bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/25 dark:border-blue-400/30 shadow-[0_4px_12px_rgba(59,130,246,0.06)] ${isActive ? 'ring-2 ring-blue-400/40' : ''}`
+                  ? `bg-neutral-900/[0.07] dark:bg-white/10 border-neutral-900/20 dark:border-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.06)] ${isActive ? 'ring-2 ring-neutral-400/50 dark:ring-white/30' : ''}`
                   : 'border-transparent hover:bg-neutral-50/80 dark:hover:bg-white/5 hover:border-neutral-200/40 dark:hover:border-white/10'
               }`}
             >
@@ -415,7 +421,7 @@ export default function FileArea({
                 }}
                 className={`absolute top-1.5 left-1.5 w-4 h-4 rounded-md border flex items-center justify-center z-10 transition-all focus:outline-none ${
                   isSelected
-                    ? 'bg-blue-600 border-blue-600 text-white opacity-100'
+                    ? 'bg-neutral-900 dark:bg-white border-neutral-900 dark:border-white text-white dark:text-neutral-900 opacity-100'
                     : 'bg-white/80 dark:bg-black/40 border-neutral-300 dark:border-white/30 text-transparent opacity-0 group-hover:opacity-100'
                 }`}
                 title={isSelected ? 'Deselect' : 'Select'}
@@ -439,7 +445,7 @@ export default function FileArea({
                     alt={file.name}
                     type="image"
                     className={`w-[112px] h-[84px] rounded-xl border shadow-sm ${
-                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80 dark:border-white/10'
+                    isSelected ? 'border-neutral-800 dark:border-white shadow-md ring-2 ring-neutral-400/30 dark:ring-white/20' : 'border-neutral-300/80 dark:border-white/10'
                   }`}
                     mediaClassName="w-full h-full object-cover pointer-events-none"
                   >
@@ -449,7 +455,7 @@ export default function FileArea({
                   </LazyMediaThumbnail>
                 ) : (file.type === 'image' || file.type === 'video') && file.thumbnailUrl ? (
                   <div className={`w-[112px] h-[84px] rounded-xl overflow-hidden border bg-neutral-50 dark:bg-white/5 flex items-center justify-center shadow-sm ${
-                    isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-400/25' : 'border-neutral-300/80 dark:border-white/10'
+                    isSelected ? 'border-neutral-800 dark:border-white shadow-md ring-2 ring-neutral-400/30 dark:ring-white/20' : 'border-neutral-300/80 dark:border-white/10'
                   }`}>
                     <LazyMediaThumbnail
                       src={file.thumbnailUrl}
@@ -476,7 +482,7 @@ export default function FileArea({
                 {/* Sub-items count badge */}
                 {file.type === 'folder' && (
                   <span
-                    className="absolute -top-1.5 -right-1 min-w-5 text-center text-[8px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.5 rounded-full border border-sky-200 shadow-sm scale-90 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1.5 -right-1 min-w-5 text-center text-[8px] bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold px-1.5 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 shadow-sm scale-90 opacity-0 group-hover:opacity-100 transition-opacity"
                     title={getFolderItemLabel(file)}
                   >
                     {getFolderItemCount(file) ?? '--'}
@@ -514,7 +520,7 @@ export default function FileArea({
 
                 {/* Shared badge overlay */}
                 {file.isShared && (
-                  <div className="absolute -bottom-1 -right-1 bg-blue-100 text-blue-600 rounded-full p-1 border border-blue-200 shadow-sm" title="Shared Folder">
+                  <div className="absolute -bottom-1 -right-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-full p-1 border border-neutral-200 dark:border-neutral-700 shadow-sm" title="Shared Folder">
                     <Share2 size={10} strokeWidth={3} />
                   </div>
                 )}
@@ -524,7 +530,7 @@ export default function FileArea({
               <div className="w-full px-0.5">
                 <p
                   className={`text-[12px] leading-snug font-medium truncate max-w-full transition-colors ${
-                    isSelected ? 'text-blue-600 dark:text-blue-300' : 'text-neutral-700 dark:text-neutral-200'
+                    isSelected ? 'text-neutral-900 dark:text-white font-semibold' : 'text-neutral-700 dark:text-neutral-200'
                   }`}
                   title={file.name}
                 >
@@ -573,7 +579,7 @@ export default function FileArea({
                     if (allSelected) onClearSelection();
                     else visibleFiles.forEach((f) => { if (!selectedIds.has(f.id)) onSelectFile(f, { ctrlKey: true }); });
                   }}
-                  className="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer"
+                  className="w-3.5 h-3.5 rounded accent-neutral-900 dark:accent-white cursor-pointer"
                 />
               </th>
               <th className="py-2.5 px-4 w-full sm:w-1/2">Name</th>
@@ -600,7 +606,7 @@ export default function FileArea({
                     handleContextMenu(e, file);
                   }}
                   className={`group hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''
+                    isSelected ? 'bg-neutral-100/90 dark:bg-white/10' : ''
                   }`}
                 >
                   <td className="py-2.5 pl-4 pr-1" onClick={(e) => e.stopPropagation()}>
@@ -609,7 +615,7 @@ export default function FileArea({
                       aria-label={`Select ${file.name}`}
                       checked={isSelected}
                       onChange={() => onSelectFile(file, { ctrlKey: true })}
-                      className="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded accent-neutral-900 dark:accent-white cursor-pointer"
                     />
                   </td>
                   <td className="py-2.5 px-4 flex items-center space-x-2.5 font-medium text-neutral-800 dark:text-neutral-200">
@@ -623,7 +629,7 @@ export default function FileArea({
                     <span className="truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
                     {file.isShared && (
                       <span title="Shared Folder" className="ml-1.5 flex-shrink-0 flex items-center">
-                        <Share2 size={12} className="text-blue-500" strokeWidth={3} />
+                        <Share2 size={12} className="text-neutral-600 dark:text-neutral-400" strokeWidth={3} />
                       </span>
                     )}
                   </td>
@@ -676,7 +682,7 @@ export default function FileArea({
             currentPath.length === 1 ? 'bg-neutral-200 dark:bg-white/10 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5'
           }`}>
             <span className="flex items-center space-x-1.5">
-              <Folder size={14} className="text-sky-400" />
+              <Folder size={14} className="text-neutral-700 dark:text-neutral-300" />
               <span>HomiOS (Root)</span>
             </span>
             <ChevronRight size={12} className="text-gray-400 dark:text-gray-500" />
@@ -690,7 +696,7 @@ export default function FileArea({
               className="w-full text-left px-2 py-1.5 text-xs rounded-lg flex items-center justify-between text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5 truncate"
             >
               <span className="flex items-center space-x-1.5">
-                <Folder size={14} className={fol.folderColor === 'orange' ? 'text-amber-500' : 'text-sky-400'} />
+                <Folder size={14} className={fol.folderColor === 'orange' ? 'text-amber-500' : 'text-neutral-700 dark:text-neutral-300'} />
                 <span>{fol.name}</span>
               </span>
               <span className="flex items-center space-x-1.5">
@@ -716,20 +722,20 @@ export default function FileArea({
                   handleContextMenu(e, file);
                 }}
                 className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between font-medium transition-colors ${
-                  isSelected ? 'bg-blue-600 text-white' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
+                  isSelected ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                 }`}
               >
                 <span className="flex items-center space-x-1.5 truncate">
                   {file.type === 'folder' ? (
-                    <Folder size={13} className={isSelected ? 'text-white' : file.folderColor === 'orange' ? 'text-amber-500' : 'text-sky-400'} />
+                    <Folder size={13} className={isSelected ? 'text-white dark:text-neutral-900' : file.folderColor === 'orange' ? 'text-amber-500' : 'text-neutral-700 dark:text-neutral-300'} />
                   ) : file.type === 'image' ? (
-                    <ImageIcon size={13} className={isSelected ? 'text-white' : 'text-indigo-500'} />
+                    <ImageIcon size={13} className={isSelected ? 'text-white dark:text-neutral-900' : 'text-indigo-500'} />
                   ) : (
-                    <FileText size={13} className={isSelected ? 'text-white' : 'text-neutral-500 dark:text-neutral-400'} />
+                    <FileText size={13} className={isSelected ? 'text-white dark:text-neutral-900' : 'text-neutral-500 dark:text-neutral-400'} />
                   )}
                   <span className="truncate">{file.name}</span>
                 </span>
-                {file.type === 'folder' && <ChevronRight size={11} className={isSelected ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'} />}
+                {file.type === 'folder' && <ChevronRight size={11} className={isSelected ? 'text-neutral-300 dark:text-neutral-600' : 'text-gray-400 dark:text-gray-500'} />}
               </button>
             );
           })}
@@ -782,7 +788,7 @@ export default function FileArea({
 
           <button 
             onClick={() => onFileDoubleClick(activeFile)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-1.5 rounded-lg transition-colors flex items-center justify-center space-x-1 cursor-pointer mt-4 shadow-sm"
+            className="w-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-semibold text-xs py-1.5 rounded-lg transition-colors flex items-center justify-center space-x-1 cursor-pointer mt-4 shadow-sm"
           >
             <Eye size={12} />
             <span>Open Quick Look</span>

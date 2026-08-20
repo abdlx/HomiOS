@@ -21,7 +21,7 @@ const APP_OPTIONS: AppOption[] = [
     subtitle: 'File Manager',
     description: 'Upload, browse, and manage all your files. Receive shared files directly from other apps.',
     icon: Folder,
-    gradient: 'from-[#0A84FF] via-[#0066D6] to-[#0055B3]',
+    gradient: 'from-[#3A3A3E] via-[#2C2C2E] to-[#1C1C1E]',
     features: ['Share files from any app', 'Upload & download', 'Browse all storage'],
     manifestUrl: '/manifest-files.json',
   },
@@ -41,7 +41,7 @@ const APP_OPTIONS: AppOption[] = [
     subtitle: 'Full Home App',
     description: 'The complete HomiOS experience — desktop, all apps, and everything in one place.',
     icon: LayoutDashboard,
-    gradient: 'from-[#6366F1] via-[#4F46E5] to-[#4338CA]',
+    gradient: 'from-[#2C2C2E] via-[#1F1F22] to-[#141416]',
     features: ['Full desktop experience', 'All apps included', 'System-wide access'],
     manifestUrl: '/manifest.json',
   },
@@ -66,12 +66,12 @@ function IOSInstallInstructions({ appId, appName, onClose }: IOSInstructions & {
 
       <div className="w-full space-y-3 text-left">
         {[
-          { step: 1, text: 'Tap the Share button', icon: <Share2 size={16} className="text-[#0A84FF]" /> },
-          { step: 2, text: 'Scroll down and tap "Add to Home Screen"', icon: <ArrowDown size={16} className="text-[#0A84FF]" /> },
-          { step: 3, text: `Tap "Add" to install ${appName}`, icon: <Download size={16} className="text-[#0A84FF]" /> },
+          { step: 1, text: 'Tap the Share button', icon: <Share2 size={16} className="text-white" /> },
+          { step: 2, text: 'Scroll down and tap "Add to Home Screen"', icon: <ArrowDown size={16} className="text-white" /> },
+          { step: 3, text: `Tap "Add" to install ${appName}`, icon: <Download size={16} className="text-white" /> },
         ].map(({ step, text, icon }) => (
           <div key={step} className="flex items-center gap-3 bg-white/5 rounded-2xl px-4 py-3 border border-white/10">
-            <div className="w-7 h-7 rounded-full bg-[#0A84FF]/20 flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
               {icon}
             </div>
             <span className="text-white/90 text-[14px]">{text}</span>
@@ -205,9 +205,13 @@ function PWAInstallChooserInner() {
                       className="w-full flex items-center gap-4 p-4 rounded-[20px] bg-white/5 hover:bg-white/10 active:bg-white/15 active:scale-[0.98] border border-white/8 transition-all text-left disabled:opacity-60 group"
                     >
                       {/* App icon */}
-                      <div className={`w-14 h-14 rounded-[16px] bg-gradient-to-b ${app.gradient} flex items-center justify-center flex-shrink-0 shadow-[0_6px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.25)] relative overflow-hidden`}>
+                      <div className={`w-14 h-14 rounded-[16px] bg-gradient-to-b ${app.gradient} flex items-center justify-center flex-shrink-0 shadow-[0_6px_16px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(255,255,255,0.25)] relative overflow-hidden p-2.5`}>
                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25" />
-                        <Icon size={28} strokeWidth={1.5} className="text-white drop-shadow-md z-10" />
+                        {app.id === 'home' ? (
+                          <img src="/icon/homios-icon.svg" alt="HomiOS" className="w-full h-full object-contain drop-shadow-md z-10" />
+                        ) : (
+                          <Icon size={28} strokeWidth={1.5} className="text-white drop-shadow-md z-10" />
+                        )}
                       </div>
 
                       {/* App info */}
@@ -241,10 +245,10 @@ function PWAInstallChooserInner() {
               </div>
 
               {/* Share target info */}
-              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#0A84FF]/10 border border-[#0A84FF]/20 mb-6">
-                <Share2 size={15} className="text-[#0A84FF] flex-shrink-0 mt-0.5" />
-                <p className="text-[#5AC8FA] text-[12px] leading-relaxed">
-                  <span className="text-white/70 font-medium">Files app</span> will appear in your device's share sheet, so you can send photos & documents directly to your storage.
+              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10 mb-6">
+                <Share2 size={15} className="text-white/70 flex-shrink-0 mt-0.5" />
+                <p className="text-white/80 text-[12px] leading-relaxed">
+                  <span className="text-white font-medium">Files app</span> will appear in your device's share sheet, so you can send photos & documents directly to your storage.
                 </p>
               </div>
 

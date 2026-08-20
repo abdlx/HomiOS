@@ -9,23 +9,14 @@ import React from 'react';
  * macOS-style surfaces used across the desktop (see SystemUI.tsx).
  */
 
-export function BrandMark({ size = 44 }: { size?: number }) {
+export function BrandMark({ size = 52 }: { size?: number }) {
   return (
     <div
-      className="relative grid place-items-center rounded-[22%] bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 ring-1 ring-white/20"
+      className="relative grid place-items-center rounded-[24%] bg-gradient-to-b from-neutral-800 to-neutral-950 dark:from-neutral-700 dark:to-neutral-900 shadow-xl shadow-black/30 ring-1 ring-white/20 p-2.5"
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      <svg width={size * 0.58} height={size * 0.58} viewBox="0 0 24 24" fill="none" className="text-white">
-        {/* A folder that doubles as a magnifier — "find" + "files". */}
-        <path
-          d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2c.4 0 .78.16 1.06.44L11 6.5h8.5A1.5 1.5 0 0 1 21 8v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Z"
-          fill="currentColor"
-          fillOpacity="0.9"
-        />
-        <circle cx="13.5" cy="12.5" r="3" stroke="rgb(37 99 235)" strokeWidth="1.6" />
-        <path d="m16 15 2 2" stroke="rgb(37 99 235)" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
+      <img src="/icon/homios-icon.svg" alt="HomiOS" className="w-full h-full object-contain drop-shadow" />
     </div>
   );
 }
@@ -99,7 +90,7 @@ export const inputClass =
   'w-full px-3.5 py-2.5 rounded-xl text-[14px] bg-slate-100/80 dark:bg-white/5 ' +
   'border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 ' +
   'placeholder-slate-400 dark:placeholder-slate-500 ' +
-  'focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent ' +
+  'focus:outline-none focus:ring-2 focus:ring-neutral-400/60 dark:focus:ring-white/30 focus:border-transparent ' +
   'transition-[box-shadow,border-color] duration-150';
 
 export function SubmitButton({
@@ -110,16 +101,16 @@ export function SubmitButton({
   return (
     <button
       {...props}
-      className="group relative w-full py-2.5 rounded-xl text-[14px] font-semibold text-white
-        bg-blue-600 hover:bg-blue-500 active:bg-blue-700
-        shadow-lg shadow-blue-600/25 hover:shadow-blue-500/30
+      className="group relative w-full py-2.5 rounded-xl text-[14px] font-semibold text-white dark:text-neutral-900
+        bg-neutral-900 hover:bg-neutral-800 active:bg-black dark:bg-white dark:hover:bg-neutral-100 dark:active:bg-neutral-200
+        shadow-lg shadow-black/15 hover:shadow-black/25 dark:shadow-white/5
         disabled:opacity-45 disabled:cursor-not-allowed disabled:shadow-none
         transition-[background-color,box-shadow,transform] duration-150 active:scale-[0.99]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent
-        flex items-center justify-center gap-2"
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent
+        flex items-center justify-center gap-2 cursor-pointer"
     >
       {loading && (
-        <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
+        <span className="w-4 h-4 rounded-full border-2 border-white/40 dark:border-neutral-900/40 border-t-white dark:border-t-neutral-900 animate-spin" aria-hidden="true" />
       )}
       {children}
     </button>

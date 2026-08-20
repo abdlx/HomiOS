@@ -16,7 +16,9 @@ export default function Document() {
         {/* Primary manifest — can be swapped via JS before install prompt */}
         <link rel="manifest" href="/manifest.json" id="pwa-manifest" />
         <meta name="theme-color" content="#000000" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" type="image/svg+xml" href="/icon/homios-icon.svg" />
+        <link rel="apple-touch-icon" href="/icon/homios-icon.svg" />
+        <link rel="shortcut icon" href="/icon/homios-icon.svg" />
         {/* Preload alternate manifests so swap is instant */}
         <link rel="preload" href="/manifest-files.json" as="fetch" crossOrigin="anonymous" />
         <link rel="preload" href="/manifest-notes.json" as="fetch" crossOrigin="anonymous" />

@@ -9,7 +9,7 @@ import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 const ALL_APPS = [
-  { id: 'files',    label: 'Files',     icon: Folder,     color: 'from-[#0A84FF] to-[#0055B3]' },
+  { id: 'files',    label: 'Files',     icon: Folder,     color: 'from-[#3A3A3E] to-[#1C1C1E]' },
   { id: 'notes',    label: 'Notes',     icon: FileText,   color: 'from-[#F59E0B] to-[#D97706]' },
   { id: 'settings', label: 'Settings',  icon: Settings,   color: 'from-[#8E8E93] to-[#48484A]' },
   { id: 'terminal', label: 'Terminal',  icon: Terminal,   color: 'from-[#2C2C2E] to-[#1C1C1E]' },
