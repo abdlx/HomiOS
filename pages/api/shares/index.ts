@@ -52,7 +52,7 @@ function shareErrorResponse(res: any, error: any) {
     const status = error.code === 'validation' ? 422 : 503;
     const messages = {
       validation: 'The generated Samba configuration was rejected. The share was not saved.',
-      write: 'OpenFinder cannot write the Samba configuration. The share was not saved.',
+      write: 'HomiOS cannot write the Samba configuration. The share was not saved.',
       reload: 'Samba could not reload the new configuration. The share was not saved; check that smbd is running.',
       unavailable: 'Samba or testparm is not installed or available. The share was not saved.',
     };
@@ -65,9 +65,9 @@ function shareErrorResponse(res: any, error: any) {
     return res.status(400).json({ error: 'One or more selected Samba users no longer exist' });
   }
   if (error?.code === 'EACCES' || error?.code === 'EPERM' || error?.code === 'EROFS') {
-    return res.status(403).json({ error: 'OpenFinder does not have permission to create or share that directory' });
+    return res.status(403).json({ error: 'HomiOS does not have permission to create or share that directory' });
   }
-  return res.status(500).json({ error: 'Share operation failed. Check the OpenFinder server log for details.' });
+  return res.status(500).json({ error: 'Share operation failed. Check the HomiOS server log for details.' });
 }
 
 export default withAuth(async function handler(req: any, res: any, session: any) {

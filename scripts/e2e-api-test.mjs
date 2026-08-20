@@ -1,4 +1,4 @@
-﻿// Smoke test: core OpenFinder API surface.
+﻿// Smoke test: core HomiOS API surface.
 const BASE = 'http://localhost:3000';
 let cookie = '';
 let pass = 0, fail = 0;

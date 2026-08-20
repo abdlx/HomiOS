@@ -32,8 +32,8 @@ function commandOutput(result: ReturnType<typeof spawnSync>): string {
 /** Generate, validate, atomically install, and reload smb.conf. Errors are never swallowed. */
 export function regenerateSmbConf(db: any): SambaApplyResult {
   const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
-  const tmp = `${target}.openfinder.tmp`;
-  const backup = `${target}.openfinder.previous`;
+  const tmp = `${target}.homios.tmp`;
+  const backup = `${target}.homios.previous`;
   const hadTarget = existsSync(target);
   try {
     const shares = db.prepare(`
@@ -43,7 +43,7 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
 
     let config = `[global]
   workgroup = WORKGROUP
-  server string = OpenFinder
+  server string = HomiOS
   security = user
   server role = standalone server
   map to guest = bad user

@@ -33,7 +33,7 @@ export default withAuth(async (req: any, res: any) => {
     // If native thumbnail tools are missing, let images still render through the raw file API path upstream.
     const ext = path.extname(sourcePath).toLowerCase();
     if (IMAGE_MIME[ext]) {
-      res.setHeader('X-OpenFinder-Thumbnail-Fallback', err.message || 'thumbnail unavailable');
+      res.setHeader('X-HomiOS-Thumbnail-Fallback', err.message || 'thumbnail unavailable');
       return res.redirect(307, `/api/files?raw=true&path=${encodeURIComponent(sourcePath)}`);
     }
     return res.status(404).json({ error: 'Thumbnail unavailable' });

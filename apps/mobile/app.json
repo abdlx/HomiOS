@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "OpenFinder Files",
-    "slug": "openfinder-files",
+    "name": "HomiOS Files",
+    "slug": "homios-files",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "openfinder-files",
+    "scheme": "homios-files",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.openfinder.files"
+      "bundleIdentifier": "com.homios.files"
     },
     "android": {
-      "package": "com.openfinder.files",
+      "package": "com.homios.files",
       "adaptiveIcon": {
         "backgroundColor": "#0f172a"
       }

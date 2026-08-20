@@ -14,7 +14,7 @@ import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
 
 interface DesktopEnvironmentProps {
-  onOpenFinder: () => void;
+  onHomiOS: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
@@ -169,7 +169,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   );
 });
 
-export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch }: DesktopEnvironmentProps) {
+export default function DesktopEnvironment({ onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
@@ -224,7 +224,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
               const missingNew = newAppIds.filter(id => !prev.includes(id) && !dockIds.includes(id));
               if (missingNew.length > 0) {
                 const newGrid = [...prev, ...missingNew];
-                localStorage.setItem('openfinder_grid_apps', JSON.stringify(newGrid));
+                localStorage.setItem('homios_grid_apps', JSON.stringify(newGrid));
                 return newGrid;
               }
               return [...prev]; // Force re-render to reflect ALL_APPS mutation
@@ -278,16 +278,16 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
   useEffect(() => {
     const activeAppIds = Object.keys(ALL_APPS);
-    const savedGrid = localStorage.getItem('openfinder_grid_apps');
-    const savedDock = localStorage.getItem('openfinder_dock_apps');
+    const savedGrid = localStorage.getItem('homios_grid_apps');
+    const savedDock = localStorage.getItem('homios_dock_apps');
     let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['files'];
     let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id) || id.startsWith('coolify_app_')) : ['activity', 'terminal', 'vscode', 'coolify', 'settings', 'finder'];
     const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
     currentGrid = [...currentGrid, ...missingApps];
     setGridAppIds(currentGrid);
     setDockAppIds(currentDock);
-    localStorage.setItem('openfinder_grid_apps', JSON.stringify(currentGrid));
-    localStorage.setItem('openfinder_dock_apps', JSON.stringify(currentDock));
+    localStorage.setItem('homios_grid_apps', JSON.stringify(currentGrid));
+    localStorage.setItem('homios_dock_apps', JSON.stringify(currentDock));
 
     const handleClick = () => setContextMenu(null);
     window.addEventListener('click', handleClick);
@@ -296,12 +296,12 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
   const updateGrid = (newGrid: string[]) => {
     setGridAppIds(newGrid);
-    localStorage.setItem('openfinder_grid_apps', JSON.stringify(newGrid));
+    localStorage.setItem('homios_grid_apps', JSON.stringify(newGrid));
   };
 
   const updateDock = (newDock: string[]) => {
     setDockAppIds(newDock);
-    localStorage.setItem('openfinder_dock_apps', JSON.stringify(newDock));
+    localStorage.setItem('homios_dock_apps', JSON.stringify(newDock));
   };
 
   const getOnClick = (id: string) => {
@@ -314,7 +314,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         window.open(url, '_blank');
       };
     }
-    if (id === 'finder' || id === 'files') return onOpenFinder;
+    if (id === 'finder' || id === 'files') return onHomiOS;
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;
@@ -353,13 +353,13 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   const handleAppDragStart = (e: React.DragEvent, appId: string, source: DesktopAppSource) => {
     setDraggingApp({ id: appId, source });
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/openfinder-app', JSON.stringify({ id: appId, source }));
+    e.dataTransfer.setData('application/homios-app', JSON.stringify({ id: appId, source }));
   };
 
   const readDraggedApp = (e: React.DragEvent) => {
     if (draggingApp) return draggingApp;
     try {
-      const raw = e.dataTransfer.getData('application/openfinder-app');
+      const raw = e.dataTransfer.getData('application/homios-app');
       return raw ? JSON.parse(raw) as { id: string; source: DesktopAppSource } : null;
     } catch {
       return null;
@@ -367,7 +367,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
   };
 
   const handleAppDragOver = (e: React.DragEvent) => {
-    if (draggingApp || e.dataTransfer.types.includes('application/openfinder-app')) {
+    if (draggingApp || e.dataTransfer.types.includes('application/homios-app')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
     }
@@ -531,7 +531,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <div className="relative pb-6 flex flex-col items-center w-full mt-auto">
         <motion.button
-          layoutId="openfinder-search-pill"
+          layoutId="homios-search-pill"
           onClick={onOpenSearch}
           whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.05, y: -2 }}
           whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.94 }}

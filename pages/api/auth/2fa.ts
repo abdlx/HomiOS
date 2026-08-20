@@ -34,7 +34,7 @@ export default withAuth(async (req, res, session) => {
       tx.prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
         .run(encryptSecret(secret), session.userId);
     });
-    const otpauthUrl = authenticator.keyuri(user.email, 'OpenFinder', secret);
+    const otpauthUrl = authenticator.keyuri(user.email, 'HomiOS', secret);
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
     return res.json({ secret, otpauthUrl, qrDataUrl });
   }

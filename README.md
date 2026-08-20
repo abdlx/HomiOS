@@ -1,18 +1,18 @@
-# OpenFinder OS
+# HomiOS
 
 <div align="center">
   <p><strong>A hyper-premium, Apple-inspired Web GUI for your Linux Server.</strong></p>
 </div>
 
-OpenFinder is a drop-in web dashboard and file manager that brings a beautiful, desktop-class experience to any headless Linux machine. It installs directly on top of your existing bare-metal Linux OS (like Ubuntu or Debian), allowing you to manage files, create authenticated network drives, and execute terminal commands—all from a stunning web interface.
+HomiOS is a drop-in web dashboard and file manager that brings a beautiful, desktop-class experience to any headless Linux machine. It installs directly on top of your existing bare-metal Linux OS (like Ubuntu or Debian), allowing you to manage files, create authenticated network drives, and execute terminal commands—all from a stunning web interface.
 
 ---
 
-## 🌟 Why OpenFinder?
+## 🌟 Why HomiOS?
 
-We compared OpenFinder against the leading home server dashboards:
+We compared HomiOS against the leading home server dashboards:
 
-| Feature | CasaOS | Umbrel | ZimaOS | OpenFinder |
+| Feature | CasaOS | Umbrel | ZimaOS | HomiOS |
 | :--- | :---: | :---: | :---: | :---: |
 | **Installs on existing Linux** | ✅ | ✅ | ❌ | ✅ |
 | **Premium UI** | ❌ | ✅ | ✅ | ✅ |
@@ -20,7 +20,7 @@ We compared OpenFinder against the leading home server dashboards:
 | **File manager** | ✅ | ✅ | ✅ | ✅ |
 | **Browser terminal** | ✅ | ✅ | ✅ | ✅ |
 
-*OpenFinder is the only solution that gives you granular Samba user authentication and a truly premium interface while still allowing you to keep your existing Linux installation completely intact.*
+*HomiOS is the only solution that gives you granular Samba user authentication and a truly premium interface while still allowing you to keep your existing Linux installation completely intact.*
 
 ---
 
@@ -45,36 +45,36 @@ We compared OpenFinder against the leading home server dashboards:
 
 ### Quick Install — Default (no Coolify)
 
-The simplest install: OpenFinder only, no Coolify, no Codex UI.
+The simplest install: HomiOS only, no Coolify, no Codex UI.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --without-coolify --non-interactive
 ```
 
-> **Note:** `--without-coolify` does **not** stop or uninstall Coolify if it is already installed on your server. It only disables OpenFinder's Coolify integration.
+> **Note:** `--without-coolify` does **not** stop or uninstall Coolify if it is already installed on your server. It only disables HomiOS's Coolify integration.
 
 ---
 
-### OpenFinder-Managed Coolify
+### HomiOS-Managed Coolify
 
-OpenFinder installs and manages the full Coolify lifecycle (install, start, update):
+HomiOS installs and manages the full Coolify lifecycle (install, start, update):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --with-coolify --non-interactive
 ```
 
-> OpenFinder will only do this on a fresh server with no existing Coolify installation. If Coolify is already running, the installer will refuse and ask you to use `--existing-coolify` instead.
+> HomiOS will only do this on a fresh server with no existing Coolify installation. If Coolify is already running, the installer will refuse and ask you to use `--existing-coolify` instead.
 
 ---
 
 ### Existing (External) Coolify
 
-Use this if Coolify is **already installed and running** on your server. OpenFinder will integrate with it without touching its lifecycle, configuration, or host proxy:
+Use this if Coolify is **already installed and running** on your server. HomiOS will integrate with it without touching its lifecycle, configuration, or host proxy:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --existing-coolify --non-interactive
 ```
 
@@ -82,14 +82,14 @@ sudo bash -s -- --existing-coolify --non-interactive
 - `/data/coolify` is **not** modified.
 - Host ports 80/443 remain under Coolify's proxy ownership.
 - Host Nginx is **not** installed or reconfigured.
-- OpenFinder will be available on port 3000 — route it through Coolify's proxy manually.
+- HomiOS will be available on port 3000 — route it through Coolify's proxy manually.
 
 ---
 
 ### Existing Coolify + Codex UI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --existing-coolify --with-codex-ui --non-interactive
 ```
 
@@ -100,7 +100,7 @@ sudo bash -s -- --existing-coolify --with-codex-ui --non-interactive
 Codex Web UI is **not installed by default**. Add `--with-codex-ui` to any install command to enable it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --without-coolify --with-codex-ui --non-interactive
 ```
 
@@ -111,12 +111,12 @@ sudo bash -s -- --without-coolify --with-codex-ui --non-interactive
 Immich is an optional, independently managed service:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/abdlx/OpenFinder-shell/main/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/abdlx/HomiOS/main/install.sh | \
 sudo bash -s -- --with-immich --non-interactive
 ```
 
 Immich stores its library and PostgreSQL data under `/data/immich` by default
-and appears as a native OpenFinder desktop/mobile app at `/immich`.
+and appears as a native HomiOS desktop/mobile app at `/immich`.
 
 ---
 
@@ -126,20 +126,20 @@ All choices persist across upgrades. Change them later without deleting service 
 
 ```bash
 # Enable Coolify management (only if no Coolify exists yet)
-sudo openfinder-update --with-coolify
+sudo homios-update --with-coolify
 
 # Switch to external Coolify integration
-sudo openfinder-update --existing-coolify
+sudo homios-update --existing-coolify
 
 # Disable Coolify integration (does NOT stop Coolify)
-sudo openfinder-update --without-coolify
+sudo homios-update --without-coolify
 
 # Enable Codex UI
-sudo openfinder-update --with-codex-ui
+sudo homios-update --with-codex-ui
 
 # Immich
-sudo openfinder-update --with-immich
-sudo openfinder-update --without-immich
+sudo homios-update --with-immich
+sudo homios-update --without-immich
 ```
 
 ---
@@ -148,7 +148,7 @@ sudo openfinder-update --without-immich
 
 | Flag | Effect |
 | :--- | :--- |
-| `--with-coolify` | OpenFinder installs & manages Coolify (fresh servers only) |
+| `--with-coolify` | HomiOS installs & manages Coolify (fresh servers only) |
 | `--existing-coolify` | Read-only integration with a running Coolify; no lifecycle ops |
 | `--without-coolify` | Disable integration; does NOT stop existing Coolify |
 | `--with-codex-ui` | Install Codex Web UI (opt-in) |
@@ -160,7 +160,7 @@ sudo openfinder-update --without-immich
 
 ---
 
-#### Use an OpenFinder-mounted drive as an Immich external library
+#### Use an HomiOS-mounted drive as an Immich external library
 
 If the drive is mounted correctly and its media is stored inside the `IMMICH`
 folder, mount that folder specifically rather than exposing the whole drive to
@@ -175,7 +175,7 @@ sudo nano /data/immich/docker-compose.yml
 Inside the existing `immich-server` service's `volumes` list, add:
 
 ```yaml
-- /mnt/openfinder-storage/sda1/IMMICH:/external/sda1:ro
+- /mnt/homios-storage/sda1/IMMICH:/external/sda1:ro
 ```
 
 The relevant Compose configuration should resemble:
@@ -186,7 +186,7 @@ services:
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
-      - /mnt/openfinder-storage/sda1/IMMICH:/external/sda1:ro
+      - /mnt/homios-storage/sda1/IMMICH:/external/sda1:ro
 ```
 
 Validate the resolved configuration:
@@ -226,8 +226,8 @@ Once the script finishes, your dashboard will be instantly available at `http://
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/abdlx/OpenFinder-shell.git
-   cd OpenFinder-shell
+   git clone https://github.com/abdlx/HomiOS.git
+   cd HomiOS
    ```
 
 2. **Install dependencies:**
@@ -260,7 +260,7 @@ Once the script finishes, your dashboard will be instantly available at `http://
 ## 🔧 Troubleshooting Coolify
 
 ### "Server OS type is not supported" on Linux Mint, Pop!_OS, or Zorin OS
-While the OpenFinder auto-installer fully supports these Ubuntu-based distributions, Coolify's web UI (when validating the "Localhost" server) strictly checks for `ubuntu` or `debian` in your system's `/etc/os-release` file and will throw an error if it sees `linuxmint`, `pop`, or `zorin`.
+While the HomiOS auto-installer fully supports these Ubuntu-based distributions, Coolify's web UI (when validating the "Localhost" server) strictly checks for `ubuntu` or `debian` in your system's `/etc/os-release` file and will throw an error if it sees `linuxmint`, `pop`, or `zorin`.
 
 **The Fix:** Temporarily spoof your OS to Ubuntu just for the validation step:
 
@@ -278,13 +278,13 @@ While the OpenFinder auto-installer fully supports these Ubuntu-based distributi
    sudo mv /etc/os-release.bak /etc/os-release
    ```
 
-### External Coolify: "OpenFinder port 3000 not reachable from Coolify proxy"
+### External Coolify: "HomiOS port 3000 not reachable from Coolify proxy"
 
-When using `--existing-coolify`, OpenFinder runs on port 3000 on the host and listens on `0.0.0.0`.
+When using `--existing-coolify`, HomiOS runs on port 3000 on the host and listens on `0.0.0.0`.
 
 Do not use `localhost:3000` as the Coolify proxy target because localhost inside the Coolify proxy container refers to that container.
 
-Use an address through which the Coolify proxy can reach the OpenFinder host, for example the server LAN IP such as:
+Use an address through which the Coolify proxy can reach the HomiOS host, for example the server LAN IP such as:
 `http://<SERVER_LAN_IP>:3000`
 
 or an appropriate Docker host-gateway/network configuration.
@@ -302,4 +302,4 @@ or an appropriate Docker host-gateway/network configuration.
 
 ## 📝 License
 
-OpenFinder is open-source software licensed under the MIT license.
+HomiOS is open-source software licensed under the MIT license.

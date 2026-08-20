@@ -12,7 +12,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { afterAll } from 'vitest';
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openfinder-test-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'homios-test-'));
 const dbPath = path.join(dir, `${crypto.randomUUID()}.db`);
 
 process.env.DATABASE_URL = dbPath;

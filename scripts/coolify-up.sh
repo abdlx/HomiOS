@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-#  scripts/coolify-up.sh — Start/configure the OpenFinder-managed Coolify sidecar
+#  scripts/coolify-up.sh — Start/configure the HomiOS-managed Coolify sidecar
 #
 #  FAIL-CLOSED: This script refuses to execute unless:
-#    COOLIFY_MODE=managed  AND  COOLIFY_OWNED_BY_OPENFINDER=true
+#    COOLIFY_MODE=managed  AND  COOLIFY_OWNED_BY_HOMIOS=true
 #
 #  The orchestrator (install.sh) is the sole authority on whether an
 #  installation is fresh. This script never decides ownership — it only
@@ -19,7 +19,7 @@ COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
 COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-false}"
 if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
-  COOLIFY_IMAGE="${COOLIFY_IMAGE:-openfinder/coolify:local}"
+  COOLIFY_IMAGE="${COOLIFY_IMAGE:-homios/coolify:local}"
 else
   COOLIFY_IMAGE="${COOLIFY_IMAGE:-ghcr.io/coollabsio/coolify:latest}"
 fi
@@ -47,8 +47,8 @@ if [ "${COOLIFY_MODE:-disabled}" != "managed" ]; then
 Got: '${COOLIFY_MODE:-disabled}'.
 This script must only be called by install.sh in managed Coolify mode."
 fi
-if [ "${COOLIFY_OWNED_BY_OPENFINDER:-false}" != "true" ]; then
-  fail "OpenFinder does not own this Coolify installation (COOLIFY_OWNED_BY_OPENFINDER is not true).
+if [ "${COOLIFY_OWNED_BY_HOMIOS:-false}" != "true" ]; then
+  fail "HomiOS does not own this Coolify installation (COOLIFY_OWNED_BY_HOMIOS is not true).
 Refusing to install or reconfigure Coolify.
 Use --existing-coolify to integrate with an externally installed Coolify instance."
 fi
@@ -135,7 +135,7 @@ if [ -n "${ROOT_USERNAME:-}" ] && [ -n "${ROOT_USER_EMAIL:-}" ] && [ -n "${ROOT_
 fi
 
 if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
-  log "Building OpenFinder-themed Coolify image ($COOLIFY_IMAGE)..."
+  log "Building HomiOS-themed Coolify image ($COOLIFY_IMAGE)..."
   docker build \
     -f "$COOLIFY_SOURCE_DIR/docker/production/Dockerfile" \
     -t "$COOLIFY_IMAGE" \

@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { DriveItem, OpenFinderMe, RemoteFile, SearchResult } from '@/types';
+import { DriveItem, HomiOSMe, RemoteFile, SearchResult } from '@/types';
 import { basename, normalizeRemotePath } from '@/lib/path';
 
 type RequestOptions = {
@@ -11,7 +11,7 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
-export class OpenFinderError extends Error {
+export class HomiOSError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -26,7 +26,7 @@ export function normalizeBaseUrl(value: string) {
   return trimmed;
 }
 
-export class OpenFinderClient {
+export class HomiOSClient {
   readonly baseUrl: string;
   private readonly token: string;
 
@@ -56,7 +56,7 @@ export class OpenFinderClient {
   }
 
   async me() {
-    return this.request<OpenFinderMe>('/api/me');
+    return this.request<HomiOSMe>('/api/me');
   }
 
   async validate() {
@@ -127,7 +127,7 @@ export class OpenFinderClient {
 
     onProgress?.(100);
     if (result.status < 200 || result.status >= 300) {
-      throw new OpenFinderError(result.body || `Upload failed with HTTP ${result.status}`, result.status);
+      throw new HomiOSError(result.body || `Upload failed with HTTP ${result.status}`, result.status);
     }
   }
 
@@ -138,7 +138,7 @@ export class OpenFinderClient {
       headers: this.imageHeaders(),
     });
     if (result.status < 200 || result.status >= 300) {
-      throw new OpenFinderError(`Download failed with HTTP ${result.status}`, result.status);
+      throw new HomiOSError(`Download failed with HTTP ${result.status}`, result.status);
     }
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(result.uri);
@@ -208,6 +208,6 @@ export class OpenFinderClient {
         // keep fallback
       }
     }
-    return new OpenFinderError(message, response.status);
+    return new HomiOSError(message, response.status);
   }
 }

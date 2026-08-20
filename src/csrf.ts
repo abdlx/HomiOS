@@ -13,7 +13,7 @@ function readCookie(name: string): string {
 }
 
 export function getCsrfToken(): string {
-  return readCookie('openfinder_csrf') || cachedCsrfToken;
+  return readCookie('homios_csrf') || cachedCsrfToken;
 }
 
 export async function ensureCsrfToken(): Promise<string> {
@@ -40,7 +40,7 @@ export async function ensureCsrfToken(): Promise<string> {
 
 export function installCsrfFetch(): void {
   if (typeof window === 'undefined') return;
-  const marker = '__openfinderCsrfFetchInstalled';
+  const marker = '__homiosCsrfFetchInstalled';
   if ((window as any)[marker]) return;
   (window as any)[marker] = true;
 
@@ -54,7 +54,7 @@ export function installCsrfFetch(): void {
       const token = getCsrfToken();
       if (token) {
         const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
-        headers.set('X-OpenFinder-CSRF', token);
+        headers.set('X-HomiOS-CSRF', token);
         init = { ...init, headers };
       }
     }

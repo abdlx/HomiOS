@@ -3,19 +3,19 @@ import path from 'path';
 import { ValidationError } from './validate.ts';
 
 export function getSambaRoot(): string {
-  return path.resolve(process.env.OPENFINDER_SAMBA_ROOT || '/mnt/openfinder-storage');
+  return path.resolve(process.env.HOMIOS_SAMBA_ROOT || '/mnt/homios-storage');
 }
 
 /**
  * Directories an administrator may publish through Samba. In addition to normal
  * data locations and configured roots, mounted volumes are discovered from the
- * host so drives do not have to live below OPENFINDER_SAMBA_ROOT.
+ * host so drives do not have to live below HOMIOS_SAMBA_ROOT.
  */
 export function getSambaAllowedRoots(): string[] {
   const standardDataRoots = process.platform === 'win32'
     ? []
     : ['/home', '/media', '/mnt', '/srv', '/data', '/storage'];
-  const configured = String(process.env.OPENFINDER_SAMBA_ALLOWED_ROOTS || '')
+  const configured = String(process.env.HOMIOS_SAMBA_ALLOWED_ROOTS || '')
     .split(path.delimiter)
     .map((value) => value.trim())
     .filter(Boolean)

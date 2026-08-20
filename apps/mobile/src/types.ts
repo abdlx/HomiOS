@@ -7,7 +7,7 @@ export type InstanceConfig = {
   updatedAt: string;
 };
 
-export type OpenFinderMe = {
+export type HomiOSMe = {
   server: {
     name: string;
     version: string;

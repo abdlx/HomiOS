@@ -14,12 +14,12 @@ export function InstancesScreen() {
 
   const submit = async () => {
     if (!baseUrl.trim() || !token.trim()) {
-      Alert.alert('Missing details', 'Enter an OpenFinder URL and API token.');
+      Alert.alert('Missing details', 'Enter an HomiOS URL and API token.');
       return;
     }
     setSaving(true);
     try {
-      await addInstance({ name: name.trim() || 'OpenFinder', baseUrl, token });
+      await addInstance({ name: name.trim() || 'HomiOS', baseUrl, token });
       setName('');
       setBaseUrl('');
       setToken('');
@@ -35,7 +35,7 @@ export function InstancesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Instances</Text>
-        <Text style={styles.subtitle}>Connect every OpenFinder server you want in one files app.</Text>
+        <Text style={styles.subtitle}>Connect every HomiOS server you want in one files app.</Text>
       </View>
 
       <View style={styles.form}>

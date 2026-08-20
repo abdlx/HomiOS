@@ -8,7 +8,7 @@ export const config = {
   api: { bodyParser: false },
 };
 
-const dataDir = () => process.env.OPENFINDER_DATA_DIR || path.join(process.cwd(), 'data');
+const dataDir = () => process.env.HOMIOS_DATA_DIR || path.join(process.cwd(), 'data');
 
 /**
  * GET  /api/share-target?id=xxx  → fetch share payload JSON

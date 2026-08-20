@@ -53,7 +53,7 @@ export default withAuth(async (req, res, session) => {
     // Temporarily scope the test to one channel by reading its row directly.
     const row = db.prepare('SELECT enabled FROM notification_settings WHERE team_id = ? AND channel = ?').get(teamId, channel) as any;
     if (!row?.enabled) return res.status(400).json({ error: 'Channel is not enabled' });
-    await notifyTeam(teamId, 'test', `Test notification from OpenFinder (${channel}) — configuration works!`);
+    await notifyTeam(teamId, 'test', `Test notification from HomiOS (${channel}) — configuration works!`);
     return res.json({ ok: true });
   }
 

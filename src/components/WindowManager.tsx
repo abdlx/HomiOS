@@ -93,7 +93,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('openfinder_window_state') || '{}');
+      const saved = JSON.parse(localStorage.getItem('homios_window_state') || '{}');
       dispatchWindow({
         type: 'hydrate',
         openedViews: Array.isArray(saved.openedViews) ? saved.openedViews : [],
@@ -105,7 +105,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
   useEffect(() => {
     if (!windowStateHydrated) return;
-    localStorage.setItem('openfinder_window_state', JSON.stringify({
+    localStorage.setItem('homios_window_state', JSON.stringify({
       openedViews: windowState.openedViews,
       modes: windowState.modes,
     }));
@@ -178,8 +178,8 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
     const handleTransfers = (event: Event) => {
       setTransfers((event as CustomEvent<TransferTask[]>).detail || []);
     };
-    window.addEventListener('openfinder:transfers', handleTransfers);
-    return () => window.removeEventListener('openfinder:transfers', handleTransfers);
+    window.addEventListener('homios:transfers', handleTransfers);
+    return () => window.removeEventListener('homios:transfers', handleTransfers);
   }, []);
 
   useEffect(() => {
@@ -249,7 +249,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       <div className="absolute inset-0">
         {isMobile ? (
           <MobileLauncher
-            onOpenFinder={() => setView('files')}
+            onHomiOS={() => setView('files')}
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
@@ -263,7 +263,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
           />
         ) : (
           <DesktopEnvironment
-            onOpenFinder={() => setView('files')}
+            onHomiOS={() => setView('files')}
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}

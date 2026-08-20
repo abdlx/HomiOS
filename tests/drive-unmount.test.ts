@@ -22,7 +22,7 @@ describe('drive unmount', () => {
     const exec = vi.fn().mockResolvedValue({ stdout: mountedAt('/'), stderr: '' });
     await expect(unmountDrive({ device: 'sda1', mountPoint: '/' }, exec)).rejects.toMatchObject({
       status: 400,
-      message: 'System volumes cannot be unmounted from OpenFinder',
+      message: 'System volumes cannot be unmounted from HomiOS',
     });
     expect(exec).toHaveBeenCalledTimes(1);
   });

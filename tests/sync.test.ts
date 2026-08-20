@@ -51,7 +51,7 @@ function mirrored(destination: string, source: string, relative = ''): string {
 }
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), `openfinder-sync-${crypto.randomUUID().slice(0, 8)}-`));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), `homios-sync-${crypto.randomUUID().slice(0, 8)}-`));
   for (const plan of listSyncPlans(TEAM, USER)) deleteSyncPlan(plan.id);
 });
 
@@ -251,10 +251,10 @@ describe('/api/sync', () => {
 
   beforeAll(async () => {
     const ownerId = withTransaction((tx) =>
-      createUserWithPasswordHash(tx, 'sync-owner@openfinder.test', 'x', { isAdmin: true })
+      createUserWithPasswordHash(tx, 'sync-owner@homios.test', 'x', { isAdmin: true })
     );
     const otherId = withTransaction((tx) =>
-      createUserWithPasswordHash(tx, 'sync-other@openfinder.test', 'x', { isAdmin: true })
+      createUserWithPasswordHash(tx, 'sync-other@homios.test', 'x', { isAdmin: true })
     );
     ownerSession = createSession(ownerId);
     otherSession = createSession(otherId);

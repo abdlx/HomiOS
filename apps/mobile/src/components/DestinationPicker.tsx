@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { OpenFinderClient } from '@/api/OpenFinderClient';
+import { HomiOSClient } from '@/api/HomiOSClient';
 import { EmptyState } from '@/components/EmptyState';
 import { basename, joinRemotePath, normalizeRemotePath, parentRemotePath } from '@/lib/path';
 import { RemoteFile } from '@/types';
@@ -14,7 +14,7 @@ export function DestinationPicker({
   onSelect,
 }: {
   visible: boolean;
-  client: OpenFinderClient;
+  client: HomiOSClient;
   startPath: string;
   onCancel: () => void;
   onSelect: (path: string) => void;

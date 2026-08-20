@@ -6,11 +6,11 @@ export function useWallpaper() {
   const [wallpaper, setWallpaper] = useState(DEFAULT_WALLPAPER);
 
   useEffect(() => {
-    const saved = localStorage.getItem('openfinder_wallpaper');
+    const saved = localStorage.getItem('homios_wallpaper');
     // External URLs saved before wallpapers were bundled locally are blocked by
     // the CSP (img-src 'self'), so reset them to the default.
     if (saved && /^https?:\/\//i.test(saved)) {
-      localStorage.removeItem('openfinder_wallpaper');
+      localStorage.removeItem('homios_wallpaper');
       return;
     }
     if (saved) {
@@ -20,7 +20,7 @@ export function useWallpaper() {
 
   const changeWallpaper = (url: string) => {
     setWallpaper(url);
-    localStorage.setItem('openfinder_wallpaper', url);
+    localStorage.setItem('homios_wallpaper', url);
     window.dispatchEvent(new CustomEvent('wallpaperChanged', { detail: url }));
   };
 

@@ -588,7 +588,7 @@ export default function BackupsPanel() {
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
           Each source is mirrored into{' '}
           <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">
-            &lt;destination&gt;/OpenFinder-Backups/&lt;drive&gt;
+            &lt;destination&gt;/HomiOS-Backups/&lt;drive&gt;
           </span>{' '}
           on every destination drive. Syncs are incremental — unchanged files are skipped — and run as background jobs you
           can follow in Activity.

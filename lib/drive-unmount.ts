@@ -66,7 +66,7 @@ export async function unmountDrive(
     throw new DriveUnmountError(409, 'The drive mount point changed; refresh Storage and try again');
   }
   if (PROTECTED_MOUNTS.has(mountPoint)) {
-    throw new DriveUnmountError(400, 'System volumes cannot be unmounted from OpenFinder');
+    throw new DriveUnmountError(400, 'System volumes cannot be unmounted from HomiOS');
   }
 
   const activeShare = (input.activeSharePaths || [])
@@ -84,7 +84,7 @@ export async function unmountDrive(
       throw new DriveUnmountError(409, 'The drive is busy. Close open files and terminal sessions, then try again');
     }
     if (/permission denied|not permitted|must be superuser/i.test(output)) {
-      throw new DriveUnmountError(500, 'OpenFinder does not have permission to unmount this drive');
+      throw new DriveUnmountError(500, 'HomiOS does not have permission to unmount this drive');
     }
     throw new DriveUnmountError(500, 'Unmount failed');
   }

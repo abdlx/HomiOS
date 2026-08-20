@@ -30,7 +30,7 @@ const WALLPAPERS = [
   "/wallpapers/wallpaper-12.jpg"
 ];
 
-const PHOTOS_SOURCES_KEY = 'openfinder_photos_sources';
+const PHOTOS_SOURCES_KEY = 'homios_photos_sources';
 
 export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [activeTab, setActiveTab] = useState('general');
@@ -117,7 +117,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
     } else {
       localStorage.setItem(PHOTOS_SOURCES_KEY, JSON.stringify(unique));
     }
-    window.dispatchEvent(new Event('openfinder:photos-sources-changed'));
+    window.dispatchEvent(new Event('homios:photos-sources-changed'));
     toast({
       message: unique.length === 0 ? 'Photos will scan all detected sources' : 'Photos library sources updated',
       tone: 'success',
@@ -726,7 +726,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                   <ShieldCheck size={40} />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">System is up to date</h3>
-                <p className="text-slate-500 dark:text-slate-400 mb-6">OpenFinder OS 1.0.4 • Last checked today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-6">HomiOS 1.0.4 • Last checked today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                 
                 <button className="bg-slate-800 dark:bg-white text-white dark:text-slate-900 px-6 py-2.5 rounded-xl hover:bg-slate-700 dark:hover:bg-slate-200 transition-colors font-medium">
                   Check for Updates
@@ -958,7 +958,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                 <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl mb-6 flex items-center justify-center text-white relative z-10">
                   <Cpu size={48} />
                 </div>
-                <h3 className="text-3xl font-bold text-slate-800 dark:text-white mb-1 relative z-10">OpenFinder OS</h3>
+                <h3 className="text-3xl font-bold text-slate-800 dark:text-white mb-1 relative z-10">HomiOS</h3>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-8 relative z-10">Version 1.0.4 (Build 24E214)</p>
 
                 <div className="w-full max-w-sm border-t border-slate-100 dark:border-white/10 pt-8 text-sm text-slate-600 dark:text-slate-300 space-y-4 relative z-10">

@@ -92,7 +92,7 @@ export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps
               </div>
               <h3 className="text-lg font-semibold mb-2">{isEnabled ? 'Coolify is starting.' : 'Coolify is not installed.'}</h3>
               <p className="text-sm text-white/55 mb-5">
-                {isEnabled ? 'OpenFinder will load Coolify when the optional service becomes reachable.' : 'Re-run the installer with --with-coolify, or run openfinder-update --with-coolify.'}
+                {isEnabled ? 'HomiOS will load Coolify when the optional service becomes reachable.' : 'Re-run the installer with --with-coolify, or run homios-update --with-coolify.'}
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button

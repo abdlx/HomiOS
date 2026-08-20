@@ -11,7 +11,7 @@ const DETAILED_STAT_LIMIT = Number(process.env.DETAILED_STAT_LIMIT || 500);
 const MAX_JSON_WRITE_BYTES = Number(process.env.MAX_JSON_WRITE_BYTES || 8 * 1024 * 1024);
 
 function securePath(p: string) {
-  // Paths resolve relative to BASE_PATH, which is '/' in production: OpenFinder is a
+  // Paths resolve relative to BASE_PATH, which is '/' in production: HomiOS is a
   // server console, so an admin browsing the whole host is the intended behaviour.
   // The gate is the ADMIN CHECK on this route (see withAuth below), not a path jail.
   // '.' and '..' are still rejected so a path can never mean something other than it

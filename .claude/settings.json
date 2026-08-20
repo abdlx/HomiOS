@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad')",
-      "Bash(cd \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui\")",
+      "Bash(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-HomiOS\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad')",
+      "Bash(cd \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-HomiOS\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui\")",
       "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex/)",
       "Bash(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\\\\n' -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex)",
       "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex/assets/app.js)",
@@ -10,7 +10,7 @@
       "Bash(curl -s -H 'Cookie: session=smoketest-codex-session' http://127.0.0.1:3123/codex-local-file?path=x)",
       "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" -o /dev/null -w \"upstream down -> %{http_code}\\\\n\" http://127.0.0.1:3123/codex/)",
       "Bash(curl -s -H \"Cookie: session=smoketest-codex-session\" http://127.0.0.1:3123/codex-api/threads)",
-      "Bash(grep -n 'src=\\\\|href=' \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-OpenFinder\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui/index.html\")",
+      "Bash(grep -n 'src=\\\\|href=' \"$\\(cygpath 'C:\\\\Users\\\\Abdullah\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--code-github-projects-HomiOS\\\\db46484c-17a1-4e2e-8d6d-099643fcdaf7\\\\scratchpad'\\)/codex-web-ui/index.html\")",
       "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35/)",
       "Bash(curl -s -D - -o /dev/null --max-time 8 http://169.58.7.35/codex)",
       "Bash(curl -sk -D - -o /dev/null --max-time 10 https://169.58.7.35/)",
@@ -27,7 +27,7 @@
       "Bash(grep -iE \"^\\(archiver|adm-zip|yauzl|unzipper|extract-zip|node-stream-zip\\)$\")",
       "Bash(grep -iE \"^\\(unzipper|yauzl|adm-zip|node-stream-zip|decompress|extract-zip|jszip|fflate\\)$\")",
       "Bash(powershell -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,FileSystem,Size,FreeSpace,DriveType | ConvertTo-Json -Compress\")",
-      "Bash(node \"C:/Users/Abdullah/AppData/Local/Temp/claude/d--code-github-projects-OpenFinder/9e396136-b85e-4676-97ab-a440d588b353/scratchpad/t.mjs\")",
+      "Bash(node \"C:/Users/Abdullah/AppData/Local/Temp/claude/d--code-github-projects-HomiOS/9e396136-b85e-4676-97ab-a440d588b353/scratchpad/t.mjs\")",
       "PowerShell(Get-Disk)",
       "PowerShell(Get-Partition -DiskNumber 1)",
       "PowerShell(Get-Partition -DiskNumber 1 | ForEach-Object { $v = $_ | Get-Volume -ErrorAction SilentlyContinue; [PSCustomObject]@{ Part=$_.PartitionNumber; Letter=$_.DriveLetter; SizeMB=[math]::Round\\($_.Size/1MB,1\\); Offset=$_.Offset; MbrType=$_.MbrType; Label=$v.FileSystemLabel; FS=$v.FileSystem } } | Format-Table -AutoSize)",

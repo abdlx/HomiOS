@@ -74,10 +74,10 @@ export default function Login() {
       title={step === 'credentials' ? 'Welcome back' : 'Two-factor authentication'}
       subtitle={
         step === 'credentials'
-          ? 'Sign in to your OpenFinder workspace'
+          ? 'Sign in to your HomiOS workspace'
           : 'Enter the 6-digit code from your authenticator app'
       }
-      footer={<>Self-hosted with OpenFinder</>}
+      footer={<>Self-hosted with HomiOS</>}
     >
       {error && (
         <div

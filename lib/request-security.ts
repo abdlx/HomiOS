@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import { hmacSha256, safeEqual } from './crypto.ts';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const CSRF_COOKIE = 'openfinder_csrf';
-const CSRF_HEADER = 'x-openfinder-csrf';
+const CSRF_COOKIE = 'homios_csrf';
+const CSRF_HEADER = 'x-homios-csrf';
 
 type RateLimitOptions = {
   windowMs: number;
@@ -51,7 +51,7 @@ export function csrfTokenForSession(sessionId: string): string {
 }
 
 export function shouldUseSecureCookies(req?: any): boolean {
-  const override = String(process.env.OPENFINDER_SECURE_COOKIES || '').toLowerCase();
+  const override = String(process.env.HOMIOS_SECURE_COOKIES || '').toLowerCase();
   if (override === 'true') return true;
   if (override === 'false') return false;
 

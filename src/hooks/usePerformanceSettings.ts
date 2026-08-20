@@ -11,7 +11,7 @@ export interface PerformanceSettings {
   preloadHiddenApps: boolean;
 }
 
-const STORAGE_KEY = 'openfinder_performance_settings';
+const STORAGE_KEY = 'homios_performance_settings';
 
 const DEFAULT_SETTINGS: PerformanceSettings = {
   profile: 'balanced',
@@ -52,7 +52,7 @@ function readSettings(): PerformanceSettings {
 
 function writeSettings(settings: PerformanceSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  window.dispatchEvent(new CustomEvent('openfinder:performance-settings-changed', { detail: settings }));
+  window.dispatchEvent(new CustomEvent('homios:performance-settings-changed', { detail: settings }));
 }
 
 export function usePerformanceSettings() {
@@ -68,8 +68,8 @@ export function usePerformanceSettings() {
       setSettings(normalizeSettings(customEvent.detail));
     };
 
-    window.addEventListener('openfinder:performance-settings-changed', handleSettingsChanged);
-    return () => window.removeEventListener('openfinder:performance-settings-changed', handleSettingsChanged);
+    window.addEventListener('homios:performance-settings-changed', handleSettingsChanged);
+    return () => window.removeEventListener('homios:performance-settings-changed', handleSettingsChanged);
   }, []);
 
   const updateSettings = (updates: Partial<PerformanceSettings>) => {

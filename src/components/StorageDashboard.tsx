@@ -38,7 +38,7 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
     const current = drive.nickname || '';
     const next = await promptDialog({
       title: `Rename ${drive.defaultLabel || drive.label}`,
-      message: 'Set a display name for this drive in OpenFinder. Leave blank to reset to the default. This does not change the disk label.',
+      message: 'Set a display name for this drive in HomiOS. Leave blank to reset to the default. This does not change the disk label.',
       placeholder: drive.defaultLabel || 'My Drive',
       defaultValue: current,
       confirmLabel: 'Save',
@@ -313,7 +313,7 @@ function DrivesPanel({ onNavigateDrive }: StorageDashboardProps) {
       <div className="mt-8 flex items-start space-x-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100/50 dark:border-blue-500/20 rounded-xl px-4 py-3.5 shadow-sm">
         <HardDrive size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          OpenFinder runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely.
+          HomiOS runs as a native <span className="font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-100 dark:border-white/10 text-slate-700 dark:text-slate-200">systemd</span> daemon, allowing direct access to mount and format host-level hardware safely.
         </p>
       </div>
     </div>

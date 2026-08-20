@@ -48,7 +48,7 @@ log "Downloading the current official Immich release Compose file..."
 curl -fL --retry 3 --connect-timeout 15 "$IMMICH_COMPOSE_URL" -o "$tmp_compose"
 
 # The official bundle fixes the host port at 2283. Keep its container port while
-# allowing OpenFinder's optional service port to be configured in .env.
+# allowing HomiOS's optional service port to be configured in .env.
 if grep -qE "['\"]?2283:2283['\"]?" "$tmp_compose"; then
   sed -i -E "s/(['\"]?)2283:2283(['\"]?)/\1\${IMMICH_APP_PORT:-2283}:2283\2/" "$tmp_compose"
 else

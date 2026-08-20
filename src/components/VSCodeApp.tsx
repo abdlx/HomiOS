@@ -90,7 +90,7 @@ export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) 
               </div>
               <h3 className="text-lg font-semibold mb-2">VS Code is starting or not installed.</h3>
               <p className="text-sm text-white/55 mb-5">
-                OpenFinder will load VS Code here once `code-server` is running locally.
+                HomiOS will load VS Code here once `code-server` is running locally.
                 To install it on your server, run:<br />
                 <code className="bg-black/30 p-1 rounded mt-2 block text-xs">curl -fsSL https://code-server.dev/install.sh | sh</code>
               </p>

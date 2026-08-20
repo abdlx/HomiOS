@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-#  OpenFinder — Production Bare-Metal Installer
+#  HomiOS — Production Bare-Metal Installer
 #  Targets: Ubuntu 22.04+ / Debian 12+
 #  Architecture: Nginx → Node.js/Express + Next.js (SSR)
 # ============================================================
@@ -21,8 +21,8 @@ fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
 cleanup_on_failure() {
   echo -e "\n${RED}${BOLD}❌ Installation failed at line $1.${NC}"
   echo -e "${RED}   Rolling back systemd service if it was started...${NC}"
-  systemctl stop openfinder 2>/dev/null || true
-  echo -e "${YELLOW}   Run: journalctl -u openfinder -n 50 for logs.${NC}"
+  systemctl stop homios 2>/dev/null || true
+  echo -e "${YELLOW}   Run: journalctl -u homios -n 50 for logs.${NC}"
   exit 1
 }
 trap 'cleanup_on_failure $LINENO' ERR
@@ -34,31 +34,31 @@ fi
 
 # ── CLI option defaults ───────────────────────────────────────
 # COOLIFY_MODE: managed | external | disabled
-#   managed   = OpenFinder installs, owns, and manages Coolify.
-#   external  = Coolify is already running independently. OpenFinder is a
+#   managed   = HomiOS installs, owns, and manages Coolify.
+#   external  = Coolify is already running independently. HomiOS is a
 #               read-only guest: no install, no restart, no reconfigure.
-#   disabled  = No Coolify integration. OpenFinder does not start, stop,
+#   disabled  = No Coolify integration. HomiOS does not start, stop,
 #               or configure Coolify, and never touches an existing instance.
 #
-# COOLIFY_OWNED_BY_OPENFINDER: true | false
-#   true  = This OpenFinder installation is the one that created Coolify.
+# COOLIFY_OWNED_BY_HOMIOS: true | false
+#   true  = This HomiOS installation is the one that created Coolify.
 #           Lifecycle operations (up/down) are permitted.
 #   false = Ownership is unconfirmed or Coolify belongs to an external operator.
 #           Lifecycle operations are blocked at the helper script level.
 #
-# OPENFINDER_PROXY_MODE: nginx | external | none
-#   nginx    = OpenFinder installs host Nginx and binds port 80.
+# HOMIOS_PROXY_MODE: nginx | external | none
+#   nginx    = HomiOS installs host Nginx and binds port 80.
 #   external = An existing proxy (Coolify/Traefik/Caddy/etc) owns 80/443.
-#              OpenFinder will NOT touch host Nginx.
-#   none     = No reverse proxy; OpenFinder runs on its app port only.
+#              HomiOS will NOT touch host Nginx.
+#   none     = No reverse proxy; HomiOS runs on its app port only.
 
 COOLIFY_MODE="${COOLIFY_MODE:-}"
-COOLIFY_OWNED_BY_OPENFINDER="${COOLIFY_OWNED_BY_OPENFINDER:-}"
+COOLIFY_OWNED_BY_HOMIOS="${COOLIFY_OWNED_BY_HOMIOS:-}"
 COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-}"
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 CODEX_UI_ENABLED="${CODEX_UI_ENABLED:-false}"
-OPENFINDER_PROXY_MODE="${OPENFINDER_PROXY_MODE:-}"
+HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-}"
 IMMICH_ENABLED="${IMMICH_ENABLED:-}"
 NON_INTERACTIVE=false
 
@@ -72,13 +72,13 @@ show_help() {
 Usage: sudo bash install.sh [OPTIONS]
 
 Coolify options (mutually exclusive — pick at most one):
-  --with-coolify        OpenFinder installs and manages a bundled Coolify instance.
+  --with-coolify        HomiOS installs and manages a bundled Coolify instance.
                         Fails if an unowned Coolify is already detected on the host.
-  --existing-coolify    Coolify is already running on this host. OpenFinder will
+  --existing-coolify    Coolify is already running on this host. HomiOS will
                         detect it in read-only mode and will NOT install, restart,
                         reconfigure, or stop it. Implies external proxy mode (host
                         Nginx will NOT be installed or reconfigured).
-  --without-coolify     No Coolify integration. OpenFinder does not start, stop, or
+  --without-coolify     No Coolify integration. HomiOS does not start, stop, or
                         configure Coolify. Does NOT shut down an existing instance.
 
 Optional components:
@@ -93,7 +93,7 @@ General:
   -h, --help            Show this help message and exit.
 
 Examples:
-  # Managed Coolify — OpenFinder installs and owns it:
+  # Managed Coolify — HomiOS installs and owns it:
   sudo bash install.sh --with-coolify --non-interactive
 
   # Existing external Coolify already running on this host:
@@ -115,7 +115,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     --existing-coolify)
       COOLIFY_MODE=external
-      OPENFINDER_PROXY_MODE=external
+      HOMIOS_PROXY_MODE=external
       _FLAG_EXISTING_COOLIFY=true
       ;;
     --without-coolify)
@@ -159,12 +159,12 @@ ask_optional() {
 }
 
 echo -e "${BOLD}"
-echo "  ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗███╗   ██╗██████╗ ███████╗██████╗ "
-echo " ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██║████╗  ██║██╔══██╗██╔════╝██╔══██╗"
-echo " ██║   ██║██████╔╝█████╗  ██╔██╗ ██║█████╗  ██║██╔██╗ ██║██║  ██║█████╗  ██████╔╝"
-echo " ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║██╔══╝  ██║██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗"
-echo " ╚██████╔╝██║     ███████╗██║ ╚████║██║     ██║██║ ╚████║██████╔╝███████╗██║  ██║"
-echo "  ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝"
+echo " ██╗  ██╗ ██████╗ ███╗   ███╗██╗ ██████╗ ███████╗"
+echo " ██║  ██║██╔═══██╗████╗ ████║██║██╔═══██╗██╔════╝"
+echo " ███████║██║   ██║██╔████╔██║██║██║   ██║███████╗"
+echo " ██╔══██║██║   ██║██║╚██╔╝██║██║██║   ██║╚════██║"
+echo " ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝███████║"
+echo " ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚══════╝"
 echo -e "${NC}"
 echo -e "  ${BOLD}Production Homelab OS Installer${NC} — Ubuntu/Debian"
 echo ""
@@ -190,12 +190,23 @@ else
 fi
 
 # ── 3. App directory & clone/update ──────────────────────────
-INSTALL_DIR="/opt/openfinder"
-REPO_URL="https://github.com/abdlx/OpenFinder-shell.git"
+INSTALL_DIR="/opt/homios"
+LEGACY_INSTALL_DIR="/opt/openfinder"
+REPO_URL="https://github.com/abdlx/HomiOS.git"
 IMMICH_APP_PORT="${IMMICH_APP_PORT:-2283}"
 IMMICH_DATA_DIR="${IMMICH_DATA_DIR:-/data/immich}"
 IMMICH_VERSION="${IMMICH_VERSION:-v3}"
 IMMICH_COMPOSE_URL="${IMMICH_COMPOSE_URL:-https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml}"
+
+# Migrate legacy /opt/openfinder directory if present and /opt/homios does not exist
+if [ ! -d "$INSTALL_DIR" ] && [ -d "$LEGACY_INSTALL_DIR" ]; then
+  log "Migrating existing installation from $LEGACY_INSTALL_DIR to $INSTALL_DIR..."
+  systemctl stop openfinder 2>/dev/null || true
+  systemctl disable openfinder --quiet 2>/dev/null || true
+  mv "$LEGACY_INSTALL_DIR" "$INSTALL_DIR"
+  [ -f "$INSTALL_DIR/data/openfinder.env" ] && [ ! -f "$INSTALL_DIR/data/homios.env" ] && \
+    mv "$INSTALL_DIR/data/openfinder.env" "$INSTALL_DIR/data/homios.env"
+fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."
@@ -204,7 +215,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   git clean -fd --quiet
   git pull --quiet
 else
-  log "Cloning OpenFinder to $INSTALL_DIR..."
+  log "Cloning HomiOS to $INSTALL_DIR..."
   git clone "$REPO_URL" "$INSTALL_DIR" --quiet
   cd "$INSTALL_DIR"
 fi
@@ -238,23 +249,23 @@ detect_external_coolify_or_fail() {
   if [ "$has_dir" = "true" ]; then
     fail "Coolify installation detected at $COOLIFY_DATA_DIR, but the Coolify
 container is not currently running.
-Start Coolify before installing OpenFinder in --existing-coolify mode."
+Start Coolify before installing HomiOS in --existing-coolify mode."
   fi
 
   fail "ERROR: --existing-coolify was specified, but no running Coolify installation
 was detected on this host.
-OpenFinder will not install or modify Coolify in external mode.
-If you want OpenFinder to install and manage Coolify, use --with-coolify instead."
+HomiOS will not install or modify Coolify in external mode.
+If you want HomiOS to install and manage Coolify, use --with-coolify instead."
 }
 
 # resolve_managed_coolify_ownership: called when --with-coolify is active.
 # install.sh (not the helper scripts) decides whether a fresh install is safe.
 # Refuses if an unowned Coolify instance is detected, to prevent accidental
-# lifecycle takeover of a production Coolify the user did not install via OpenFinder.
+# lifecycle takeover of a production Coolify the user did not install via HomiOS.
 resolve_managed_coolify_ownership() {
   # Already confirmed owner from a previous run — continue managing it.
-  if [ "$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
-    log "Confirmed: OpenFinder owns this Coolify installation."
+  if [ "$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
+    log "Confirmed: HomiOS owns this Coolify installation."
     return 0
   fi
 
@@ -265,33 +276,33 @@ resolve_managed_coolify_ownership() {
 
   if [ "$existing" = "true" ]; then
     fail "An existing Coolify installation was detected on this host, but it is
-not marked as owned by OpenFinder (COOLIFY_OWNED_BY_OPENFINDER is not true).
+not marked as owned by HomiOS (COOLIFY_OWNED_BY_HOMIOS is not true).
 
-OpenFinder refuses to take lifecycle control of a Coolify instance it did not create.
+HomiOS refuses to take lifecycle control of a Coolify instance it did not create.
 
 Options:
   --existing-coolify    Integrate with the running Coolify in read-only mode.
   --without-coolify     Skip Coolify integration entirely.
 
-If you previously installed Coolify via OpenFinder and lost the env file, you can
-force ownership by setting: COOLIFY_OWNED_BY_OPENFINDER=true bash install.sh --with-coolify"
+If you previously installed Coolify via HomiOS and lost the env file, you can
+force ownership by setting: COOLIFY_OWNED_BY_HOMIOS=true bash install.sh --with-coolify"
   fi
 
   # Nothing detected — safe to do a fresh installation.
-  COOLIFY_OWNED_BY_OPENFINDER=true
+  COOLIFY_OWNED_BY_HOMIOS=true
   log "No existing Coolify detected — proceeding with fresh managed installation."
 }
 
 # ── Preserve prior choices when re-running over an existing host ─────────────
-PREVIOUS_ENV_FILE="$INSTALL_DIR/data/openfinder.env"
+PREVIOUS_ENV_FILE="$INSTALL_DIR/data/homios.env"
 if [ -f "$PREVIOUS_ENV_FILE" ]; then
   # Read new-style keys first (they take precedence over CLI defaults)
   [ -n "$COOLIFY_MODE" ] || \
     COOLIFY_MODE=$(sed -n 's/^COOLIFY_MODE=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-  [ -n "$COOLIFY_OWNED_BY_OPENFINDER" ] || \
-    COOLIFY_OWNED_BY_OPENFINDER=$(sed -n 's/^COOLIFY_OWNED_BY_OPENFINDER=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-  [ -n "$OPENFINDER_PROXY_MODE" ] || \
-    OPENFINDER_PROXY_MODE=$(sed -n 's/^OPENFINDER_PROXY_MODE=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  [ -n "$COOLIFY_OWNED_BY_HOMIOS" ] || \
+    COOLIFY_OWNED_BY_HOMIOS=$(sed -n 's/^COOLIFY_OWNED_BY_HOMIOS=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  [ -n "$HOMIOS_PROXY_MODE" ] || \
+    HOMIOS_PROXY_MODE=$(sed -n 's/^HOMIOS_PROXY_MODE=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   [ "$CODEX_UI_ENABLED" = "true" ] || \
     CODEX_UI_ENABLED=$(sed -n 's/^CODEX_UI_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   [ -n "$IMMICH_ENABLED" ] || \
@@ -304,13 +315,13 @@ if [ -f "$PREVIOUS_ENV_FILE" ]; then
     _legacy_enabled=$(sed -n 's/^COOLIFY_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
     if [ "$_legacy_enabled" = "true" ]; then
       COOLIFY_MODE=managed
-      COOLIFY_OWNED_BY_OPENFINDER=false  # cannot retroactively claim ownership
+      COOLIFY_OWNED_BY_HOMIOS=false  # cannot retroactively claim ownership
       warn "Legacy COOLIFY_ENABLED=true found. Mapped to COOLIFY_MODE=managed with
-COOLIFY_OWNED_BY_OPENFINDER=false (safe default — cannot prove ownership retroactively).
-Re-run with --with-coolify if OpenFinder installed this Coolify instance."
+COOLIFY_OWNED_BY_HOMIOS=false (safe default — cannot prove ownership retroactively).
+Re-run with --with-coolify if HomiOS installed this Coolify instance."
     else
       COOLIFY_MODE=disabled
-      COOLIFY_OWNED_BY_OPENFINDER=false
+      COOLIFY_OWNED_BY_HOMIOS=false
     fi
   fi
 fi
@@ -318,11 +329,11 @@ fi
 # Interactive prompts for optional services (only when not set by CLI or env file)
 if [ "$NON_INTERACTIVE" = "false" ] && [ -t 0 ]; then
   if [ -z "$COOLIFY_MODE" ]; then
-    echo "Coolify options: (1) managed — OpenFinder installs it  (2) external — already running  (3) disabled"
+    echo "Coolify options: (1) managed — HomiOS installs it  (2) external — already running  (3) disabled"
     read -r -p "Coolify mode [1/2/3, default: 3]: " _cm_answer
     case "$_cm_answer" in
       1) COOLIFY_MODE=managed ;;
-      2) COOLIFY_MODE=external ; OPENFINDER_PROXY_MODE=external ;;
+      2) COOLIFY_MODE=external ; HOMIOS_PROXY_MODE=external ;;
       *) COOLIFY_MODE=disabled ;;
     esac
   fi
@@ -331,13 +342,13 @@ fi
 
 # Final defaults for anything still unset
 COOLIFY_MODE="${COOLIFY_MODE:-disabled}"
-COOLIFY_OWNED_BY_OPENFINDER="${COOLIFY_OWNED_BY_OPENFINDER:-false}"
+COOLIFY_OWNED_BY_HOMIOS="${COOLIFY_OWNED_BY_HOMIOS:-false}"
 COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-false}"
-OPENFINDER_PROXY_MODE="${OPENFINDER_PROXY_MODE:-nginx}"
+HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-nginx}"
 CODEX_UI_ENABLED=$(normalize_bool "${CODEX_UI_ENABLED:-false}")
 IMMICH_ENABLED=$(normalize_bool "${IMMICH_ENABLED:-false}")
 
-log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_OPENFINDER) | Proxy: $OPENFINDER_PROXY_MODE | Codex UI: $CODEX_UI_ENABLED | Immich: $IMMICH_ENABLED"
+log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_HOMIOS) | Proxy: $HOMIOS_PROXY_MODE | Codex UI: $CODEX_UI_ENABLED | Immich: $IMMICH_ENABLED"
 
 # ── 4. Install npm dependencies & build ───────────────────────
 log "Installing Node.js packages..."
@@ -355,7 +366,7 @@ chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down
 # ── Coolify dispatch ──────────────────────────────────────────
 # The lifecycle invariant enforced here and in the helper scripts:
 #   No Coolify install/start/stop/reconfigure unless:
-#     COOLIFY_MODE=managed AND COOLIFY_OWNED_BY_OPENFINDER=true
+#     COOLIFY_MODE=managed AND COOLIFY_OWNED_BY_HOMIOS=true
 #
 # --without-coolify (disabled mode) does NOT stop Coolify. Teardown is never
 # automatic; it must be an explicit maintenance operation.
@@ -365,8 +376,8 @@ case "$COOLIFY_MODE" in
     # Ownership conflict detection runs in install.sh (not the helper script).
     # The helper script is a dumb executor; the orchestrator decides freshness.
     resolve_managed_coolify_ownership
-    log "Starting bundled Coolify sidecar (OpenFinder-managed)..."
-    export COOLIFY_MODE COOLIFY_OWNED_BY_OPENFINDER
+    log "Starting bundled Coolify sidecar (HomiOS-managed)..."
+    export COOLIFY_MODE COOLIFY_OWNED_BY_HOMIOS
     COOLIFY_APP_PORT="$COOLIFY_APP_PORT" COOLIFY_DATA_DIR="$COOLIFY_DATA_DIR" \
       bash "$INSTALL_DIR/scripts/coolify-up.sh"
     COOLIFY_INTEGRATION_ENABLED=true
@@ -374,13 +385,13 @@ case "$COOLIFY_MODE" in
   external)
     log "External Coolify mode — verifying a running Coolify instance..."
     detect_external_coolify_or_fail
-    COOLIFY_OWNED_BY_OPENFINDER=false
+    COOLIFY_OWNED_BY_HOMIOS=false
     COOLIFY_INTEGRATION_ENABLED=true
-    warn "External Coolify mode active. OpenFinder will NOT manage, restart, update, or reconfigure Coolify."
+    warn "External Coolify mode active. HomiOS will NOT manage, restart, update, or reconfigure Coolify."
     ;;
   disabled)
-    warn "Coolify integration disabled. OpenFinder will not start, stop, or configure Coolify."
-    COOLIFY_OWNED_BY_OPENFINDER=false
+    warn "Coolify integration disabled. HomiOS will not start, stop, or configure Coolify."
+    COOLIFY_OWNED_BY_HOMIOS=false
     COOLIFY_INTEGRATION_ENABLED=false
     # Intentionally no coolify-down.sh call here.
     # --without-coolify means "don't integrate", not "shut Coolify down".
@@ -404,18 +415,18 @@ fi
 log "Provisioning runtime directories..."
 mkdir -p \
   "$INSTALL_DIR/data/.tus_uploads" \
-  /mnt/openfinder-storage   # Default isolated storage for Samba shares
+  /mnt/homios-storage   # Default isolated storage for Samba shares
 
-chmod 755 /mnt/openfinder-storage
+chmod 755 /mnt/homios-storage
 chmod -R 700 "$INSTALL_DIR/data"  # Protect the SQLite database from other users
 
 # ── 6. Systemd service ───────────────────────────────────────
-log "Creating systemd service (openfinder.service)..."
+log "Creating systemd service (homios.service)..."
 # Generate a stable APP_KEY for AES-256-GCM encryption of secrets at rest.
 # This key protects SSH private keys, S3 credentials, and env var values.
 # Persisted here so it survives data/ wipes — losing it = losing all secrets.
 APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
-ENV_FILE="$INSTALL_DIR/data/openfinder.env"
+ENV_FILE="$INSTALL_DIR/data/homios.env"
 mkdir -p "$INSTALL_DIR/data"
 if [ ! -f "$APP_KEY_FILE" ]; then
   APP_KEY=$(openssl rand -hex 32)
@@ -429,61 +440,61 @@ fi
 
 # ── Derive COOLIFY_ENABLED (backward compatibility) ──────────
 # COOLIFY_ENABLED is kept for any existing app code that reads it, but it
-# is now derived — never the source of truth. It is ONLY true when OpenFinder
+# is now derived — never the source of truth. It is ONLY true when HomiOS
 # both manages AND owns this Coolify instance. External mode → false, because
 # legacy code seeing COOLIFY_ENABLED=true might attempt lifecycle operations.
-if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
+if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
   COOLIFY_ENABLED=true
 else
   COOLIFY_ENABLED=false
 fi
 
 # APP_KEY goes in an EnvironmentFile (0600), never in the unit's Environment= lines.
-# Unit files are world-readable and `systemctl show openfinder` prints Environment=
+# Unit files are world-readable and `systemctl show homios` prints Environment=
 # to any local user — which would hand over the key that decrypts every stored SSH
 # private key and S3 credential.
 SAMBA_ALLOWED_ROOTS=""
-OPENFINDER_BIND_HOST=""
+HOMIOS_BIND_HOST=""
 if [ -f "$ENV_FILE" ]; then
-  SAMBA_ALLOWED_ROOTS=$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "$ENV_FILE" | tail -n 1)
-  OPENFINDER_BIND_HOST=$(sed -n 's/^OPENFINDER_BIND_HOST=//p' "$ENV_FILE" | tail -n 1)
+  SAMBA_ALLOWED_ROOTS=$(sed -n 's/^HOMIOS_SAMBA_ALLOWED_ROOTS=//p' "$ENV_FILE" | tail -n 1)
+  HOMIOS_BIND_HOST=$(sed -n 's/^HOMIOS_BIND_HOST=//p' "$ENV_FILE" | tail -n 1)
 fi
 
 # Fallback derivation if not explicitly saved
-if [ -z "$OPENFINDER_BIND_HOST" ]; then
-  if [ "$OPENFINDER_PROXY_MODE" = "nginx" ]; then
-    OPENFINDER_BIND_HOST="127.0.0.1"
+if [ -z "$HOMIOS_BIND_HOST" ]; then
+  if [ "$HOMIOS_PROXY_MODE" = "nginx" ]; then
+    HOMIOS_BIND_HOST="127.0.0.1"
   else
-    OPENFINDER_BIND_HOST="0.0.0.0"
+    HOMIOS_BIND_HOST="0.0.0.0"
   fi
 fi
 
 umask 077
 cat > "$ENV_FILE" <<EOF
 APP_KEY=$APP_KEY
-OPENFINDER_SAMBA_ALLOWED_ROOTS=$SAMBA_ALLOWED_ROOTS
+HOMIOS_SAMBA_ALLOWED_ROOTS=$SAMBA_ALLOWED_ROOTS
 COOLIFY_MODE=$COOLIFY_MODE
-COOLIFY_OWNED_BY_OPENFINDER=$COOLIFY_OWNED_BY_OPENFINDER
+COOLIFY_OWNED_BY_HOMIOS=$COOLIFY_OWNED_BY_HOMIOS
 COOLIFY_INTEGRATION_ENABLED=$COOLIFY_INTEGRATION_ENABLED
 COOLIFY_ENABLED=$COOLIFY_ENABLED
 COOLIFY_APP_PORT=$COOLIFY_APP_PORT
 COOLIFY_DATA_DIR=$COOLIFY_DATA_DIR
-OPENFINDER_PROXY_MODE=$OPENFINDER_PROXY_MODE
+HOMIOS_PROXY_MODE=$HOMIOS_PROXY_MODE
 CODEX_UI_ENABLED=$CODEX_UI_ENABLED
 IMMICH_ENABLED=$IMMICH_ENABLED
 IMMICH_APP_PORT=$IMMICH_APP_PORT
 IMMICH_DATA_DIR=$IMMICH_DATA_DIR
 IMMICH_VERSION=$IMMICH_VERSION
 IMMICH_COMPOSE_URL=$IMMICH_COMPOSE_URL
-OPENFINDER_BIND_HOST=$OPENFINDER_BIND_HOST
+HOMIOS_BIND_HOST=$HOMIOS_BIND_HOST
 EOF
 chmod 600 "$ENV_FILE"
 umask 022
 
-cat > /etc/systemd/system/openfinder.service <<EOF
+cat > /etc/systemd/system/homios.service <<EOF
 [Unit]
-Description=OpenFinder Homelab OS
-Documentation=https://github.com/abdlx/OpenFinder
+Description=HomiOS Homelab OS
+Documentation=https://github.com/abdlx/HomiOS
 After=network.target
 
 [Service]
@@ -493,11 +504,11 @@ User=root
 WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
 Environment=PORT=3000
-Environment=HOST=$OPENFINDER_BIND_HOST
+Environment=HOST=$HOMIOS_BIND_HOST
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
-Environment=OPENFINDER_SAMBA_ROOT=/mnt/openfinder-storage
+Environment=HOMIOS_SAMBA_ROOT=/mnt/homios-storage
 EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/npm start
 # Auto-restart on crash with 5s delay
@@ -509,17 +520,17 @@ TimeoutStopSec=20
 # Logging to systemd journal
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=openfinder
+SyslogIdentifier=homios
 
 [Install]
 WantedBy=multi-user.target
 EOF
-chmod 644 /etc/systemd/system/openfinder.service
+chmod 644 /etc/systemd/system/homios.service
 
 systemctl daemon-reload
-systemctl enable openfinder --quiet
-systemctl restart openfinder
-log "OpenFinder Node.js service started."
+systemctl enable homios --quiet
+systemctl restart homios
+log "HomiOS Node.js service started."
 
 # ── 7. Samba — isolated storage only, no root share ──────────
 log "Configuring secured Samba share..."
@@ -528,17 +539,17 @@ log "Configuring secured Samba share..."
 cat > /etc/samba/smb.conf <<EOF
 [global]
    workgroup = WORKGROUP
-   server string = OpenFinder Storage Hub
+   server string = HomiOS Storage Hub
    server role = standalone server
    map to guest = bad user
    log file = /var/log/samba/log.%m
    max log size = 500
    logging = file
 
-[OpenFinder-Storage]
-   comment = OpenFinder Managed Storage
+[HomiOS-Storage]
+   comment = HomiOS Managed Storage
    # Only share the isolated storage dir — NOT the root filesystem
-   path = /mnt/openfinder-storage
+   path = /mnt/homios-storage
    browsable = yes
    writable = yes
    guest ok = yes
@@ -550,7 +561,7 @@ EOF
 
 systemctl enable smbd --quiet
 systemctl restart smbd
-log "Samba configured — sharing /mnt/openfinder-storage only."
+log "Samba configured — sharing /mnt/homios-storage only."
 
 # ── 8. Install & configure code-server ───────────────────────
 log "Installing code-server..."
@@ -598,7 +609,7 @@ if [ "$CODEX_UI_ENABLED" = "true" ]; then
 
   cd "$CODEX_WEB_DIR"
   # The upstream CLI hard-binds 0.0.0.0; patch in an env override so the service
-  # stays loopback-only behind the OpenFinder session proxy.
+  # stays loopback-only behind the HomiOS session proxy.
   if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
     sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
   elif grep -q "CODEXUI_HOST" src/cli/index.ts; then
@@ -615,7 +626,7 @@ if [ "$CODEX_UI_ENABLED" = "true" ]; then
 
   cat > /etc/systemd/system/codex-web.service <<EOF
 [Unit]
-Description=Codex Web UI (OpenFinder internal app)
+Description=Codex Web UI (HomiOS internal app)
 After=network.target
 
 [Service]
@@ -636,7 +647,7 @@ EOF
   systemctl daemon-reload
   systemctl enable codex-web --quiet
   systemctl restart codex-web
-  log "Codex Web UI configured on 127.0.0.1:5900 → /codex (OpenFinder admin session required)."
+  log "Codex Web UI configured on 127.0.0.1:5900 → /codex (HomiOS admin session required)."
 else
   warn "Codex Web UI installation skipped (pass --with-codex-ui to enable it)."
   warn "Existing Codex Web UI installations are not affected."
@@ -646,16 +657,16 @@ fi
 # NOTE: This app uses Next.js SSR (getServerSideProps), so we CANNOT
 # use 'output: export'. Nginx proxies ALL traffic to the Node.js process.
 #
-# Host Nginx is ONLY installed/configured when OPENFINDER_PROXY_MODE=nginx.
+# Host Nginx is ONLY installed/configured when HOMIOS_PROXY_MODE=nginx.
 # In external proxy mode (--existing-coolify), an existing Coolify Traefik/Caddy
 # instance owns ports 80/443 and we must not interfere with it.
-if [ "$OPENFINDER_PROXY_MODE" = "nginx" ]; then
+if [ "$HOMIOS_PROXY_MODE" = "nginx" ]; then
   log "Configuring Nginx reverse proxy..."
-  cat > /etc/nginx/sites-available/openfinder << 'NGINXEOF'
-limit_req_zone $binary_remote_addr zone=openfinder_api:10m rate=10r/s;
-limit_req_zone $binary_remote_addr zone=openfinder_auth:10m rate=30r/m;
-limit_req_zone $binary_remote_addr zone=openfinder_upload:10m rate=2r/s;
-limit_req_zone $binary_remote_addr zone=openfinder_socket:10m rate=30r/m;
+  cat > /etc/nginx/sites-available/homios << 'NGINXEOF'
+limit_req_zone $binary_remote_addr zone=homios_api:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=homios_auth:10m rate=30r/m;
+limit_req_zone $binary_remote_addr zone=homios_upload:10m rate=2r/s;
+limit_req_zone $binary_remote_addr zone=homios_socket:10m rate=30r/m;
 
 server {
     listen 80;
@@ -665,7 +676,7 @@ server {
     limit_req_status 429;
 
     location = /api/auth/login {
-        limit_req zone=openfinder_auth burst=10 nodelay;
+        limit_req zone=homios_auth burst=10 nodelay;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -675,7 +686,7 @@ server {
     }
 
     location /api/upload {
-        limit_req zone=openfinder_upload burst=20 nodelay;
+        limit_req zone=homios_upload burst=20 nodelay;
         client_max_body_size 5g;
         proxy_request_buffering off;
         proxy_pass http://127.0.0.1:3000;
@@ -690,7 +701,7 @@ server {
     }
 
     location /socket.io/ {
-        limit_req zone=openfinder_socket burst=20 nodelay;
+        limit_req zone=homios_socket burst=20 nodelay;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -704,7 +715,7 @@ server {
     }
 
     location /api/ {
-        limit_req zone=openfinder_api burst=60 nodelay;
+        limit_req zone=homios_api burst=60 nodelay;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -746,30 +757,30 @@ NGINXEOF
 
   # Disable the default Nginx site and enable ours
   rm -f /etc/nginx/sites-enabled/default
-  ln -sf /etc/nginx/sites-available/openfinder /etc/nginx/sites-enabled/
+  ln -sf /etc/nginx/sites-available/homios /etc/nginx/sites-enabled/
 
   nginx -t && systemctl restart nginx
   log "Nginx configured — proxying port 80 → Node.js :3000"
 else
-  warn "Host Nginx configuration skipped (OPENFINDER_PROXY_MODE=$OPENFINDER_PROXY_MODE)."
+  warn "Host Nginx configuration skipped (HOMIOS_PROXY_MODE=$HOMIOS_PROXY_MODE)."
   echo ""
-  echo -e "  ${YELLOW}ℹ️  OpenFinder application port: 3000${NC}"
+  echo -e "  ${YELLOW}ℹ️  HomiOS application port: 3000${NC}"
   echo -e "  ${YELLOW}   Host reverse-proxy configuration was skipped because an external proxy is in use.${NC}"
   echo ""
-  echo -e "  ${YELLOW}   To expose OpenFinder through your existing Coolify proxy:${NC}"
-  echo -e "  ${YELLOW}   • Add OpenFinder to a shared Docker network, or use a host-gateway route.${NC}"
+  echo -e "  ${YELLOW}   To expose HomiOS through your existing Coolify proxy:${NC}"
+  echo -e "  ${YELLOW}   • Add HomiOS to a shared Docker network, or use a host-gateway route.${NC}"
   echo -e "  ${YELLOW}   • Do NOT assume 127.0.0.1:3000 is reachable from inside a Docker proxy container.${NC}"
   echo -e "  ${YELLOW}   • Recommended: create a Coolify proxy rule pointing to host-gateway:3000.${NC}"
   echo ""
 fi
 
 # ── 10. Auto-update script ────────────────────────────────────
-cat > /usr/local/bin/openfinder-update <<UPDATEEOF
+cat > /usr/local/bin/homios-update <<UPDATEEOF
 #!/bin/bash
 set -euo pipefail
 
 INSTALL_DIR="$INSTALL_DIR"
-ENV_FILE="\$INSTALL_DIR/data/openfinder.env"
+ENV_FILE="\$INSTALL_DIR/data/homios.env"
 
 read_setting() {
   local key="\$1"
@@ -783,25 +794,25 @@ read_setting() {
 
 # Read persisted state (new keys take precedence)
 COOLIFY_MODE=\$(read_setting COOLIFY_MODE "disabled")
-COOLIFY_OWNED_BY_OPENFINDER=\$(read_setting COOLIFY_OWNED_BY_OPENFINDER "false")
+COOLIFY_OWNED_BY_HOMIOS=\$(read_setting COOLIFY_OWNED_BY_HOMIOS "false")
 COOLIFY_INTEGRATION_ENABLED=\$(read_setting COOLIFY_INTEGRATION_ENABLED "false")
 COOLIFY_APP_PORT=\$(read_setting COOLIFY_APP_PORT "$COOLIFY_APP_PORT")
 COOLIFY_DATA_DIR=\$(read_setting COOLIFY_DATA_DIR "$COOLIFY_DATA_DIR")
-OPENFINDER_PROXY_MODE=\$(read_setting OPENFINDER_PROXY_MODE "nginx")
+HOMIOS_PROXY_MODE=\$(read_setting HOMIOS_PROXY_MODE "nginx")
 CODEX_UI_ENABLED=\$(read_setting CODEX_UI_ENABLED "false")
 IMMICH_ENABLED=\$(read_setting IMMICH_ENABLED "false")
 IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
 IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
 IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
 IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
-OPENFINDER_BIND_HOST=\$(read_setting OPENFINDER_BIND_HOST "")
+HOMIOS_BIND_HOST=\$(read_setting HOMIOS_BIND_HOST "")
 
 # Fallback derivation if not explicitly saved
-if [ -z "\$OPENFINDER_BIND_HOST" ]; then
-  if [ "\$OPENFINDER_PROXY_MODE" = "nginx" ]; then
-    OPENFINDER_BIND_HOST="127.0.0.1"
+if [ -z "\$HOMIOS_BIND_HOST" ]; then
+  if [ "\$HOMIOS_PROXY_MODE" = "nginx" ]; then
+    HOMIOS_BIND_HOST="127.0.0.1"
   else
-    OPENFINDER_BIND_HOST="0.0.0.0"
+    HOMIOS_BIND_HOST="0.0.0.0"
   fi
 fi
 
@@ -810,7 +821,7 @@ if [ "\$COOLIFY_MODE" = "disabled" ]; then
   _legacy=\$(read_setting COOLIFY_ENABLED "")
   if [ "\$_legacy" = "true" ]; then
     COOLIFY_MODE=managed
-    COOLIFY_OWNED_BY_OPENFINDER=false
+    COOLIFY_OWNED_BY_HOMIOS=false
   fi
 fi
 
@@ -826,7 +837,7 @@ while [ "\$#" -gt 0 ]; do
       ;;
     --existing-coolify)
       COOLIFY_MODE=external
-      OPENFINDER_PROXY_MODE=external
+      HOMIOS_PROXY_MODE=external
       _FLAG_EXISTING_COOLIFY=true
       ;;
     --without-coolify)
@@ -837,7 +848,7 @@ while [ "\$#" -gt 0 ]; do
     --without-immich) IMMICH_ENABLED=false ;;
     --with-codex-ui)  CODEX_UI_ENABLED=true ;;
     -h|--help)
-      echo "Usage: sudo openfinder-update [--with-coolify|--existing-coolify|--without-coolify]"
+      echo "Usage: sudo homios-update [--with-coolify|--existing-coolify|--without-coolify]"
       echo "                              [--with-immich|--without-immich] [--with-codex-ui]"
       exit 0
       ;;
@@ -879,21 +890,21 @@ chmod +x "\$INSTALL_DIR/scripts/coolify-up.sh" "\$INSTALL_DIR/scripts/coolify-do
 # --without-coolify does NOT stop Coolify.
 case "\$COOLIFY_MODE" in
   managed)
-    if [ "\$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
+    if [ "\$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
       echo "[update] Updating managed Coolify sidecar..."
-      export COOLIFY_MODE COOLIFY_OWNED_BY_OPENFINDER
+      export COOLIFY_MODE COOLIFY_OWNED_BY_HOMIOS
       COOLIFY_APP_PORT="\$COOLIFY_APP_PORT" COOLIFY_DATA_DIR="\$COOLIFY_DATA_DIR" \
         bash "\$INSTALL_DIR/scripts/coolify-up.sh"
       COOLIFY_INTEGRATION_ENABLED=true
     else
-      echo "[update] WARNING: COOLIFY_MODE=managed but COOLIFY_OWNED_BY_OPENFINDER is not true." >&2
+      echo "[update] WARNING: COOLIFY_MODE=managed but COOLIFY_OWNED_BY_HOMIOS is not true." >&2
       echo "[update] Skipping Coolify lifecycle. Re-run install.sh --with-coolify to take ownership." >&2
       COOLIFY_INTEGRATION_ENABLED=false
     fi
     ;;
   external)
     if detect_running_coolify; then
-      echo "[update] External Coolify confirmed running. OpenFinder will not modify it."
+      echo "[update] External Coolify confirmed running. HomiOS will not modify it."
       COOLIFY_INTEGRATION_ENABLED=true
     else
       echo "[update] WARNING: COOLIFY_MODE=external but Coolify container is not running." >&2
@@ -945,7 +956,7 @@ if [ "\$CODEX_UI_ENABLED" = "true" ]; then
   if [ ! -f /etc/systemd/system/codex-web.service ]; then
     cat > /etc/systemd/system/codex-web.service <<'CODEXUNIT'
 [Unit]
-Description=Codex Web UI (OpenFinder internal app)
+Description=Codex Web UI (HomiOS internal app)
 After=network.target
 
 [Service]
@@ -969,58 +980,68 @@ fi
 # It must never be written into the unit itself — unit files are world-readable
 # and `systemctl show` exposes Environment= to any local user.
 APP_KEY_FILE="$INSTALL_DIR/data/.app_key"
-ENV_FILE="$INSTALL_DIR/data/openfinder.env"
+ENV_FILE="$INSTALL_DIR/data/homios.env"
 if [ -f "\$APP_KEY_FILE" ]; then
   CURRENT_KEY=\$(cat "\$APP_KEY_FILE")
   CURRENT_SAMBA_ALLOWED_ROOTS=""
   if [ -f "\$ENV_FILE" ]; then
-    CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^OPENFINDER_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
+    CURRENT_SAMBA_ALLOWED_ROOTS=\$(sed -n 's/^HOMIOS_SAMBA_ALLOWED_ROOTS=//p' "\$ENV_FILE" | tail -n 1)
   fi
 
   # Derive COOLIFY_ENABLED for backward compat
-  if [ "\$COOLIFY_MODE" = "managed" ] && [ "\$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
+  if [ "\$COOLIFY_MODE" = "managed" ] && [ "\$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
     COOLIFY_ENABLED_DERIVED=true
   else
     COOLIFY_ENABLED_DERIVED=false
   fi
 
   umask 077
-  printf 'APP_KEY=%s\nOPENFINDER_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_OPENFINDER=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nOPENFINDER_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nOPENFINDER_BIND_HOST=%s\n' \
+  printf 'APP_KEY=%s\nHOMIOS_SAMBA_ALLOWED_ROOTS=%s\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_HOMIOS=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nHOMIOS_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nHOMIOS_BIND_HOST=%s\n' \
     "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" \
-    "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_OPENFINDER" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
-    "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$OPENFINDER_PROXY_MODE" "\$CODEX_UI_ENABLED" \
-    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$OPENFINDER_BIND_HOST" \
+    "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_HOMIOS" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
+    "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$HOMIOS_PROXY_MODE" "\$CODEX_UI_ENABLED" \
+    "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$HOMIOS_BIND_HOST" \
     > "\$ENV_FILE"
   chmod 600 "\$ENV_FILE"
   umask 022
   # Scrub any APP_KEY left in the unit by a pre-hardening install.
-  sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/openfinder.service
-  grep -q '^EnvironmentFile=' /etc/systemd/system/openfinder.service || \
-    sed -i "/^Environment=ROOT_DIR=/a EnvironmentFile=\$ENV_FILE" /etc/systemd/system/openfinder.service
+  sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/homios.service
+  grep -q '^EnvironmentFile=' /etc/systemd/system/homios.service || \
+    sed -i "/^Environment=ROOT_DIR=/a EnvironmentFile=\$ENV_FILE" /etc/systemd/system/homios.service
   systemctl daemon-reload
 fi
 
-systemctl restart openfinder
-echo "OpenFinder updated successfully."
+# Stop and disable old openfinder service if it was running
+if systemctl is-active --quiet openfinder 2>/dev/null; then
+  systemctl stop openfinder 2>/dev/null || true
+  systemctl disable openfinder --quiet 2>/dev/null || true
+  rm -f /etc/systemd/system/openfinder.service
+  systemctl daemon-reload
+fi
+
+systemctl enable homios --quiet 2>/dev/null || true
+systemctl restart homios
+echo "HomiOS updated successfully."
 UPDATEEOF
-chmod +x /usr/local/bin/openfinder-update
+chmod +x /usr/local/bin/homios-update
+ln -sf /usr/local/bin/homios-update /usr/local/bin/openfinder-update
 
 # ── Done ──────────────────────────────────────────────────────
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}${BOLD}║   OpenFinder installed successfully! 🎉      ║${NC}"
+echo -e "${GREEN}${BOLD}║   HomiOS installed successfully! 🎉      ║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════╣${NC}"
-if [ "$OPENFINDER_PROXY_MODE" = "nginx" ]; then
+if [ "$HOMIOS_PROXY_MODE" = "nginx" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
-  echo -e "${GREEN}${BOLD}║${NC}  Internal OpenFinder: ${BOLD}127.0.0.1:3000${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  Internal HomiOS: ${BOLD}127.0.0.1:3000${NC}"
 else
   echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP:3000${NC}"
 fi
-if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_OPENFINDER" = "true" ]; then
+if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"
 elif [ "$COOLIFY_MODE" = "external" ]; then
-  echo -e "${GREEN}${BOLD}║${NC}  Coolify:    (external — route OpenFinder through your existing proxy)"
+  echo -e "${GREEN}${BOLD}║${NC}  Coolify:    (external — route HomiOS through your existing proxy)"
 fi
 if [ "$IMMICH_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Immich:     ${BOLD}http://$LOCAL_IP:$IMMICH_APP_PORT${NC}"
@@ -1029,9 +1050,9 @@ echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC
 if [ "$CODEX_UI_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Codex:      ${BOLD}http://$LOCAL_IP/codex/${NC}"
 fi
-echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\OpenFinder-Storage${NC}"
-echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u openfinder -f${NC}"
-echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo openfinder-update${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\HomiOS-Storage${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u homios -f${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo homios-update${NC}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${YELLOW}First boot: Open the dashboard URL to create your admin account.${NC}"

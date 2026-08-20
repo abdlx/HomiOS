@@ -25,7 +25,7 @@ const DOCK_IDS = ['files', 'notes', 'settings'];
 const APPS_PER_PAGE = 16; // 4x4 grid
 
 interface MobileLauncherProps {
-  onOpenFinder: () => void;
+  onHomiOS: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
@@ -160,7 +160,7 @@ function MobileDock({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (
 }
 
 export default function MobileLauncher({
-  onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity,
+  onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity,
   onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex,
   username, wallpaper
 }: MobileLauncherProps) {
@@ -175,14 +175,14 @@ export default function MobileLauncher({
 
   const getOnClick = useCallback((id: string) => {
     const map: Record<string, () => void> = {
-      files: onOpenFinder, finder: onOpenFinder,
+      files: onHomiOS, finder: onHomiOS,
       settings: onOpenSettings, terminal: onOpenTerminal,
       activity: onOpenActivity, coolify: onOpenCoolify, immich: onOpenImmich,
       notes: onOpenNotes,
       vscode: onOpenVSCode, codex: onOpenCodex,
     };
     return map[id] || (() => {});
-  }, [onOpenFinder, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
+  }, [onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
 
   const gridApps = ALL_APPS.filter(a => !DOCK_IDS.includes(a.id));
   const dockApps = ALL_APPS.filter(a => DOCK_IDS.includes(a.id));

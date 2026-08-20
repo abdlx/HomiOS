@@ -1,7 +1,7 @@
 import { withAuth } from '../../../lib/api-auth.ts';
 
 export default withAuth(async (req: any, res: any) => {
-  const sessions: Map<string, any> = (global as any).openfinderTerminalSessions || new Map();
+  const sessions: Map<string, any> = (global as any).homiosTerminalSessions || new Map();
 
   if (req.method === 'GET') {
     return res.json(Array.from(sessions.values()).map((session) => ({

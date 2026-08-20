@@ -2,8 +2,8 @@
  * Reverse proxy for the Codex internal app (codex-web-ui).
  *
  * codex-web-ui runs as a loopback-only service (default 127.0.0.1:5900) with its own
- * password auth disabled (--no-password). OpenFinder fronts it the same way nginx fronts
- * code-server, but through the Node process so every request is gated on the OpenFinder
+ * password auth disabled (--no-password). HomiOS fronts it the same way nginx fronts
+ * code-server, but through the Node process so every request is gated on the HomiOS
  * session cookie instead of being open to anyone who can reach the box:
  *
  *   /codex            → 302 → /codex/
@@ -35,11 +35,11 @@ type OriginCheck = (origin: string | undefined, hostHeader: string | undefined) 
 type Denial = { status: number; message: string } | null;
 
 async function denialFor(req: any, originAllowed: OriginCheck): Promise<Denial> {
-  // Raw cookie validation, deliberately without OpenFinder's CSRF token dance —
+  // Raw cookie validation, deliberately without HomiOS's CSRF token dance —
   // codex-web-ui's frontend knows nothing about it. Cross-site writes are stopped
   // by the SameSite=Lax session cookie plus the Origin check below.
   const session = await validateSessionCookie(req.headers?.cookie);
-  if (!session) return { status: 401, message: 'Sign in to OpenFinder to use Codex' };
+  if (!session) return { status: 401, message: 'Sign in to HomiOS to use Codex' };
   if (!session.isAdmin) return { status: 403, message: 'Codex requires administrator privileges' };
   if (
     isMutatingMethod(req.method) &&
@@ -58,10 +58,10 @@ function deny(req: any, res: any, denial: { status: number; message: string }): 
   if (wantsHtml(req)) {
     res.writeHead(denial.status, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(
-      `<!doctype html><html><head><title>Codex — OpenFinder</title></head>` +
+      `<!doctype html><html><head><title>Codex — HomiOS</title></head>` +
       `<body style="font-family:system-ui;background:#0a0a0a;color:#e5e5e5;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">` +
       `<div style="text-align:center"><h1 style="font-size:1.2rem">${denial.message}</h1>` +
-      `<p><a href="/" style="color:#3b82f6">Open OpenFinder</a></p></div></body></html>`
+      `<p><a href="/" style="color:#3b82f6">Open HomiOS</a></p></div></body></html>`
     );
     return;
   }

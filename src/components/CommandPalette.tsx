@@ -88,7 +88,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
           onClick={onClose}
           role="dialog"
           aria-modal="true"
-          aria-label="Search OpenFinder"
+          aria-label="Search HomiOS"
         >
           <motion.div
             initial={{ opacity: 0, y: 120, scale: 0.35 }}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'openfinder_theme';
+const STORAGE_KEY = 'homios_theme';
 
 function systemPrefersDark(): boolean {
   if (typeof window === 'undefined') return false;

@@ -3,8 +3,8 @@ import path from 'path';
 const linuxPath = path.posix;
 
 type DriveMountEnv = {
-  OPENFINDER_DRIVE_MOUNT_ROOT?: string;
-  OPENFINDER_SAMBA_ROOT?: string;
+  HOMIOS_DRIVE_MOUNT_ROOT?: string;
+  HOMIOS_SAMBA_ROOT?: string;
   ROOT_DIR?: string;
 };
 
@@ -15,22 +15,22 @@ export class DriveMountPathError extends Error {
   }
 }
 
-/** Root used exclusively for drives mounted manually from OpenFinder. */
+/** Root used exclusively for drives mounted manually from HomiOS. */
 export function getDriveMountRoot(
   env: DriveMountEnv = process.env as unknown as DriveMountEnv
 ): string {
   const configured = String(
-    env.OPENFINDER_DRIVE_MOUNT_ROOT || env.OPENFINDER_SAMBA_ROOT || '/mnt/openfinder-storage'
+    env.HOMIOS_DRIVE_MOUNT_ROOT || env.HOMIOS_SAMBA_ROOT || '/mnt/homios-storage'
   ).trim();
   if (!configured || !linuxPath.isAbsolute(configured)) {
-    throw new DriveMountPathError('OPENFINDER_DRIVE_MOUNT_ROOT must be an absolute Linux path');
+    throw new DriveMountPathError('HOMIOS_DRIVE_MOUNT_ROOT must be an absolute Linux path');
   }
 
   const mountRoot = linuxPath.resolve(configured);
   const filesRoot = linuxPath.resolve(String(env.ROOT_DIR || '/'));
   const relativeToFilesRoot = linuxPath.relative(filesRoot, mountRoot);
   if (relativeToFilesRoot.startsWith('..') || linuxPath.isAbsolute(relativeToFilesRoot)) {
-    throw new DriveMountPathError('OPENFINDER_DRIVE_MOUNT_ROOT must be inside ROOT_DIR');
+    throw new DriveMountPathError('HOMIOS_DRIVE_MOUNT_ROOT must be inside ROOT_DIR');
   }
 
   return mountRoot;

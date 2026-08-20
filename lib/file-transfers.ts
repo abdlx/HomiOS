@@ -155,7 +155,7 @@ export async function runFileTransfer(options: TransferOptions) {
   const bytesTotal = files.reduce((total, file) => total + file.size, 0);
   const staging = path.join(
     path.dirname(destination),
-    `.openfinder-transfer-${options.jobId}-${path.basename(destination)}`,
+    `.homios-transfer-${options.jobId}-${path.basename(destination)}`,
   );
   await fsp.rm(staging, { recursive: true, force: true });
   if (isDirectory) await fsp.mkdir(staging, { recursive: true });

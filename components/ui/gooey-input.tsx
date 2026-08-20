@@ -14,7 +14,7 @@ export const GooeyInput = React.forwardRef<HTMLInputElement, GooeyInputProps>(
   ({ className = "", containerClassName = "", trailing, ...props }, ref) => {
     return (
       <motion.div
-        layoutId="openfinder-search-pill"
+        layoutId="homios-search-pill"
         transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.75 }}
         className={`group relative isolate flex h-[64px] w-full items-center overflow-hidden rounded-full border border-white/20 bg-[#17171a]/88 px-5 shadow-[0_24px_90px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-3xl ${containerClassName}`}
       >

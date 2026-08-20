@@ -64,7 +64,7 @@ export default function AdminSetup() {
 
   return (
     <AuthShell
-      title="Set up OpenFinder"
+      title="Set up HomiOS"
       subtitle="Create the administrator account — the only one with full host access."
       footer={<>This account manages files, storage, and system settings.</>}
     >

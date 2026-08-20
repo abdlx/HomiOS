@@ -1,4 +1,4 @@
-package com.openfinder.files
+package com.homios.files
 
 import android.app.Application
 import android.content.res.Configuration

@@ -2,9 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { InstanceConfig } from '@/types';
 
-const INSTANCES_KEY = 'openfinder.instances.v1';
-const ACTIVE_INSTANCE_KEY = 'openfinder.activeInstance.v1';
-const tokenKey = (id: string) => `openfinder.token.${id}`;
+const INSTANCES_KEY = 'homios.instances.v1';
+const ACTIVE_INSTANCE_KEY = 'homios.activeInstance.v1';
+const tokenKey = (id: string) => `homios.token.${id}`;
 
 export async function loadInstances() {
   const raw = await AsyncStorage.getItem(INSTANCES_KEY);

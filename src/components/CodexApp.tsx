@@ -12,7 +12,7 @@ export default function CodexApp({ onClose, isActive = true }: CodexAppProps) {
   const [status, setStatus] = useState<CodexStatus>('checking');
   const [checkKey, setCheckKey] = useState(0);
 
-  // Served by the OpenFinder server itself: session-gated proxy to codex-web-ui.
+  // Served by the HomiOS server itself: session-gated proxy to codex-web-ui.
   const codexUrl = useMemo(() => {
     if (typeof window === 'undefined') return '/codex/';
     return `${window.location.origin}/codex/`;
@@ -93,7 +93,7 @@ export default function CodexApp({ onClose, isActive = true }: CodexAppProps) {
               <h3 className="text-lg font-semibold mb-2">Administrator access required.</h3>
               <p className="text-sm text-white/55 mb-5">
                 Codex can run commands on this server, so it is only available to
-                OpenFinder administrator accounts.
+                HomiOS administrator accounts.
               </p>
               <button
                 onClick={() => setCheckKey((key) => key + 1)}
@@ -113,8 +113,8 @@ export default function CodexApp({ onClose, isActive = true }: CodexAppProps) {
               </div>
               <h3 className="text-lg font-semibold mb-2">Codex is starting or not installed.</h3>
               <p className="text-sm text-white/55 mb-5">
-                OpenFinder will load Codex here once the `codex-web` service is running.
-                It is installed by the OpenFinder installer; on the server check:<br />
+                HomiOS will load Codex here once the `codex-web` service is running.
+                It is installed by the HomiOS installer; on the server check:<br />
                 <code className="bg-black/30 p-1 rounded mt-2 block text-xs">sudo systemctl status codex-web</code>
               </p>
               <div className="flex items-center justify-center gap-3">

@@ -16,15 +16,15 @@
 # This ensures that running this script from an unconfigured shell is
 # always a hard failure rather than a silent proceed.
 if [ "${COOLIFY_MODE:-disabled}" != "managed" ] || \
-   [ "${COOLIFY_OWNED_BY_OPENFINDER:-false}" != "true" ]; then
+   [ "${COOLIFY_OWNED_BY_HOMIOS:-false}" != "true" ]; then
   echo "[coolify] ERROR: Coolify lifecycle operations require:" >&2
   echo "[coolify]   COOLIFY_MODE=managed (got: '${COOLIFY_MODE:-disabled}')" >&2
-  echo "[coolify]   COOLIFY_OWNED_BY_OPENFINDER=true (got: '${COOLIFY_OWNED_BY_OPENFINDER:-false}')" >&2
+  echo "[coolify]   COOLIFY_OWNED_BY_HOMIOS=true (got: '${COOLIFY_OWNED_BY_HOMIOS:-false}')" >&2
   echo "[coolify] Both conditions must be true before any Coolify operation runs." >&2
   exit 1
 fi
 
 echo "[coolify] coolify-install.sh is a stub and is not the active install path." >&2
 echo "[coolify] To install/start Coolify, use: bash scripts/coolify-up.sh" >&2
-echo "[coolify] (with COOLIFY_MODE=managed and COOLIFY_OWNED_BY_OPENFINDER=true set)" >&2
+echo "[coolify] (with COOLIFY_MODE=managed and COOLIFY_OWNED_BY_HOMIOS=true set)" >&2
 exit 1

@@ -37,7 +37,7 @@ export default function TransferActivityPanel() {
   const panelRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setCollapsed(localStorage.getItem('openfinder_transfer_panel_collapsed') === 'true');
+    setCollapsed(localStorage.getItem('homios_transfer_panel_collapsed') === 'true');
   }, []);
 
   // This panel and Finder's local upload panel live in different component
@@ -47,19 +47,19 @@ export default function TransferActivityPanel() {
     const root = document.documentElement;
     const panel = panelRef.current;
     if (!panel) {
-      root.style.removeProperty('--openfinder-activity-panel-offset');
+      root.style.removeProperty('--homios-activity-panel-offset');
       return;
     }
 
     const publishOffset = () => {
-      root.style.setProperty('--openfinder-activity-panel-offset', `${Math.ceil(panel.getBoundingClientRect().height) + 12}px`);
+      root.style.setProperty('--homios-activity-panel-offset', `${Math.ceil(panel.getBoundingClientRect().height) + 12}px`);
     };
     publishOffset();
     const observer = new ResizeObserver(publishOffset);
     observer.observe(panel);
     return () => {
       observer.disconnect();
-      root.style.removeProperty('--openfinder-activity-panel-offset');
+      root.style.removeProperty('--homios-activity-panel-offset');
     };
   }, [transferJobs.length, error]);
 
@@ -76,7 +76,7 @@ export default function TransferActivityPanel() {
 
   const toggleCollapsed = () => {
     setCollapsed((current) => {
-      localStorage.setItem('openfinder_transfer_panel_collapsed', String(!current));
+      localStorage.setItem('homios_transfer_panel_collapsed', String(!current));
       return !current;
     });
   };

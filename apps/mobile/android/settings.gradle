@@ -44,7 +44,7 @@ if (getRNMinorVersion() >= 75) {
   }
 }
 
-rootProject.name = 'OpenFinder Files'
+rootProject.name = 'HomiOS Files'
 
 dependencyResolutionManagement {
   versionCatalogs {

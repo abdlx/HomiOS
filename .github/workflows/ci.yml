@@ -43,7 +43,7 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          OPENFINDER_DISABLE_PWA: 'true'
+          HOMIOS_DISABLE_PWA: 'true'
 
   audit:
     runs-on: ubuntu-latest

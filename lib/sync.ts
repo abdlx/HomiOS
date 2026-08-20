@@ -2,7 +2,7 @@
  * Drive-to-drive backup sync.
  *
  * A sync plan fans several source drives out to several destination drives:
- * every source is mirrored into `<destination>/OpenFinder-Backups/<slug>`.
+ * every source is mirrored into `<destination>/HomiOS-Backups/<slug>`.
  * Runs happen through the job queue (type `sync.run`, resource class `backup`),
  * so they are asynchronous, concurrency-limited and visible in Activity.
  *
@@ -16,7 +16,7 @@ import { createHash, randomUUID } from 'crypto';
 import { getDb, withTransaction } from './db.ts';
 
 /** Everything this feature writes lives under this folder on the destination. */
-export const SYNC_FOLDER = 'OpenFinder-Backups';
+export const SYNC_FOLDER = 'HomiOS-Backups';
 
 export type SyncSchedule = 'manual' | 'hourly' | 'six_hourly' | 'daily' | 'weekly';
 

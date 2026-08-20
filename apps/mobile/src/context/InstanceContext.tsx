@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { OpenFinderClient, normalizeBaseUrl } from '@/api/OpenFinderClient';
-import { InstanceConfig, OpenFinderMe } from '@/types';
+import { HomiOSClient, normalizeBaseUrl } from '@/api/HomiOSClient';
+import { InstanceConfig, HomiOSMe } from '@/types';
 import {
   createInstance,
   getActiveInstanceId,
@@ -16,9 +16,9 @@ type InstanceContextValue = {
   instances: InstanceConfig[];
   activeInstance: InstanceConfig | null;
   activeToken: string | null;
-  client: OpenFinderClient | null;
+  client: HomiOSClient | null;
   loading: boolean;
-  addInstance(input: { name: string; baseUrl: string; token: string }): Promise<OpenFinderMe>;
+  addInstance(input: { name: string; baseUrl: string; token: string }): Promise<HomiOSMe>;
   removeInstance(id: string): Promise<void>;
   switchInstance(id: string): Promise<void>;
   updateLastPath(path: string): Promise<void>;
@@ -40,7 +40,7 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
 
   const client = useMemo(() => {
     if (!activeInstance || !activeToken) return null;
-    return new OpenFinderClient(activeInstance.baseUrl, activeToken);
+    return new HomiOSClient(activeInstance.baseUrl, activeToken);
   }, [activeInstance, activeToken]);
 
   const refresh = useCallback(async () => {
@@ -69,7 +69,7 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
 
   const addInstance = useCallback(async (input: { name: string; baseUrl: string; token: string }) => {
     const baseUrl = normalizeBaseUrl(input.baseUrl);
-    const temporaryClient = new OpenFinderClient(baseUrl, input.token);
+    const temporaryClient = new HomiOSClient(baseUrl, input.token);
     const me = await temporaryClient.validate();
     const instance = createInstance({
       name: input.name || `${me.server.name} (${me.user.email})`,

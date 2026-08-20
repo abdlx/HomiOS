@@ -6,7 +6,7 @@ export function useUsername() {
   const [username, setUsername] = useState(DEFAULT_USERNAME);
 
   useEffect(() => {
-    const saved = localStorage.getItem('openfinder_username');
+    const saved = localStorage.getItem('homios_username');
     if (saved) {
       setUsername(saved);
     }
@@ -14,7 +14,7 @@ export function useUsername() {
 
   const changeUsername = (name: string) => {
     setUsername(name);
-    localStorage.setItem('openfinder_username', name);
+    localStorage.setItem('homios_username', name);
     window.dispatchEvent(new CustomEvent('usernameChanged', { detail: name }));
   };
 

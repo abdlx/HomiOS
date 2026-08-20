@@ -3,7 +3,7 @@
 @import "tailwindcss";
 
 @import "./utilities.css";
-@import "./openfinder-theme.css";
+@import "./homios-theme.css";
 
 @plugin 'tailwind-scrollbar';
 @plugin '@tailwindcss/typography';

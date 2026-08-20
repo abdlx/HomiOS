@@ -6,7 +6,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const disablePWA =
   process.env.NODE_ENV === "development" ||
-  process.env.OPENFINDER_DISABLE_PWA === "true" ||
+  process.env.HOMIOS_DISABLE_PWA === "true" ||
   process.platform === "win32";
 
 const withPWA = withPWAInit({

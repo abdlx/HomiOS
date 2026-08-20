@@ -25,14 +25,14 @@ beforeAll(async () => {
 
   // The admin — as /api/auth/setup would create them.
   adminId = withTransaction((tx) =>
-    createUserWithPasswordHash(tx, 'admin@openfinder.test', '' , { isAdmin: true })
+    createUserWithPasswordHash(tx, 'admin@homios.test', '' , { isAdmin: true })
   );
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .run(await hashPassword('correct-horse-battery'), adminId);
 
   // An invited member — as /api/auth/register would create them.
   memberId = withTransaction((tx) =>
-    createUserWithPasswordHash(tx, 'member@openfinder.test', '', { isAdmin: false })
+    createUserWithPasswordHash(tx, 'member@homios.test', '', { isAdmin: false })
   );
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .run(await hashPassword('correct-horse-battery'), memberId);
@@ -131,7 +131,7 @@ describe('C3 — rate limiting', () => {
     for (let i = 0; i < 10; i++) {
       const res = mockRes();
       await loginHandler(
-        mockReq({ method: 'POST', body: { email: 'member@openfinder.test', password: 'wrong' } }),
+        mockReq({ method: 'POST', body: { email: 'member@homios.test', password: 'wrong' } }),
         res
       );
       expect(res.statusCode).toBe(401);
@@ -141,7 +141,7 @@ describe('C3 — rate limiting', () => {
     // which is what makes the 6-digit TOTP space non-brute-forceable.
     const res = mockRes();
     await loginHandler(
-      mockReq({ method: 'POST', body: { email: 'member@openfinder.test', password: 'correct-horse-battery' } }),
+      mockReq({ method: 'POST', body: { email: 'member@homios.test', password: 'correct-horse-battery' } }),
       res
     );
     expect(res.statusCode).toBe(429);
@@ -152,7 +152,7 @@ describe('login', () => {
   it('accepts valid credentials and sets session + csrf cookies', async () => {
     const res = mockRes();
     await loginHandler(
-      mockReq({ method: 'POST', body: { email: 'admin@openfinder.test', password: 'correct-horse-battery' } }),
+      mockReq({ method: 'POST', body: { email: 'admin@homios.test', password: 'correct-horse-battery' } }),
       res
     );
 
@@ -160,13 +160,13 @@ describe('login', () => {
     expect(res.body).toEqual({ ok: true });
     const cookies = res.headers['set-cookie'] as string[];
     expect(cookies.some((c) => c.startsWith('session=') && c.includes('HttpOnly'))).toBe(true);
-    expect(cookies.some((c) => c.startsWith('openfinder_csrf='))).toBe(true);
+    expect(cookies.some((c) => c.startsWith('homios_csrf='))).toBe(true);
   });
 
   it('rejects a wrong password', async () => {
     const res = mockRes();
     await loginHandler(
-      mockReq({ method: 'POST', body: { email: 'admin@openfinder.test', password: 'nope' } }),
+      mockReq({ method: 'POST', body: { email: 'admin@homios.test', password: 'nope' } }),
       res
     );
     expect(res.statusCode).toBe(401);
@@ -176,12 +176,12 @@ describe('login', () => {
   it('does not leak whether an account exists', async () => {
     const unknown = mockRes();
     await loginHandler(
-      mockReq({ method: 'POST', body: { email: 'ghost@openfinder.test', password: 'nope' } }),
+      mockReq({ method: 'POST', body: { email: 'ghost@homios.test', password: 'nope' } }),
       unknown
     );
     const known = mockRes();
     await loginHandler(
-      mockReq({ method: 'POST', body: { email: 'admin@openfinder.test', password: 'nope' } }),
+      mockReq({ method: 'POST', body: { email: 'admin@homios.test', password: 'nope' } }),
       known
     );
 
@@ -216,7 +216,7 @@ describe('M3 — CSRF fails closed', () => {
 
   it('rejects a mutating request whose CSRF header is missing', () => {
     const req = mockReq({ method: 'POST', sessionId: adminSession });
-    delete req.headers['x-openfinder-csrf'];
+    delete req.headers['x-homios-csrf'];
     expect(validateCsrf(req, adminSession)).toBe(false);
   });
 

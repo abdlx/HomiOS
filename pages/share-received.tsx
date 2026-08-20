@@ -138,7 +138,7 @@ export default function ShareReceived({ username }: { username: string }) {
     return (
       <>
         <Head>
-          <title>Saved to Files — OpenFinder</title>
+          <title>Saved to Files — HomiOS</title>
           <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         </Head>
         <div className="min-h-screen bg-[#f2f2f7] flex items-center justify-center p-4">
@@ -174,7 +174,7 @@ export default function ShareReceived({ username }: { username: string }) {
   return (
     <>
       <Head>
-        <title>Save to OpenFinder — {payload.items[0]?.name || 'Shared Item'}</title>
+        <title>Save to HomiOS — {payload.items[0]?.name || 'Shared Item'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#000000" />
       </Head>
@@ -189,7 +189,7 @@ export default function ShareReceived({ username }: { username: string }) {
               <ArrowLeft size={18} className="text-[#007aff]" />
             </button>
             <div>
-              <h1 className="text-[17px] font-semibold text-black">Save to OpenFinder</h1>
+              <h1 className="text-[17px] font-semibold text-black">Save to HomiOS</h1>
               <p className="text-[12px] text-[#8e8e93]">Choose a destination</p>
             </div>
           </div>

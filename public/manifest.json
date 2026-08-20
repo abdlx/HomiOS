@@ -1,6 +1,6 @@
 {
-  "name": "OpenFinder",
-  "short_name": "OpenFinder",
+  "name": "HomiOS",
+  "short_name": "HomiOS",
   "description": "A premium self-hosted file manager and OS environment",
   "start_url": "/dashboard?pwa=home",
   "id": "/dashboard",
@@ -31,7 +31,7 @@
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "OpenFinder Home"
+      "label": "HomiOS Home"
     }
   ],
   "shortcuts": [

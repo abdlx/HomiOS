@@ -81,7 +81,7 @@ export default function App({ onClose }: AppProps = {}) {
   }, [currentPath]);
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('openfinder:transfers', { detail: transfers }));
+    window.dispatchEvent(new CustomEvent('homios:transfers', { detail: transfers }));
   }, [transfers]);
 
   const getApiPath = () => {
@@ -360,7 +360,7 @@ export default function App({ onClose }: AppProps = {}) {
         xhr.withCredentials = true;
         xhr.open('POST', `/api/files?path=${encodeURIComponent(uploadPath)}`, true);
         const csrf = getCsrfToken() || csrfToken;
-        if (csrf) xhr.setRequestHeader('X-OpenFinder-CSRF', csrf);
+        if (csrf) xhr.setRequestHeader('X-HomiOS-CSRF', csrf);
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             const pct = Math.round((event.loaded / event.total) * 100);
@@ -405,7 +405,7 @@ export default function App({ onClose }: AppProps = {}) {
           removeFingerprintOnSuccess: true,
           chunkSize: TUS_CHUNK_BYTES,
           metadata: { filename: file.name, filetype: file.type },
-          headers: { 'x-target-path': uploadPath.replace(/^\/+/, ''), 'X-OpenFinder-CSRF': getCsrfToken() || csrfToken },
+          headers: { 'x-target-path': uploadPath.replace(/^\/+/, ''), 'X-HomiOS-CSRF': getCsrfToken() || csrfToken },
           onProgress(bytesUploaded: number, bytesTotal: number) {
             const pct = Math.round((bytesUploaded / bytesTotal) * 100);
             updateTransferThrottled(taskId, { progress: pct, bytesUploaded, bytesTotal });

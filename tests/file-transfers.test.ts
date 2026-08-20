@@ -7,7 +7,7 @@ import { runFileTransfer, TransferCancelledError } from '../lib/file-transfers.t
 let root: string;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'openfinder-transfer-'));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'homios-transfer-'));
 });
 
 afterEach(() => {
@@ -62,6 +62,6 @@ describe('server-owned file transfers', () => {
       shouldCancel: () => true,
     })).rejects.toBeInstanceOf(TransferCancelledError);
     expect(fs.existsSync(path.join(root, 'destination'))).toBe(false);
-    expect(fs.readdirSync(root).some((name) => name.startsWith('.openfinder-transfer-'))).toBe(false);
+    expect(fs.readdirSync(root).some((name) => name.startsWith('.homios-transfer-'))).toBe(false);
   });
 });

@@ -165,7 +165,7 @@ export function BrowserScreen({ navigation }: any) {
   };
 
   if (!client || !activeInstance) {
-    return <EmptyState title="No instance selected" message="Add an OpenFinder instance to start browsing." />;
+    return <EmptyState title="No instance selected" message="Add an HomiOS instance to start browsing." />;
   }
 
   return (

@@ -152,7 +152,7 @@ export async function runBackup(input: {
       db.prepare('UPDATE backup_runs SET bytes_copied = ? WHERE id = ?').run(copied, runId);
       await uploadBackupToS3(destination, zipPath, `${runId}.zip`);
       db.prepare('INSERT INTO backup_items (run_id, source_path, backup_path, size) VALUES (?, ?, ?, ?)')
-        .run(runId, sourcePath, `s3:${destination}:openfinder-backups/${runId}.zip`, zipStat.size);
+        .run(runId, sourcePath, `s3:${destination}:homios-backups/${runId}.zip`, zipStat.size);
     }
 
     db.prepare("UPDATE backup_runs SET status = 'completed', finished_at = CURRENT_TIMESTAMP WHERE id = ?").run(runId);

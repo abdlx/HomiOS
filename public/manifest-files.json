@@ -1,5 +1,5 @@
 {
-  "name": "OpenFinder Files",
+  "name": "HomiOS Files",
   "short_name": "Files",
   "description": "Manage your files from anywhere",
   "start_url": "/files?pwa=files",
@@ -31,7 +31,7 @@
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "OpenFinder Files App"
+      "label": "HomiOS Files App"
     }
   ],
   "share_target": {

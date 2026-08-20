@@ -3,7 +3,7 @@ import { getSession } from '../../../lib/auth';
 import fs from 'fs';
 import path from 'path';
 
-const dataDir = () => process.env.OPENFINDER_DATA_DIR || path.join(process.cwd(), 'data');
+const dataDir = () => process.env.HOMIOS_DATA_DIR || path.join(process.cwd(), 'data');
 
 /**
  * POST /api/share-target/save

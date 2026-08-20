@@ -411,7 +411,7 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
               <div className="bg-white dark:bg-[#1f1f22] border border-neutral-200/50 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-5 py-4 border-b border-neutral-200/50 dark:border-white/10">
                   <h3 className="font-semibold text-slate-800 dark:text-white">Terminal Sessions</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">OpenFinder-controlled terminal shells</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">HomiOS-controlled terminal shells</p>
                 </div>
                 <div className="divide-y divide-neutral-100 dark:divide-white/10">
                   {terminalSessions.map((session) => (

@@ -231,12 +231,12 @@ export default function FileArea({
   const handleFileDragStart = (e: React.DragEvent, file: FileItem) => {
     setDraggingFileId(file.id);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/openfinder-file-id', file.id);
+    e.dataTransfer.setData('application/homios-file-id', file.id);
   };
 
   const handleFolderDragOver = (e: React.DragEvent, folder: FileItem) => {
     if (folder.type !== 'folder') return;
-    const draggedId = draggingFileId || e.dataTransfer.getData('application/openfinder-file-id');
+    const draggedId = draggingFileId || e.dataTransfer.getData('application/homios-file-id');
     if (!draggedId || draggedId === folder.id) return;
     e.preventDefault();
     e.stopPropagation();
@@ -246,7 +246,7 @@ export default function FileArea({
 
   const handleFolderDrop = (e: React.DragEvent, folder: FileItem) => {
     if (folder.type !== 'folder') return;
-    const draggedId = draggingFileId || e.dataTransfer.getData('application/openfinder-file-id');
+    const draggedId = draggingFileId || e.dataTransfer.getData('application/homios-file-id');
     const draggedFile = files.find((item) => item.id === draggedId);
     if (!draggedFile || draggedFile.id === folder.id) return;
     e.preventDefault();

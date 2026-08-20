@@ -1,4 +1,4 @@
-package com.openfinder.files
+package com.homios.files
 
 import android.os.Build
 import android.os.Bundle

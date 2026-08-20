@@ -1,5 +1,5 @@
 /**
- * The single shared SQLite connection and schema for OpenFinder.
+ * The single shared SQLite connection and schema for HomiOS.
  *
  * Backed by node:sqlite (built into Node since 22.13). Everything lives in one
  * WAL-mode connection with the full schema bootstrapped up front: auth,
@@ -391,7 +391,7 @@ export function getDb(): any {
   ensureColumn('shares', 'expires_at', 'DATETIME');
   ensureColumn('share_users', 'access', "TEXT DEFAULT 'write'");
   ensureColumn('api_tokens', 'expires_at', 'DATETIME');
-  // Durable queue metadata. These are additive migrations so existing OpenFinder
+  // Durable queue metadata. These are additive migrations so existing HomiOS
   // installations keep their job history while gaining scheduling and recovery.
   ensureColumn('jobs', 'run_at', 'DATETIME');
   ensureColumn('jobs', 'updated_at', 'DATETIME');

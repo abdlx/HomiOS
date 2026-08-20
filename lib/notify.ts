@@ -110,7 +110,7 @@ async function sendPushover(cfg: any, title: string, message: string) {
 async function sendWebhook(cfg: any, event: string, title: string, message: string) {
   if (!cfg.url) return;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (cfg.secret) headers['X-OpenFinder-Secret'] = cfg.secret;
+  if (cfg.secret) headers['X-HomiOS-Secret'] = cfg.secret;
   await fetch(cfg.url, {
     method: 'POST', headers,
     body: JSON.stringify({ event, title, message, timestamp: new Date().toISOString() }),
@@ -129,7 +129,7 @@ async function sendEmail(cfg: any, title: string, message: string) {
   await transport.sendMail({
     from: cfg.from || cfg.smtpUser,
     to: cfg.to,
-    subject: `[OpenFinder] ${title}`,
+    subject: `[HomiOS] ${title}`,
     text: message,
   });
 }

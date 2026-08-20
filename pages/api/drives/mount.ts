@@ -116,7 +116,7 @@ export default withAuth(async function handler(req: any, res: any) {
     }
     if (msg.includes('permission denied') || msg.includes('not permitted')) {
       return res.status(500).json({
-        error: 'Permission denied. Ensure OpenFinder is running as root (check systemd service User=root).',
+        error: 'Permission denied. Ensure HomiOS is running as root (check systemd service User=root).',
       });
     }
     if (msg.includes('Cannot allocate memory')) {

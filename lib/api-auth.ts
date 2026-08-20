@@ -113,6 +113,6 @@ export function clearSessionCookie(): string {
 export function clearAuthCookies(): string[] {
   return [
     clearSessionCookie(),
-    'openfinder_csrf=; Path=/; SameSite=Lax; Max-Age=0',
+    'homios_csrf=; Path=/; SameSite=Lax; Max-Age=0',
   ];
 }

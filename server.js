@@ -19,7 +19,7 @@ const MAX_JSON_BODY_BYTES = Number(process.env.MAX_JSON_BODY_BYTES || 1024 * 102
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 25 * 1024 * 1024 * 1024); // 25 GiB
 
 /** Origins allowed to open a websocket / send cross-origin requests. */
-const ALLOWED_ORIGINS = String(process.env.OPENFINDER_ALLOWED_ORIGINS || '')
+const ALLOWED_ORIGINS = String(process.env.HOMIOS_ALLOWED_ORIGINS || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -69,7 +69,7 @@ app.prepare().then(async () => {
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
 
-    // Proxied Codex responses keep their own policies: OpenFinder's CSP would break the
+    // Proxied Codex responses keep their own policies: HomiOS's CSP would break the
     // Vue bundle, and its Permissions-Policy would block Codex dictation (microphone).
     // The JSON cap is skipped too — codex-web-ui enforces its own body limits.
     if (isCodexPath(req.path)) {
@@ -224,7 +224,7 @@ app.prepare().then(async () => {
           await moveUploadIntoPlace(upload, dest);
         } catch (e) {
           console.error('TUS move error:', e);
-          throw { status_code: 500, body: 'Upload finished, but OpenFinder could not place the file in the target folder' };
+          throw { status_code: 500, body: 'Upload finished, but HomiOS could not place the file in the target folder' };
         }
         return {};
       },
@@ -262,7 +262,7 @@ app.prepare().then(async () => {
 
     io = new SocketIOServer(httpServer, {
       // Without an explicit origin check a hostile page can open a websocket to a
-      // logged-in user's OpenFinder and drive their terminal (cross-site hijacking).
+      // logged-in user's HomiOS and drive their terminal (cross-site hijacking).
       allowRequest: (req, callback) => {
         const ok = originAllowed(req.headers.origin, req.headers['x-forwarded-host'] || req.headers.host);
         callback(null, ok);
@@ -271,7 +271,7 @@ app.prepare().then(async () => {
     });
 
     let activeTerminalSessions = 0;
-    global.openfinderTerminalSessions = global.openfinderTerminalSessions || new Map();
+    global.homiosTerminalSessions = global.homiosTerminalSessions || new Map();
 
     io.on('connection', async (socket) => {
       const hit = hitRateLimit(`socket:${socket.handshake.address}`, { windowMs: 60_000, max: 30 });
@@ -336,7 +336,7 @@ app.prepare().then(async () => {
           },
         });
         activeTerminalSessions += 1;
-        global.openfinderTerminalSessions.set(socket.id, {
+        global.homiosTerminalSessions.set(socket.id, {
           id: socket.id,
           shell,
           userId: session.userId,
@@ -349,7 +349,7 @@ app.prepare().then(async () => {
         ptyProcess.on('data', (data) => socket.emit('output', data));
         ptyProcess.on('exit', () => {
           socket.emit('output', '\r\n[process exited; reconnect to start a new shell]\r\n');
-          global.openfinderTerminalSessions.delete(socket.id);
+          global.homiosTerminalSessions.delete(socket.id);
           releasePty();
         });
         refreshIdleTimer();
@@ -377,7 +377,7 @@ app.prepare().then(async () => {
       });
       socket.on('disconnect', () => {
         if (ptyProcess) { try { ptyProcess.kill(); } catch (e) {} }
-        global.openfinderTerminalSessions.delete(socket.id);
+        global.homiosTerminalSessions.delete(socket.id);
         clearIdleTimer();
       });
     });
@@ -399,17 +399,17 @@ app.prepare().then(async () => {
     runStartupIntegrityChecks();
     checkpointTimer = setInterval(() => {
       try { checkpointWal(); } catch (e) { console.warn('[db] WAL checkpoint failed:', e); }
-    }, Number(process.env.OPENFINDER_WAL_CHECKPOINT_MS || 5 * 60 * 1000));
+    }, Number(process.env.HOMIOS_WAL_CHECKPOINT_MS || 5 * 60 * 1000));
 
     const { startJobWorker } = await import('./lib/jobs.ts');
     startJobWorker();
-    console.log('OpenFinder job worker started');
+    console.log('HomiOS job worker started');
 
     const { startSyncScheduler } = await import('./lib/sync.ts');
     startSyncScheduler();
-    console.log('OpenFinder backup sync scheduler started');
+    console.log('HomiOS backup sync scheduler started');
   } catch (e) {
-    console.warn('OpenFinder job worker failed to start:', e);
+    console.warn('HomiOS job worker failed to start:', e);
   }
 
   httpServer.listen(PORT, HOST, (err) => {
@@ -442,7 +442,7 @@ app.prepare().then(async () => {
       if (!drain.drained) console.warn(`[shutdown] ${drain.running} job(s) will recover on next start`);
     } catch {}
 
-    for (const term of global.openfinderTerminalSessions?.values() || []) {
+    for (const term of global.homiosTerminalSessions?.values() || []) {
       try { term.kill(); } catch {}
     }
     if (io) { try { io.close(); } catch {} }

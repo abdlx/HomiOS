@@ -8,7 +8,7 @@ export default withAuth(async (req, res, session) => {
 
   return res.status(200).json({
     server: {
-      name: 'OpenFinder',
+      name: 'HomiOS',
       version: process.env.npm_package_version || '0.0.0',
     },
     user: {

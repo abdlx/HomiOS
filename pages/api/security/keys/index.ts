@@ -39,7 +39,7 @@ export default withAuth(async (req, res, session) => {
         Buffer.from([0, 0, 0, 11]), Buffer.from('ssh-ed25519'),
         Buffer.from([0, 0, 0, 32]), keyBytes,
       ]);
-      publicKey = `ssh-ed25519 ${sshBlob.toString('base64')} openfinder`;
+      publicKey = `ssh-ed25519 ${sshBlob.toString('base64')} homios`;
     }
     if (!material || !String(material).includes('PRIVATE KEY')) {
       return res.status(400).json({ error: 'privateKey must be a PEM private key (or pass generate: true)' });

@@ -49,16 +49,16 @@ type ReqInit = {
 export function mockReq(init: ReqInit = {}): any {
   const method = init.method || 'GET';
   const headers: Record<string, string> = {
-    host: 'openfinder.test',
+    host: 'homios.test',
     ...(init.headers || {}),
   };
 
-  if (init.origin !== null) headers.origin = init.origin || 'http://openfinder.test';
+  if (init.origin !== null) headers.origin = init.origin || 'http://homios.test';
 
   if (init.sessionId) {
     const csrf = csrfTokenForSession(init.sessionId);
-    headers.cookie = `session=${init.sessionId}; openfinder_csrf=${csrf}`;
-    headers['x-openfinder-csrf'] = csrf;
+    headers.cookie = `session=${init.sessionId}; homios_csrf=${csrf}`;
+    headers['x-homios-csrf'] = csrf;
   }
   if (init.bearer) headers.authorization = `Bearer ${init.bearer}`;
 

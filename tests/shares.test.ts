@@ -8,7 +8,7 @@ import sharesHandler from '../pages/api/shares/index.ts';
 import { resolveWithinRoot } from '../lib/safe-paths.ts';
 import { mockReq, mockRes } from './helpers.ts';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openfinder-samba-'));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'homios-samba-'));
 const sambaRoot = path.join(root, 'storage');
 const additionalRoot = path.join(root, 'additional-shares');
 const confPath = path.join(root, 'smb.conf');
@@ -20,14 +20,14 @@ let sambaUserId: number;
 beforeAll(() => {
   fs.mkdirSync(sambaRoot, { recursive: true });
   fs.mkdirSync(additionalRoot, { recursive: true });
-  process.env.OPENFINDER_SAMBA_ROOT = sambaRoot;
-  process.env.OPENFINDER_SAMBA_ALLOWED_ROOTS = additionalRoot;
+  process.env.HOMIOS_SAMBA_ROOT = sambaRoot;
+  process.env.HOMIOS_SAMBA_ALLOWED_ROOTS = additionalRoot;
   process.env.SAMBA_CONF_PATH = confPath;
   process.env.SAMBA_TESTPARM_BIN = okCommand;
   process.env.SAMBA_CONTROL_BIN = okCommand;
   process.env.SAMBA_SYSTEMCTL_BIN = okCommand;
   process.env.SAMBA_PKILL_BIN = okCommand;
-  const userId = withTransaction((db) => createUserWithPasswordHash(db, 'shares@openfinder.test', 'x', { isAdmin: true }));
+  const userId = withTransaction((db) => createUserWithPasswordHash(db, 'shares@homios.test', 'x', { isAdmin: true }));
   sessionId = createSession(userId);
   sambaUserId = Number(getDb().prepare("INSERT INTO samba_users (username, enabled) VALUES ('sharetest', 1)").run().lastInsertRowid);
 });
@@ -49,8 +49,8 @@ async function post(body: any) {
 
 describe('/api/shares', () => {
   it.skipIf(process.platform === 'win32')('allows folders in standard host data locations', () => {
-    expect(resolveWithinRoot('/home/openfinder-share-test')).toBe('/home/openfinder-share-test');
-    expect(resolveWithinRoot('/srv/openfinder-share-test')).toBe('/srv/openfinder-share-test');
+    expect(resolveWithinRoot('/home/homios-share-test')).toBe('/home/homios-share-test');
+    expect(resolveWithinRoot('/srv/homios-share-test')).toBe('/srv/homios-share-test');
   });
 
   it('creates a Samba share, validates the config, and installs it', async () => {

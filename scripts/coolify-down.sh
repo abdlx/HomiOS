@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-#  scripts/coolify-down.sh — Stop the OpenFinder-managed Coolify sidecar
+#  scripts/coolify-down.sh — Stop the HomiOS-managed Coolify sidecar
 #
 #  FAIL-CLOSED: This script refuses to execute unless:
-#    COOLIFY_MODE=managed  AND  COOLIFY_OWNED_BY_OPENFINDER=true
+#    COOLIFY_MODE=managed  AND  COOLIFY_OWNED_BY_HOMIOS=true
 #
 #  It will NEVER stop an externally installed Coolify instance.
 #  Defaults are set to the most restrictive values to prevent accidental
@@ -31,10 +31,10 @@ fi
 if [ "${COOLIFY_MODE:-disabled}" != "managed" ]; then
   fail "Coolify lifecycle operations require COOLIFY_MODE=managed.
 Got: '${COOLIFY_MODE:-disabled}'.
-OpenFinder will not stop a Coolify instance it does not manage."
+HomiOS will not stop a Coolify instance it does not manage."
 fi
-if [ "${COOLIFY_OWNED_BY_OPENFINDER:-false}" != "true" ]; then
-  fail "OpenFinder does not own this Coolify installation (COOLIFY_OWNED_BY_OPENFINDER is not true).
+if [ "${COOLIFY_OWNED_BY_HOMIOS:-false}" != "true" ]; then
+  fail "HomiOS does not own this Coolify installation (COOLIFY_OWNED_BY_HOMIOS is not true).
 Refusing to stop Coolify.
 In external mode, Coolify lifecycle operations are read-only."
 fi

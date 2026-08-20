@@ -27,7 +27,7 @@ export async function uploadBackupToS3(storageId: string, localPath: string, key
   const client = await clientFor(storage);
   await client.send(new PutObjectCommand({
     Bucket: storage.bucket,
-    Key: `openfinder-backups/${key}`,
+    Key: `homios-backups/${key}`,
     Body: fs.createReadStream(localPath),
   }));
 }

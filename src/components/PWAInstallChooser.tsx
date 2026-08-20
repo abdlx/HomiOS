@@ -37,9 +37,9 @@ const APP_OPTIONS: AppOption[] = [
   },
   {
     id: 'home',
-    name: 'OpenFinder',
+    name: 'HomiOS',
     subtitle: 'Full Home App',
-    description: 'The complete OpenFinder experience — desktop, all apps, and everything in one place.',
+    description: 'The complete HomiOS experience — desktop, all apps, and everything in one place.',
     icon: LayoutDashboard,
     gradient: 'from-[#6366F1] via-[#4F46E5] to-[#4338CA]',
     features: ['Full desktop experience', 'All apps included', 'System-wide access'],

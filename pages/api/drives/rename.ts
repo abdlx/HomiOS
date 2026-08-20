@@ -2,7 +2,7 @@ import { withAuth } from '../../../lib/api-auth.ts';
 import { sanitizeNickname, setDriveNickname } from '../../../lib/drive-labels.ts';
 
 /**
- * Set or clear a drive's OpenFinder display name.
+ * Set or clear a drive's HomiOS display name.
  *
  * POST { name: "sda1", label: "Media Vault" } — an empty label resets to default.
  * This is a display nickname only; the on-disk filesystem label is untouched.
