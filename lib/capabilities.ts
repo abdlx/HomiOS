@@ -5,7 +5,10 @@
  * authoritative environment configuration and runtime health probes.
  */
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
+
+const require = createRequire(import.meta.url);
 
 export type CapabilityState =
   | 'available'
@@ -100,7 +103,6 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
   // Terminal check (node-pty availability)
   let terminalInstalled = true;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     require.resolve('node-pty');
   } catch {
     terminalInstalled = false;
