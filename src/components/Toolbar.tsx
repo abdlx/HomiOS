@@ -114,7 +114,7 @@ export default function Toolbar({
               setIsAddMenuOpen(!isAddMenuOpen);
               setIsCreatingFolder(false);
             }}
-            className="flex items-center justify-center bg-white dark:bg-white/10 hover:bg-neutral-50 dark:hover:bg-white/20 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white rounded-full w-8 h-8 border border-neutral-200/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
+            className="flex items-center justify-center bg-white dark:bg-white/10 hover:bg-neutral-50 dark:hover:bg-white/20 text-neutral-600 dark:text-neutral-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-full w-8 h-8 border border-neutral-200/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
             title="Create New Folder or File"
           >
             <Plus size={15} className="stroke-[2.5]" />
@@ -139,7 +139,7 @@ export default function Toolbar({
                   type="button"
                   onClick={() => setIsCreatingFolder(false)}
                   className={`flex-1 text-[10px] py-1 rounded-lg text-center font-bold transition-colors ${
-                    !isCreatingFolder ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                    !isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
                   }`}
                 >
                   New File
@@ -148,7 +148,7 @@ export default function Toolbar({
                   type="button"
                   onClick={() => setIsCreatingFolder(true)}
                   className={`flex-1 text-[10px] py-1 rounded-lg text-center font-bold transition-colors ${
-                    isCreatingFolder ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                    isCreatingFolder ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
                   }`}
                 >
                   New Folder
@@ -161,12 +161,12 @@ export default function Toolbar({
                   placeholder={isCreatingFolder ? "Folder Name..." : "Notes-Draft.txt"}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full text-xs px-2.5 py-1.5 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-400 dark:focus:ring-white/30 mb-2 bg-neutral-50 dark:bg-white/5 text-gray-800 dark:text-gray-100"
+                  className="w-full text-xs px-2.5 py-1.5 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 bg-neutral-50 dark:bg-white/5 text-gray-800 dark:text-gray-100"
                   autoFocus
                 />
                 <button
                   type="submit"
-                  className="w-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-bold py-1.5 rounded-lg transition-colors cursor-pointer"
+                  className="w-full bg-blue-600 text-white text-[11px] font-bold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Create
                 </button>
@@ -269,19 +269,19 @@ export default function Toolbar({
             <div className="absolute right-0 top-10 z-50 bg-white dark:bg-[#26262a] border border-gray-200 dark:border-white/10 rounded-xl shadow-lg py-1 w-32 text-xs">
               <button
                 onClick={() => { setSortOption('name'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'name' ? 'font-bold text-neutral-900 dark:text-white bg-neutral-100/70 dark:bg-white/10' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'name' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 Name
               </button>
               <button
                 onClick={() => { setSortOption('size'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'size' ? 'font-bold text-neutral-900 dark:text-white bg-neutral-100/70 dark:bg-white/10' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'size' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 File Size
               </button>
               <button
                 onClick={() => { setSortOption('date'); setIsSortMenuOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'date' ? 'font-bold text-neutral-900 dark:text-white bg-neutral-100/70 dark:bg-white/10' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-white/10 ${sortOption === 'date' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
               >
                 Date Modified
               </button>
@@ -293,7 +293,7 @@ export default function Toolbar({
         <div className="hidden sm:flex items-center space-x-0.5 bg-neutral-100/60 dark:bg-white/5 rounded-full px-1.5 py-1 border border-neutral-200/40 dark:border-white/10 shadow-sm">
           <button
             onClick={() => toast({ message: 'Share link copied', description: 'Anyone with the link can view this folder.', tone: 'success' })}
-            className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10 hover:text-neutral-900 dark:hover:text-white hover:shadow-sm transition-all cursor-pointer"
+            className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm transition-all cursor-pointer"
             title="Share Selection"
           >
             <Share2 size={15} className="stroke-[2]" />

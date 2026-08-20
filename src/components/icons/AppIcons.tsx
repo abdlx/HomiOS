@@ -42,20 +42,20 @@ function Squircle({ u, from, to, children }: { u: string; from: string; to: stri
 
 function Folder({ u }: { u: string }) {
   return (
-    <Squircle u={u} from="#3A3A3E" to="#1C1C1E">
+    <Squircle u={u} from="#48A7FF" to="#0A63E4">
       <defs>
         <linearGradient id={`${u}-f`} x1="32" y1="27" x2="32" y2="51" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F4F4F6" />
-          <stop offset="1" stopColor="#B0B0B8" />
+          <stop stopColor="#ffffff" />
+          <stop offset="1" stopColor="#D6E6FF" />
         </linearGradient>
       </defs>
       {/* back tab peeking above */}
-      <path d="M13 25.5a3 3 0 0 1 3-3h8.7a3 3 0 0 1 2.1.9l2.4 2.4a3 3 0 0 0 2.1.9H49a3 3 0 0 1 3 3v2H13z" fill="#636366" />
+      <path d="M13 25.5a3 3 0 0 1 3-3h8.7a3 3 0 0 1 2.1.9l2.4 2.4a3 3 0 0 0 2.1.9H49a3 3 0 0 1 3 3v2H13z" fill="#BFDBFE" />
       {/* body */}
       <rect x="13" y="28.5" width="39" height="22" rx="4.5" fill={`url(#${u}-f)`} />
       {/* top lip highlight + inner line for depth */}
       <rect x="13" y="28.5" width="39" height="5" rx="2.5" fill="#ffffff" />
-      <rect x="13" y="33.5" width="39" height="1.2" fill="#000000" fillOpacity="0.18" />
+      <rect x="13" y="33.5" width="39" height="1.2" fill="#0A63E4" fillOpacity="0.12" />
     </Squircle>
   );
 }

@@ -226,8 +226,8 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
                             onMouseEnter={() => setSelectedIndex(index)}
                             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
                               isSelected
-                                ? 'bg-white/20 text-white shadow-md border border-white/20'
-                                : 'hover:bg-white/10 text-white/80 border border-transparent'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'hover:bg-white/10 text-white/80'
                             }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -259,7 +259,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
                     <div className={`${filteredCommands.length > 0 ? 'pt-2 border-t border-white/10' : ''} space-y-0.5`}>
                       <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center justify-between">
                         <span>Files &amp; Documents</span>
-                        {loadingFiles && <span className="text-white/60">Searching...</span>}
+                        {loadingFiles && <span className="text-blue-400">Searching...</span>}
                       </div>
                       {fileResults.map((result, idx) => {
                         const itemIndex = filteredCommands.length + idx;
@@ -275,8 +275,8 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
                             onMouseEnter={() => setSelectedIndex(itemIndex)}
                             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
                               isSelected
-                                ? 'bg-white/20 text-white shadow-md border border-white/20'
-                                : 'hover:bg-white/10 text-white/80 border border-transparent'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'hover:bg-white/10 text-white/80'
                             }`}
                           >
                             <div className="min-w-0">

@@ -90,7 +90,7 @@ export const inputClass =
   'w-full px-3.5 py-2.5 rounded-xl text-[14px] bg-slate-100/80 dark:bg-white/5 ' +
   'border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 ' +
   'placeholder-slate-400 dark:placeholder-slate-500 ' +
-  'focus:outline-none focus:ring-2 focus:ring-neutral-400/60 dark:focus:ring-white/30 focus:border-transparent ' +
+  'focus:outline-none focus:ring-2 focus:ring-blue-500/60 dark:focus:ring-blue-400/60 focus:border-transparent ' +
   'transition-[box-shadow,border-color] duration-150';
 
 export function SubmitButton({
@@ -101,16 +101,16 @@ export function SubmitButton({
   return (
     <button
       {...props}
-      className="group relative w-full py-2.5 rounded-xl text-[14px] font-semibold text-white dark:text-neutral-900
-        bg-neutral-900 hover:bg-neutral-800 active:bg-black dark:bg-white dark:hover:bg-neutral-100 dark:active:bg-neutral-200
-        shadow-lg shadow-black/15 hover:shadow-black/25 dark:shadow-white/5
+      className="group relative w-full py-2.5 rounded-xl text-[14px] font-semibold text-white
+        bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:from-blue-700 active:to-blue-800
+        shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35
         disabled:opacity-45 disabled:cursor-not-allowed disabled:shadow-none
         transition-[background-color,box-shadow,transform] duration-150 active:scale-[0.99]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent
         flex items-center justify-center gap-2 cursor-pointer"
     >
       {loading && (
-        <span className="w-4 h-4 rounded-full border-2 border-white/40 dark:border-neutral-900/40 border-t-white dark:border-t-neutral-900 animate-spin" aria-hidden="true" />
+        <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
       )}
       {children}
     </button>

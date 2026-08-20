@@ -121,7 +121,7 @@ export default function Login() {
       ) : (
         <form onSubmit={onTotp} className="space-y-4">
           <div className="flex justify-center">
-            <div className="grid place-items-center w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-white/10 text-neutral-800 dark:text-neutral-200">
+            <div className="grid place-items-center w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-500 dark:text-blue-300">
               <ShieldCheck size={22} />
             </div>
           </div>

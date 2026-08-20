@@ -40,7 +40,7 @@ type DesktopAppConfig = {
 };
 
 const BASE_APPS: Record<string, DesktopAppConfig> = {
-  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#3A3A3E] to-[#1C1C1E]' },
+  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
   settings: { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
   activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
   terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },

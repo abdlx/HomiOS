@@ -170,11 +170,11 @@ export default function Sidebar({
               onClick={() => handleItemClick(rootFolder)}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'root' 
-                  ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-bold' 
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold' 
                   : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
-              {renderIcon(rootFolder.icon, undefined, 16)}
+              {renderIcon(rootFolder.icon, activeSection === 'root' ? '#2563eb' : undefined, 16)}
               <span className="truncate flex-1">{rootFolder.label}</span>
             </button>
           </div>
@@ -190,11 +190,11 @@ export default function Sidebar({
                     onClick={() => handleItemClick(item)}
                     className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium pl-6
                       ${isActive 
-                        ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-semibold' 
+                        ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
                         : 'text-gray-500 dark:text-gray-400 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
-                    {renderIcon(item.icon, undefined, 14)}
+                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
                     <span className="truncate flex-1">{item.label}</span>
                   </button>
                 );
@@ -212,11 +212,11 @@ export default function Sidebar({
               }}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'storage'
-                  ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-bold'
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
-              {renderIcon('Database', undefined, 16)}
+              {renderIcon('Database', activeSection === 'storage' ? '#2563eb' : undefined, 16)}
               <span className="truncate flex-1">Storage</span>
             </button>
           </div>
@@ -236,11 +236,11 @@ export default function Sidebar({
                       onClick={() => handleItemClick(item)}
                       className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                         ${isActive 
-                          ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-semibold' 
+                          ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
                           : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
-                      {renderIcon(item.icon, undefined, 14)}
+                      {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
                       <span className="truncate flex-1">{item.label}</span>
                     </button>
                   );
@@ -264,11 +264,11 @@ export default function Sidebar({
                     onClick={() => handleItemClick(item)}
                     className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-xs text-left transition-colors font-medium
                       ${isActive 
-                        ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-semibold' 
+                        ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-semibold' 
                         : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
-                    {renderIcon(item.icon, undefined, 14)}
+                    {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
                     <span className="truncate flex-1">{item.label}</span>
                   </button>
                 );
@@ -324,11 +324,11 @@ export default function Sidebar({
               }}
               className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors font-medium
                 ${activeSection === 'shared'
-                  ? 'bg-neutral-900/10 dark:bg-white/10 text-neutral-900 dark:text-white font-bold'
+                  ? 'bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-neutral-200/50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
-              {renderIcon('Share2', undefined, 16)}
+              {renderIcon('Share2', activeSection === 'shared' ? '#2563eb' : undefined, 16)}
               <span className="truncate flex-1">Samba Sharing</span>
             </button>
           </div>

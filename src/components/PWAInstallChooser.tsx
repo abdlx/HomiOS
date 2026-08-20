@@ -21,7 +21,7 @@ const APP_OPTIONS: AppOption[] = [
     subtitle: 'File Manager',
     description: 'Upload, browse, and manage all your files. Receive shared files directly from other apps.',
     icon: Folder,
-    gradient: 'from-[#3A3A3E] via-[#2C2C2E] to-[#1C1C1E]',
+    gradient: 'from-[#0A84FF] via-[#0066D6] to-[#0055B3]',
     features: ['Share files from any app', 'Upload & download', 'Browse all storage'],
     manifestUrl: '/manifest-files.json',
   },
@@ -245,10 +245,10 @@ function PWAInstallChooserInner() {
               </div>
 
               {/* Share target info */}
-              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10 mb-6">
-                <Share2 size={15} className="text-white/70 flex-shrink-0 mt-0.5" />
-                <p className="text-white/80 text-[12px] leading-relaxed">
-                  <span className="text-white font-medium">Files app</span> will appear in your device's share sheet, so you can send photos & documents directly to your storage.
+              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#0A84FF]/10 border border-[#0A84FF]/20 mb-6">
+                <Share2 size={15} className="text-[#0A84FF] flex-shrink-0 mt-0.5" />
+                <p className="text-[#5AC8FA] text-[12px] leading-relaxed">
+                  <span className="text-white/80 font-medium">Files app</span> will appear in your device's share sheet, so you can send photos & documents directly to your storage.
                 </p>
               </div>
 
