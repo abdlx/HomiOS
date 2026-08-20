@@ -165,136 +165,143 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[300] flex items-start justify-center bg-black/40 px-4 pt-[15vh] backdrop-blur-xl"
+          className="fixed inset-0 z-[300] flex items-start justify-center bg-black/40 px-4 pt-[18vh] backdrop-blur-xl"
           onClick={onClose}
           role="dialog"
           aria-modal="true"
           aria-label="Search HomiOS"
         >
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.96 }}
+            initial={{ opacity: 0, y: 120, scale: 0.35 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-            className="w-[min(640px,calc(100vw-32px))] overflow-hidden rounded-[28px] border border-white/20 bg-[#161619]/95 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+            exit={{ opacity: 0, y: 80, scale: 0.55 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 27, mass: 0.72 }}
+            className="w-[min(680px,calc(100vw-32px))]"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleKeyDown}
           >
-            {/* Search Input */}
-            <div className="p-3 border-b border-white/10">
-              <GooeyInput
-                autoFocus
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSelectedIndex(0);
-                }}
-                placeholder="Search apps, drives, actions, files..."
-                aria-label="Search HomiOS"
-                trailing={
-                  <div className="flex items-center gap-1">
-                    <kbd className="rounded-md border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">⌘K</kbd>
-                    <kbd className="rounded-md border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">ESC</kbd>
-                  </div>
-                }
-              />
-            </div>
+            <GooeyInput
+              autoFocus
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelectedIndex(0);
+              }}
+              placeholder="Search apps, drives, actions, files..."
+              aria-label="Search HomiOS"
+              trailing={
+                <div className="flex items-center gap-1.5">
+                  <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">⌘K</kbd>
+                  <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">ESC</kbd>
+                </div>
+              }
+            />
 
-            {/* Results list */}
-            <div className="max-h-[58vh] overflow-y-auto p-2 space-y-1">
-              {filteredCommands.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40">
-                    Commands &amp; Tools
-                  </div>
-                  {filteredCommands.map((cmd, index) => {
-                    const isSelected = selectedIndex === index;
-                    const Icon = cmd.icon;
-                    return (
-                      <button
-                        key={cmd.id}
-                        type="button"
-                        onClick={() => {
-                          cmd.action();
-                          onClose();
-                        }}
-                        onMouseEnter={() => setSelectedIndex(index)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
-                          isSelected
-                            ? 'bg-blue-600 text-white shadow-md'
-                            : 'hover:bg-white/10 text-white/80'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
-                            isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-white/10 border-white/10 text-white/70'
-                          }`}>
-                            <Icon size={16} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold leading-tight truncate">{cmd.label}</p>
-                            {cmd.subtitle && (
-                              <p className={`text-[11px] leading-tight truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-white/45'}`}>
-                                {cmd.subtitle}
+            {/* Results list only shown when searching */}
+            <AnimatePresence>
+              {query.trim().length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-3 max-h-[54vh] overflow-y-auto rounded-[28px] border border-white/14 bg-[#17171a]/90 p-2 text-white shadow-[0_28px_90px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-3xl space-y-1"
+                >
+                  {filteredCommands.length > 0 && (
+                    <div className="space-y-0.5">
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                        Commands &amp; Tools
+                      </div>
+                      {filteredCommands.map((cmd, index) => {
+                        const isSelected = selectedIndex === index;
+                        const Icon = cmd.icon;
+                        return (
+                          <button
+                            key={cmd.id}
+                            type="button"
+                            onClick={() => {
+                              cmd.action();
+                              onClose();
+                            }}
+                            onMouseEnter={() => setSelectedIndex(index)}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'hover:bg-white/10 text-white/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                                isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-white/10 border-white/10 text-white/70'
+                              }`}>
+                                <Icon size={16} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold leading-tight truncate">{cmd.label}</p>
+                                {cmd.subtitle && (
+                                  <p className={`text-[11px] leading-tight truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-white/45'}`}>
+                                    {cmd.subtitle}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-medium shrink-0 ml-2 ${isSelected ? 'text-white/80' : 'text-white/35'}`}>
+                              {cmd.category}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* File Results */}
+                  {(fileResults.length > 0 || loadingFiles) && (
+                    <div className={`${filteredCommands.length > 0 ? 'pt-2 border-t border-white/10' : ''} space-y-0.5`}>
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center justify-between">
+                        <span>Files &amp; Documents</span>
+                        {loadingFiles && <span className="text-blue-400">Searching...</span>}
+                      </div>
+                      {fileResults.map((result, idx) => {
+                        const itemIndex = filteredCommands.length + idx;
+                        const isSelected = selectedIndex === itemIndex;
+                        return (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => {
+                              onOpenView(result.kind === 'note' ? 'notes' : 'files');
+                              onClose();
+                            }}
+                            onMouseEnter={() => setSelectedIndex(itemIndex)}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'hover:bg-white/10 text-white/80'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white/95 truncate">{result.name}</p>
+                              <p className={`text-[10px] font-mono truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-white/40'}`}>
+                                {result.path || result.snippet}
                               </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`text-[10px] font-medium shrink-0 ml-2 ${isSelected ? 'text-white/80' : 'text-white/35'}`}>
-                          {cmd.category}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                            </div>
+                            <span className={`text-[10px] uppercase font-semibold shrink-0 ml-2 ${isSelected ? 'text-white/80' : 'text-white/35'}`}>
+                              {result.kind}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
-              {/* File Results */}
-              {(fileResults.length > 0 || loadingFiles) && (
-                <div className="pt-2 border-t border-white/10 space-y-0.5">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center justify-between">
-                    <span>Files &amp; Documents</span>
-                    {loadingFiles && <span className="text-blue-400">Searching...</span>}
-                  </div>
-                  {fileResults.map((result, idx) => {
-                    const itemIndex = filteredCommands.length + idx;
-                    const isSelected = selectedIndex === itemIndex;
-                    return (
-                      <button
-                        key={result.id}
-                        type="button"
-                        onClick={() => {
-                          onOpenView(result.kind === 'note' ? 'notes' : 'files');
-                          onClose();
-                        }}
-                        onMouseEnter={() => setSelectedIndex(itemIndex)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-left transition-all ${
-                          isSelected
-                            ? 'bg-blue-600 text-white shadow-md'
-                            : 'hover:bg-white/10 text-white/80'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-white/95 truncate">{result.name}</p>
-                          <p className={`text-[10px] font-mono truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-white/40'}`}>
-                            {result.path || result.snippet}
-                          </p>
-                        </div>
-                        <span className={`text-[10px] uppercase font-semibold shrink-0 ml-2 ${isSelected ? 'text-white/80' : 'text-white/35'}`}>
-                          {result.kind}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  {filteredCommands.length === 0 && fileResults.length === 0 && !loadingFiles && (
+                    <div className="py-8 text-center text-xs text-white/40">
+                      No matching apps, actions, or files found for &ldquo;{query}&rdquo;
+                    </div>
+                  )}
+                </motion.div>
               )}
-
-              {filteredCommands.length === 0 && fileResults.length === 0 && !loadingFiles && (
-                <div className="py-10 text-center text-xs text-white/40">
-                  No matching apps, actions, or files found for &ldquo;{query}&rdquo;
-                </div>
-              )}
-            </div>
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}
