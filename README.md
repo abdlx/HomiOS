@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/abdlx/HomiOS/main/public/icon/homios-icon.svg" alt="HomiOS Logo" width="96" height="96" />
+
 # HomiOS
 
 ### Your hardware is good enough.
