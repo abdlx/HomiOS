@@ -408,7 +408,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
     <div className="h-screen w-full flex flex-col bg-cover bg-center overflow-hidden font-sans relative text-white transition-all duration-1000" style={{ backgroundImage: `url('${wallpaper}')` }} onContextMenu={(e) => e.preventDefault()}>
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/25" />
 
-      <div className="relative z-30 hidden md:flex items-center justify-between h-7 px-4 bg-black/25 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none flex-shrink-0">
+      <div className="relative hidden md:flex items-center justify-between h-7 px-4 bg-black/25 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none flex-shrink-0">
         <div className="flex items-center space-x-5">
           <Command size={14} strokeWidth={2.5} className="drop-shadow-sm" />
           <span className="font-semibold tracking-tight">Finder</span>
@@ -440,7 +440,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
 
       <NotificationCenter open={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
 
-      <div className="relative z-10 flex-1 flex flex-col items-center pt-8 md:pt-7 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
+      <div className="relative flex-1 flex flex-col items-center pt-8 md:pt-7 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         <header className="w-full max-w-[1050px] mb-11 md:mb-[52px]">
           <div className="text-center">
             <h1 className="text-[30px] md:text-[38px] leading-tight font-semibold tracking-[-0.035em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]">
@@ -529,7 +529,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         </div>
       </div>
 
-      <div className="relative pb-6 flex flex-col items-center w-full z-50 mt-auto">
+      <div className="relative pb-6 flex flex-col items-center w-full mt-auto">
         <motion.button
           layoutId="openfinder-search-pill"
           onClick={onOpenSearch}
@@ -546,7 +546,7 @@ export default function DesktopEnvironment({ onOpenFinder, onOpenSettings, onOpe
         <FloatingDock
           glassSurfaces={performanceSettings.glassSurfaces}
           reduceMotion={performanceSettings.reduceMotion}
-          desktopClassName="transition-colors duration-500"
+          desktopClassName="transition-colors duration-500 hover:z-[100] z-0"
           items={dockAppIds.map((id) => {
             const app = ALL_APPS[id];
             if (!app) return null;

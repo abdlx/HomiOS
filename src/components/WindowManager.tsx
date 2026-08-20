@@ -113,7 +113,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
   const frameClass = (appId: string, zClass: string) => {
     const fullscreen = windowState.modes[appId] === 'fullscreen';
-    return `absolute ${zClass} ${fullscreen ? 'inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:top-8 md:bottom-[120px] md:left-0 md:right-0 md:origin-bottom'} shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
+    return `absolute ${zClass} ${fullscreen ? 'inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:top-7 md:bottom-[104px] md:left-0 md:right-0 md:origin-bottom'} shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
   };
 
   const handleChromeCapture = (appId: string, event: React.MouseEvent) => {
@@ -246,7 +246,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       })()}
 
       {/* Home Screen - Mobile uses native launcher, desktop uses DesktopEnvironment */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0">
         {isMobile ? (
           <MobileLauncher
             onOpenFinder={() => setView('files')}
