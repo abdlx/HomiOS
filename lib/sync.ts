@@ -16,6 +16,36 @@ import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { getDb, withTransaction } from './db.ts';
 
+// ── Protection Health ──────────────────────────────────────────────────────
+
+/**
+ * Canonical protection-health states for a sync plan.
+ *
+ * Decision order (evaluated top-to-bottom; first match wins):
+ *   no plan              → unprotected
+ *   active job running   → syncing
+ *   destination missing  → at_risk
+ *   last run failed      → at_risk
+ *   never succeeded      → not_yet_protected
+ *   success too old      → overdue
+ *   recent success       → healthy
+ */
+export type ProtectionHealth =
+  | 'healthy'
+  | 'overdue'
+  | 'at_risk'
+  | 'syncing'
+  | 'not_yet_protected'
+  | 'unprotected';
+
+export interface ProtectionHealthResult {
+  planId: string | null;
+  health: ProtectionHealth;
+  reason: string;
+  lastSuccessAt: string | null;
+  nextRunAt: string | null;
+}
+
 export const SYNC_FOLDER = 'HomiOS-Backups';
 export const VERSIONS_FOLDER = '.homios-versions';
 
@@ -371,6 +401,54 @@ async function pruneVersionSnapshots(versionsDir: string, retentionDays: number)
   }
 }
 
+/**
+ * Remove partial files that belong to a specific interrupted/failed HomiOS job.
+ *
+ * Cleanup is job-aware: it only removes files whose name encodes a job ID that
+ * is no longer actively running. This prevents one live sync from deleting
+ * another live sync's in-progress partial writes.
+ *
+ * @param destRoot - The backup destination root to scan (not recursive into sub-dirs beyond SYNC_FOLDER).
+ * @param interruptedJobIds - Set of job IDs confirmed as interrupted/failed.
+ */
+export async function cleanupStalePartials(destRoot: string, interruptedJobIds: Set<string>): Promise<void> {
+  if (interruptedJobIds.size === 0) return;
+  // Partial filename format: .{basename}.homios-partial-{jobId}-{randomUUID}
+  // Job IDs themselves may contain hyphens (e.g. 'sync-job-abc123' or a UUID),
+  // so we capture the segment between 'homios-partial-' and the last '-{8hex-...}'
+  // by splitting on the known UUID suffix pattern at the end.
+  const PARTIAL_PREFIX = '.homios-partial-';
+
+  const scanDir = async (dir: string) => {
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await scanDir(full);
+        continue;
+      }
+      const idx = entry.name.indexOf(PARTIAL_PREFIX);
+      if (idx === -1) continue;
+
+      // Everything after 'homios-partial-' is: {jobId}-{randomSuffix}
+      // The randomSuffix is a UUID (8-4-4-4-12 hex groups separated by hyphens).
+      // We extract the jobId by removing the trailing UUID from the string.
+      const afterPrefix = entry.name.slice(idx + PARTIAL_PREFIX.length);
+      // UUID pattern at the end: -xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      const trailingUuidMatch = /-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.exec(afterPrefix);
+      const embeddedJobId = trailingUuidMatch
+        ? afterPrefix.slice(0, trailingUuidMatch.index)
+        : afterPrefix; // fallback: whole thing is the jobId
+
+      if (interruptedJobIds.has(embeddedJobId)) {
+        await fsp.rm(full, { force: true }).catch(() => {});
+      }
+    }
+  };
+
+  await scanDir(destRoot).catch(() => {});
+}
+
 /** Execute copy/mirror with mode handling (mirror, backup, versioned) */
 async function executeDirectorySync(
   source: string,
@@ -380,6 +458,7 @@ async function executeDirectorySync(
     skipPaths: string[];
     totals: SyncTotals;
     versionTimestamp: string;
+    partialJobId: string;
     onProgressUpdate: (currentFile?: string) => void;
   }
 ): Promise<void> {
@@ -414,16 +493,64 @@ async function executeDirectorySync(
     if (unchanged) {
       options.totals.filesSkipped += 1;
     } else {
-      if (existing && options.mode === 'versioned') {
-        const versionTarget = path.join(currentVersionSnapshot, entry.name);
-        await fsp.mkdir(path.dirname(versionTarget), { recursive: true }).catch(() => {});
-        await fsp.copyFile(targetEntry, versionTarget).catch(() => {});
-      }
+      // ── Atomic write pipeline ────────────────────────────────────────────
+      // Partial filename encodes jobId so cleanup is always job-aware.
+      // A second randomUUID() suffix prevents name collisions when the same
+      // file is written by concurrent runs (e.g., different destinations).
+      const partialPath = path.join(
+        path.dirname(targetEntry),
+        `.${path.basename(targetEntry)}.homios-partial-${options.partialJobId}-${randomUUID()}`
+      );
 
-      await fsp.copyFile(sourceEntry, targetEntry);
-      await fsp.utimes(targetEntry, stat.atime, stat.mtime).catch(() => {});
-      options.totals.filesCopied += 1;
-      options.totals.bytesCopied += stat.size;
+      try {
+        // Step 1 (versioned only): archive the existing destination BEFORE
+        // touching it. If this fails, the existing backup is untouched and the
+        // error propagates — we never replace a live backup with an incomplete
+        // new copy when the version archive itself failed.
+        if (existing && options.mode === 'versioned') {
+          const versionTarget = path.join(currentVersionSnapshot, entry.name);
+          const versionPartial = versionTarget + '.homios-partial-' + options.partialJobId + '-' + randomUUID();
+          await fsp.mkdir(path.dirname(versionTarget), { recursive: true });
+          try {
+            await fsp.copyFile(targetEntry, versionPartial);
+            const origStat = await fsp.stat(targetEntry);
+            const partialStat = await fsp.stat(versionPartial);
+            if (origStat.size !== partialStat.size) {
+              throw new Error(`Size mismatch during version archive of ${entry.name}`);
+            }
+            await fsp.rename(versionPartial, versionTarget);
+          } catch (err) {
+            await fsp.rm(versionPartial, { force: true }).catch(() => {});
+            throw err;
+          }
+        }
+
+        // Step 2: copy source into partial destination (same filesystem → rename is atomic).
+        await fsp.copyFile(sourceEntry, partialPath);
+        await fsp.utimes(partialPath, stat.atime, stat.mtime).catch(() => {});
+
+        // Step 3: size verification — guard against truncated copies.
+        const [srcStat, partialStat] = await Promise.all([
+          fsp.stat(sourceEntry),
+          fsp.stat(partialPath),
+        ]);
+        if (srcStat.size !== partialStat.size) {
+          throw new Error(
+            `Backup verification failed: size mismatch on "${entry.name}" ` +
+            `(expected ${srcStat.size} bytes, got ${partialStat.size} bytes)`
+          );
+        }
+
+        // Step 4: atomic rename — namespace update is now crash-safe.
+        await fsp.rename(partialPath, targetEntry);
+
+        options.totals.filesCopied += 1;
+        options.totals.bytesCopied += stat.size;
+      } catch (err) {
+        // Remove the partial if it exists so stale data is not left behind.
+        await fsp.rm(partialPath, { force: true }).catch(() => {});
+        throw err;
+      }
     }
     options.onProgressUpdate(entry.name);
   }
@@ -433,6 +560,9 @@ async function executeDirectorySync(
     const targetEntries = await fsp.readdir(target, { withFileTypes: true }).catch(() => []);
     for (const entry of targetEntries) {
       if (entry.name === VERSIONS_FOLDER || keep.has(entry.name)) continue;
+      // Skip any partial files that belong to the current job — they are
+      // mid-flight writes, not orphans.
+      if (entry.name.includes('.homios-partial-')) continue;
       await fsp.rm(path.join(target, entry.name), { recursive: true, force: true });
       options.totals.filesDeleted += 1;
     }
@@ -440,12 +570,26 @@ async function executeDirectorySync(
     const targetEntries = await fsp.readdir(target, { withFileTypes: true }).catch(() => []);
     for (const entry of targetEntries) {
       if (entry.name === VERSIONS_FOLDER || keep.has(entry.name)) continue;
+      if (entry.name.includes('.homios-partial-')) continue;
       const targetPath = path.join(target, entry.name);
       const versionTarget = path.join(currentVersionSnapshot, entry.name);
-      await fsp.mkdir(path.dirname(versionTarget), { recursive: true }).catch(() => {});
+      // Archive deleted source files before removal (errors propagate).
+      await fsp.mkdir(path.dirname(versionTarget), { recursive: true });
       await fsp.rename(targetPath, versionTarget).catch(async () => {
-        await fsp.copyFile(targetPath, versionTarget).catch(() => {});
-        await fsp.rm(targetPath, { recursive: true, force: true }).catch(() => {});
+        const versionPartial = versionTarget + '.homios-partial-' + options.partialJobId + '-' + randomUUID();
+        try {
+          await fsp.copyFile(targetPath, versionPartial);
+          const origStat = await fsp.stat(targetPath);
+          const partialStat = await fsp.stat(versionPartial);
+          if (origStat.size !== partialStat.size) {
+            throw new Error(`Size mismatch during version archive of ${entry.name}`);
+          }
+          await fsp.rename(versionPartial, versionTarget);
+        } catch (err) {
+          await fsp.rm(versionPartial, { force: true }).catch(() => {});
+          throw err;
+        }
+        await fsp.rm(targetPath, { recursive: true, force: true });
       });
       options.totals.filesDeleted += 1;
     }
@@ -460,6 +604,11 @@ export async function runSyncPlan(input: {
   const db = getDb();
   const plan = getSyncPlan(input.planId);
   if (!plan) throw new Error('Sync plan not found');
+
+  // A unique ID embedded in every partial filename produced by this run.
+  // Always uses randomUUID() even when a jobId is provided so filenames are
+  // globally unique and cleanup is unambiguous.
+  const partialJobId = input.jobId || randomUUID();
 
   const slugs = buildSlugMap(plan.sources);
   const pairs: { source: string; destination: string }[] = [];
@@ -569,6 +718,7 @@ export async function runSyncPlan(input: {
           skipPaths: [path.join(pair.source, SYNC_FOLDER)],
           totals,
           versionTimestamp,
+          partialJobId,
           onProgressUpdate: (currentFile) => {
             const now = Date.now();
             if (now - lastReport < 800) return;
@@ -671,6 +821,133 @@ export async function runSyncPlan(input: {
     db.prepare("UPDATE sync_plans SET last_run_at = CURRENT_TIMESTAMP, last_status = 'failed' WHERE id = ?").run(plan.id);
     throw err;
   }
+}
+
+// ── Protection Health ─────────────────────────────────────────────────────
+
+/**
+
+ * Compute the canonical protection health for a sync plan.
+ *
+ * Decision order (first match wins):
+ *   no plan              → unprotected
+ *   active job running   → syncing
+ *   destination missing  → at_risk
+ *   last run failed      → at_risk
+ *   never succeeded      → not_yet_protected
+ *   success too old      → overdue  (10 % grace window for scheduler jitter)
+ *   recent success       → healthy
+ */
+export function getProtectionHealth(planId: string): ProtectionHealthResult {
+  const plan = getSyncPlan(planId);
+  if (!plan) {
+    return { planId, health: 'unprotected', reason: 'No protection plan exists', lastSuccessAt: null, nextRunAt: null };
+  }
+
+  // Is a job actively running right now?
+  if (hasActiveSyncRun(planId)) {
+    return {
+      planId,
+      health: 'syncing',
+      reason: 'Backup is currently running',
+      lastSuccessAt: plan.lastRunAt,
+      nextRunAt: null,
+    };
+  }
+
+  // Check destination accessibility
+  const anyDestAccessible = plan.destinations.some((dest) => {
+    try { return fs.existsSync(dest); } catch { return false; }
+  });
+  if (!anyDestAccessible) {
+    return {
+      planId,
+      health: 'at_risk',
+      reason: plan.destinations.length === 0
+        ? 'No destination configured'
+        : `Destination is not accessible: ${plan.destinations[0]}`,
+      lastSuccessAt: plan.lastRunAt,
+      nextRunAt: null,
+    };
+  }
+
+  // Last run outcome
+  if (plan.lastStatus === 'failed') {
+    return {
+      planId,
+      health: 'at_risk',
+      reason: 'Last protection run failed',
+      lastSuccessAt: plan.lastRunAt,
+      nextRunAt: null,
+    };
+  }
+
+  // Has there ever been a successful run?
+  // lastRunAt is only set on completion (completed or failed), so check lastStatus.
+  if (!plan.lastRunAt || plan.lastStatus === null) {
+    return {
+      planId,
+      health: 'not_yet_protected',
+      reason: 'Protection plan exists but has never completed a successful backup',
+      lastSuccessAt: null,
+      nextRunAt: null,
+    };
+  }
+
+  // Query actual last-success timestamp from run records
+  const lastSuccessRow = getDb().prepare(`
+    SELECT finished_at FROM sync_runs
+    WHERE plan_id = ? AND status = 'completed'
+    ORDER BY finished_at DESC LIMIT 1
+  `).get(planId) as { finished_at: string } | undefined;
+
+  if (!lastSuccessRow) {
+    return {
+      planId,
+      health: 'not_yet_protected',
+      reason: 'Protection plan exists but no successful run is recorded',
+      lastSuccessAt: null,
+      nextRunAt: null,
+    };
+  }
+
+  const lastSuccessAt = lastSuccessRow.finished_at;
+  const scheduleMinutes = SCHEDULE_MINUTES[plan.schedule];
+
+  if (!scheduleMinutes) {
+    // Manual schedule — Healthy if the last run was successful.
+    return {
+      planId,
+      health: 'healthy',
+      reason: 'Last backup completed successfully (manual schedule)',
+      lastSuccessAt,
+      nextRunAt: null,
+    };
+  }
+
+  const lastSuccessMs = Date.parse(lastSuccessAt.replace(' ', 'T') + (lastSuccessAt.includes('Z') ? '' : 'Z'));
+  const toleranceMs = scheduleMinutes * 60 * 1000 * 1.1; // 10% grace window
+  const ageMs = Date.now() - lastSuccessMs;
+
+  if (ageMs > toleranceMs) {
+    const nextRunAt = new Date(lastSuccessMs + scheduleMinutes * 60 * 1000).toISOString();
+    return {
+      planId,
+      health: 'overdue',
+      reason: `Last successful backup was ${Math.round(ageMs / 60000)} min ago (schedule: every ${scheduleMinutes} min)`,
+      lastSuccessAt,
+      nextRunAt,
+    };
+  }
+
+  const nextRunAt = new Date(lastSuccessMs + scheduleMinutes * 60 * 1000).toISOString();
+  return {
+    planId,
+    health: 'healthy',
+    reason: 'Backup is current',
+    lastSuccessAt,
+    nextRunAt,
+  };
 }
 
 function isDue(plan: SyncPlan): boolean {

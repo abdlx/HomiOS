@@ -82,7 +82,7 @@ sudo bash -s -- --existing-coolify --non-interactive
 - `/data/coolify` is **not** modified.
 - Host ports 80/443 remain under Coolify's proxy ownership.
 - Host Nginx is **not** installed or reconfigured.
-- HomiOS will be available on port 3000 — route it through Coolify's proxy manually.
+- HomiOS will be available on port **8740** — route it through Coolify's proxy manually.
 
 ---
 
@@ -253,7 +253,7 @@ Once the script finishes, your dashboard will be instantly available at `http://
    ```
 
 5. **Access the Dashboard:**
-   Open your browser and navigate to `http://<your-server-ip>:3000`. Log in using the credentials you set in the `.env` file.
+   Open your browser and navigate to `http://<your-server-ip>:8740`. Log in using the credentials you set in the `.env` file.
 
 ---
 
@@ -278,16 +278,35 @@ While the HomiOS auto-installer fully supports these Ubuntu-based distributions,
    sudo mv /etc/os-release.bak /etc/os-release
    ```
 
-### External Coolify: "HomiOS port 3000 not reachable from Coolify proxy"
+### External Coolify: "HomiOS port 8740 not reachable from Coolify proxy"
 
-When using `--existing-coolify`, HomiOS runs on port 3000 on the host and listens on `0.0.0.0`.
+When using `--existing-coolify`, HomiOS binds to `0.0.0.0:8740` on the host — this is HomiOS's own bind address, not Coolify's.
 
-Do not use `localhost:3000` as the Coolify proxy target because localhost inside the Coolify proxy container refers to that container.
+The architecture is:
 
-Use an address through which the Coolify proxy can reach the HomiOS host, for example the server LAN IP such as:
-`http://<SERVER_LAN_IP>:3000`
+```
+Internet
+   ↓
+Coolify proxy :80 / :443
+   ↓
+HomiOS host :8740
+   ↓
+HomiOS listening on 0.0.0.0:8740
+```
+
+Coolify is the **reverse proxy**. HomiOS owns port 8740.
+
+Do not use `localhost:8740` as the Coolify proxy target because `localhost` inside the Coolify proxy container refers to that container, not this host.
+
+Use an address through which the Coolify proxy can reach the HomiOS host, for example the server LAN IP:
+
+```
+http://<SERVER_LAN_IP>:8740
+```
 
 or an appropriate Docker host-gateway/network configuration.
+
+> **Note:** Changing from port 3000 to 8740 is for collision avoidance, clear product identity, and predictable service discovery — not a security boundary. HomiOS still depends on authentication, TLS/reverse proxy, firewall rules, and authorization for safe exposure.
 
 ---
 

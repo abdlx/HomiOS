@@ -11,7 +11,14 @@ const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
-const PORT = process.env.PORT || 3000;
+// HOMIOS_PORT is the canonical application port (default 8740).
+// PORT is accepted for compatibility but HOMIOS_PORT takes precedence
+// so that a stale legacy PORT=3000 in the environment cannot shadow it.
+const PORT = Number(
+  process.env.HOMIOS_PORT ||
+  process.env.PORT ||
+  8740
+);
 const HOST = process.env.HOST || '127.0.0.1';
 const MAX_TERMINAL_SESSIONS = Number(process.env.MAX_TERMINAL_SESSIONS || 8);
 const TERMINAL_IDLE_TIMEOUT_MS = Number(process.env.TERMINAL_IDLE_TIMEOUT_MS || 30 * 60 * 1000);

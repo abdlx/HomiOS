@@ -60,6 +60,9 @@ COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 CODEX_UI_ENABLED="${CODEX_UI_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-}"
 IMMICH_ENABLED="${IMMICH_ENABLED:-}"
+# HOMIOS_PORT is the canonical HomiOS application port.
+# It can be overridden by the user; the default is 8740.
+HOMIOS_PORT="${HOMIOS_PORT:-}"
 NON_INTERACTIVE=false
 
 # Track which Coolify flags were explicitly supplied for mutual-exclusion checks.
@@ -107,6 +110,7 @@ Examples:
 HELP
 }
 
+MIGRATE_HOMIOS_PORT=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --with-coolify)
@@ -125,6 +129,7 @@ while [ "$#" -gt 0 ]; do
     --with-immich)     IMMICH_ENABLED=true ;;
     --without-immich)  IMMICH_ENABLED=false ;;
     --with-codex-ui)   CODEX_UI_ENABLED=true ;;
+    --migrate-homios-port) MIGRATE_HOMIOS_PORT=true ;;
     --non-interactive) NON_INTERACTIVE=true ;;
     -h|--help)         show_help; exit 0 ;;
     *) fail "Unknown option: $1" ;;
@@ -308,6 +313,32 @@ if [ -f "$PREVIOUS_ENV_FILE" ]; then
   [ -n "$IMMICH_ENABLED" ] || \
     IMMICH_ENABLED=$(sed -n 's/^IMMICH_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
 
+  # Preserve any explicitly user-configured HOMIOS_PORT from a previous install.
+  # If the user set a custom port, we never overwrite it.
+  [ -n "$HOMIOS_PORT" ] || \
+    HOMIOS_PORT=$(sed -n 's/^HOMIOS_PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+
+  # Migration: if no HOMIOS_PORT is stored and the config was written before
+  # HOMIOS_CONFIG_VERSION=2 (port 8740), migrate the default 3000 → 8740.
+  # Installations that had an explicit custom PORT are not touched here because
+  # the user would have set HOMIOS_PORT explicitly.
+  _config_version=$(sed -n 's/^HOMIOS_CONFIG_VERSION=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
+  if [ -z "$HOMIOS_PORT" ] && [ "${_config_version:-1}" -lt 2 ] 2>/dev/null; then
+    if [ "$HOMIOS_PROXY_MODE" = "external" ] || [ "$COOLIFY_MODE" = "external" ]; then
+      if [ "$MIGRATE_HOMIOS_PORT" = "true" ]; then
+        HOMIOS_PORT=8740
+        log "Migrating external proxy port: 3000 → 8740 (explicit opt-in)"
+      else
+        HOMIOS_PORT=3000
+        log "External proxy detected. Preserving legacy port 3000."
+        log "Run with --migrate-homios-port to explicitly migrate to 8740."
+      fi
+    else
+      HOMIOS_PORT=8740
+      log "Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+    fi
+  fi
+
   # Legacy fallback: if COOLIFY_MODE was not in env file, derive from COOLIFY_ENABLED.
   # Map true → managed/unowned (safest migration — cannot retroactively prove ownership).
   # Map false → disabled/unowned.
@@ -347,6 +378,8 @@ COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-nginx}"
 CODEX_UI_ENABLED=$(normalize_bool "${CODEX_UI_ENABLED:-false}")
 IMMICH_ENABLED=$(normalize_bool "${IMMICH_ENABLED:-false}")
+# Default application port is 8740. User-supplied value (CLI or env file) wins.
+HOMIOS_PORT="${HOMIOS_PORT:-8740}"
 
 log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_HOMIOS) | Proxy: $HOMIOS_PROXY_MODE | Codex UI: $CODEX_UI_ENABLED | Immich: $IMMICH_ENABLED"
 
@@ -397,8 +430,31 @@ case "$COOLIFY_MODE" in
     # --without-coolify means "don't integrate", not "shut Coolify down".
     ;;
 esac
+# ── Port conflict preflight ───────────────────────────────────────────────
+# Check if HOMIOS_PORT is already in use before writing the systemd unit.
+# Distinguishes HomiOS's own service (safe during update/reinstall) from an
+# unrelated process (fail-safe: do not blindly continue).
+if ss -ltn 2>/dev/null | grep -q ":${HOMIOS_PORT} "; then
+  # Is it our own service already running (upgrade scenario)?
+  if systemctl is-active --quiet homios 2>/dev/null; then
+    warn "Port ${HOMIOS_PORT} is in use by the existing homios service (normal during reinstall)."
+  else
+    # Try to identify the occupying process for a helpful error message.
+    _port_owner=$(ss -ltnp 2>/dev/null | grep ":${HOMIOS_PORT} " | head -1 || true)
+    if [ "$NON_INTERACTIVE" = "true" ]; then
+      fail "ERROR: HomiOS port ${HOMIOS_PORT} is already in use by another process.
+${_port_owner}
+Set HOMIOS_PORT to another available port before installation."
+    else
+      echo -e "${RED}Port ${HOMIOS_PORT} is already in use.${NC}"
+      echo -e "${YELLOW}Process: ${_port_owner:-unknown}${NC}"
+      echo -e "${YELLOW}Stop the conflicting service or set a different port:"
+      echo -e "  HOMIOS_PORT=<port> bash install.sh${NC}"
+      fail "Installation aborted: port conflict on ${HOMIOS_PORT}."
+    fi
+  fi
+fi
 
-# ── Immich dispatch ───────────────────────────────────────────
 if [ "$IMMICH_ENABLED" = "true" ]; then
   log "Starting optional Immich service..."
   IMMICH_APP_PORT="$IMMICH_APP_PORT" IMMICH_DATA_DIR="$IMMICH_DATA_DIR" \
@@ -473,6 +529,8 @@ umask 077
 cat > "$ENV_FILE" <<EOF
 APP_KEY=$APP_KEY
 HOMIOS_SAMBA_ALLOWED_ROOTS=$SAMBA_ALLOWED_ROOTS
+HOMIOS_PORT=$HOMIOS_PORT
+HOMIOS_CONFIG_VERSION=2
 COOLIFY_MODE=$COOLIFY_MODE
 COOLIFY_OWNED_BY_HOMIOS=$COOLIFY_OWNED_BY_HOMIOS
 COOLIFY_INTEGRATION_ENABLED=$COOLIFY_INTEGRATION_ENABLED
@@ -503,7 +561,10 @@ Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
-Environment=PORT=3000
+# HOMIOS_PORT is the canonical application port.
+# Both variables are set so any code reading PORT or HOMIOS_PORT gets 8740.
+Environment=HOMIOS_PORT=$HOMIOS_PORT
+Environment=PORT=$HOMIOS_PORT
 Environment=HOST=$HOMIOS_BIND_HOST
 Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
@@ -662,11 +723,13 @@ fi
 # instance owns ports 80/443 and we must not interfere with it.
 if [ "$HOMIOS_PROXY_MODE" = "nginx" ]; then
   log "Configuring Nginx reverse proxy..."
-  cat > /etc/nginx/sites-available/homios << 'NGINXEOF'
-limit_req_zone $binary_remote_addr zone=homios_api:10m rate=10r/s;
-limit_req_zone $binary_remote_addr zone=homios_auth:10m rate=30r/m;
-limit_req_zone $binary_remote_addr zone=homios_upload:10m rate=2r/s;
-limit_req_zone $binary_remote_addr zone=homios_socket:10m rate=30r/m;
+  # HOMIOS_PORT is shell-substituted here at generation time so the nginx
+  # config contains the concrete port value (e.g., 127.0.0.1:8740).
+  cat > /etc/nginx/sites-available/homios << NGINXEOF
+limit_req_zone \$binary_remote_addr zone=homios_api:10m rate=10r/s;
+limit_req_zone \$binary_remote_addr zone=homios_auth:10m rate=30r/m;
+limit_req_zone \$binary_remote_addr zone=homios_upload:10m rate=2r/s;
+limit_req_zone \$binary_remote_addr zone=homios_socket:10m rate=30r/m;
 
 server {
     listen 80;
@@ -677,24 +740,24 @@ server {
 
     location = /api/auth/login {
         limit_req zone=homios_auth burst=10 nodelay;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${HOMIOS_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     location /api/upload {
         limit_req zone=homios_upload burst=20 nodelay;
         client_max_body_size 5g;
         proxy_request_buffering off;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${HOMIOS_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_read_timeout 36000s;
         proxy_send_timeout 36000s;
         send_timeout 36000s;
@@ -702,39 +765,39 @@ server {
 
     location /socket.io/ {
         limit_req zone=homios_socket burst=20 nodelay;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${HOMIOS_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
     }
 
     location /api/ {
         limit_req zone=homios_api burst=60 nodelay;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${HOMIOS_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     # All traffic (SSR pages + API) goes to the Node.js process
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${HOMIOS_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
         # Extended timeouts for TUS resumable uploads (multi-GB files)
         proxy_read_timeout 36000s;
         proxy_send_timeout 36000s;
@@ -745,12 +808,12 @@ server {
     location /code/ {
         proxy_pass http://127.0.0.1:8080/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 NGINXEOF
@@ -760,17 +823,24 @@ NGINXEOF
   ln -sf /etc/nginx/sites-available/homios /etc/nginx/sites-enabled/
 
   nginx -t && systemctl restart nginx
-  log "Nginx configured — proxying port 80 → Node.js :3000"
+  log "Nginx configured — proxying port 80 → Node.js :${HOMIOS_PORT}"
 else
   warn "Host Nginx configuration skipped (HOMIOS_PROXY_MODE=$HOMIOS_PROXY_MODE)."
   echo ""
-  echo -e "  ${YELLOW}ℹ️  HomiOS application port: 3000${NC}"
-  echo -e "  ${YELLOW}   Host reverse-proxy configuration was skipped because an external proxy is in use.${NC}"
+  echo -e "  ${YELLOW}ℹ️  HomiOS is running on port ${HOMIOS_PORT}.${NC}"
+  echo -e "  ${YELLOW}   Bind address: 0.0.0.0:${HOMIOS_PORT}${NC}"
   echo ""
-  echo -e "  ${YELLOW}   To expose HomiOS through your existing Coolify proxy:${NC}"
-  echo -e "  ${YELLOW}   • Add HomiOS to a shared Docker network, or use a host-gateway route.${NC}"
-  echo -e "  ${YELLOW}   • Do NOT assume 127.0.0.1:3000 is reachable from inside a Docker proxy container.${NC}"
-  echo -e "  ${YELLOW}   • Recommended: create a Coolify proxy rule pointing to host-gateway:3000.${NC}"
+  echo -e "  ${YELLOW}   Host reverse-proxy configuration was skipped because an external proxy is active.${NC}"
+  echo ""
+  echo -e "  ${YELLOW}   Architecture:${NC}"
+  echo -e "  ${YELLOW}     Internet → Coolify proxy :80/:443 → HomiOS host :${HOMIOS_PORT}${NC}"
+  echo -e "  ${YELLOW}     0.0.0.0:${HOMIOS_PORT} is HomiOS's bind address — Coolify is the reverse proxy.${NC}"
+  echo ""
+  echo -e "  ${YELLOW}   To route through your existing Coolify proxy:${NC}"
+  echo -e "  ${YELLOW}   • Do NOT use 'localhost:${HOMIOS_PORT}' — inside a Docker proxy container,${NC}"
+  echo -e "  ${YELLOW}     'localhost' refers to that container, not this host.${NC}"
+  echo -e "  ${YELLOW}   • Recommended: point Coolify upstream to http://<HOST_LAN_IP>:${HOMIOS_PORT}${NC}"
+  echo -e "  ${YELLOW}   • Or configure a Docker host-gateway/shared-network route.${NC}"
   echo ""
 fi
 
@@ -807,6 +877,29 @@ IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
 IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
 HOMIOS_BIND_HOST=\$(read_setting HOMIOS_BIND_HOST "")
 
+# Preserve user-configured HOMIOS_PORT; migrate old default 3000 →  8740 if needed.
+HOMIOS_PORT=\$(read_setting HOMIOS_PORT "")
+_cfg_ver=\$(read_setting HOMIOS_CONFIG_VERSION "1")
+if [ -z "\$HOMIOS_PORT" ]; then
+  if [ "\${_cfg_ver:-1}" -lt 2 ] 2>/dev/null; then
+    if [ "\$HOMIOS_PROXY_MODE" = "external" ] || [ "\$COOLIFY_MODE" = "external" ]; then
+      if [ "\$MIGRATE_HOMIOS_PORT" = "true" ]; then
+        HOMIOS_PORT=8740
+        echo "[update] Migrating external proxy port: 3000 → 8740 (explicit opt-in)"
+      else
+        HOMIOS_PORT=3000
+        echo "[update] External proxy detected. Preserving legacy port 3000."
+        echo "[update] Run update with --migrate-homios-port to explicitly migrate to 8740."
+      fi
+    else
+      HOMIOS_PORT=8740
+      echo "[update] Migrating default port: 3000 → 8740 (HOMIOS_CONFIG_VERSION 1 → 2)"
+    fi
+  else
+    HOMIOS_PORT=8740
+  fi
+fi
+
 # Fallback derivation if not explicitly saved
 if [ -z "\$HOMIOS_BIND_HOST" ]; then
   if [ "\$HOMIOS_PROXY_MODE" = "nginx" ]; then
@@ -828,6 +921,7 @@ fi
 _FLAG_WITH_COOLIFY=false
 _FLAG_EXISTING_COOLIFY=false
 _FLAG_WITHOUT_COOLIFY=false
+MIGRATE_HOMIOS_PORT=false
 
 while [ "\$#" -gt 0 ]; do
   case "\$1" in
@@ -847,6 +941,7 @@ while [ "\$#" -gt 0 ]; do
     --with-immich)    IMMICH_ENABLED=true ;;
     --without-immich) IMMICH_ENABLED=false ;;
     --with-codex-ui)  CODEX_UI_ENABLED=true ;;
+    --migrate-homios-port) MIGRATE_HOMIOS_PORT=true ;;
     -h|--help)
       echo "Usage: sudo homios-update [--with-coolify|--existing-coolify|--without-coolify]"
       echo "                              [--with-immich|--without-immich] [--with-codex-ui]"
@@ -1004,8 +1099,24 @@ if [ -f "\$APP_KEY_FILE" ]; then
     > "\$ENV_FILE"
   chmod 600 "\$ENV_FILE"
   umask 022
+  # Inject port settings that the printf above doesn't include yet
+  # (avoids rewriting the printf format string inside a heredoc-within-heredoc).
+  grep -q '^HOMIOS_PORT=' "\$ENV_FILE" || printf 'HOMIOS_PORT=%s\n' "\$HOMIOS_PORT" >> "\$ENV_FILE"
+  grep -q '^HOMIOS_CONFIG_VERSION=' "\$ENV_FILE" || printf 'HOMIOS_CONFIG_VERSION=2\n' >> "\$ENV_FILE"
+  sed -i "s|^HOMIOS_PORT=.*|HOMIOS_PORT=\${HOMIOS_PORT}|" "\$ENV_FILE"
+  sed -i "s|^HOMIOS_CONFIG_VERSION=.*|HOMIOS_CONFIG_VERSION=2|" "\$ENV_FILE"
+  chmod 600 "\$ENV_FILE"
   # Scrub any APP_KEY left in the unit by a pre-hardening install.
   sed -i '/^Environment=APP_KEY=/d' /etc/systemd/system/homios.service
+  # Patch port lines in the live unit (handles pre-8740 installs that had PORT=3000).
+  if grep -q '^Environment=PORT=' /etc/systemd/system/homios.service; then
+    sed -i "s|^Environment=PORT=.*|Environment=PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
+  fi
+  if grep -q '^Environment=HOMIOS_PORT=' /etc/systemd/system/homios.service; then
+    sed -i "s|^Environment=HOMIOS_PORT=.*|Environment=HOMIOS_PORT=\${HOMIOS_PORT}|" /etc/systemd/system/homios.service
+  else
+    sed -i "/^Environment=PORT=/a Environment=HOMIOS_PORT=\${HOMIOS_PORT}" /etc/systemd/system/homios.service
+  fi
   grep -q '^EnvironmentFile=' /etc/systemd/system/homios.service || \
     sed -i "/^Environment=ROOT_DIR=/a EnvironmentFile=\$ENV_FILE" /etc/systemd/system/homios.service
   systemctl daemon-reload
@@ -1033,10 +1144,11 @@ echo -e "${GREEN}${BOLD}╔═════════════════�
 echo -e "${GREEN}${BOLD}║   HomiOS installed successfully! 🎉      ║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════╣${NC}"
 if [ "$HOMIOS_PROXY_MODE" = "nginx" ]; then
-  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP${NC}"
-  echo -e "${GREEN}${BOLD}║${NC}  Internal HomiOS: ${BOLD}127.0.0.1:3000${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:   ${BOLD}http://$LOCAL_IP${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  HomiOS port: ${BOLD}127.0.0.1:${HOMIOS_PORT}${NC} (via Nginx)"
 else
-  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:  ${BOLD}http://$LOCAL_IP:3000${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  Dashboard:   ${BOLD}http://$LOCAL_IP:${HOMIOS_PORT}${NC}"
+  echo -e "${GREEN}${BOLD}║${NC}  Bind:        ${BOLD}0.0.0.0:${HOMIOS_PORT}${NC} (HomiOS bind address)"
 fi
 if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    ${BOLD}http://$LOCAL_IP:$COOLIFY_APP_PORT${NC}"

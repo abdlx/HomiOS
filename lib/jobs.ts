@@ -414,21 +414,95 @@ async function tickWorker() {
 
 function recoverInterruptedJobs() {
   // A lease heartbeat prevents a second Next.js module/worker from stealing a
-  // healthy job. Only abandoned leases are returned to the queue.
+  // healthy job. Only abandoned leases (heartbeat > 45 s stale) are touched.
+  const staleCondition = `status = 'running'
+      AND (heartbeat_at IS NULL OR heartbeat_at < datetime('now', '-45 seconds'))`;
+
   const interrupted = getDb().prepare(`
-    SELECT id, name FROM jobs
-    WHERE status = 'running'
-      AND (heartbeat_at IS NULL OR heartbeat_at < datetime('now', '-45 seconds'))
+    SELECT id, name, type, payload FROM jobs WHERE ${staleCondition}
   `).all() as any[];
+
   if (interrupted.length === 0) return;
-  getDb().prepare(`
-    UPDATE jobs SET status = 'queued', error = 'Recovered after server restart',
-      run_at = datetime('now', '+2 seconds'), heartbeat_at = NULL, updated_at = CURRENT_TIMESTAMP
-    WHERE status = 'running'
-      AND (heartbeat_at IS NULL OR heartbeat_at < datetime('now', '-45 seconds'))
-  `).run();
-  for (const job of interrupted) addEvent(job.id, 'recovered', `${job.name} recovered after server restart`);
+
+  const AUTO_RECOVERABLE_JOB_TYPES = new Set([
+    'index.refresh',
+    'thumbnail.generate',
+    'index.files',
+  ]);
+
+  const recoverableIds: string[] = [];
+  const failedIds: string[] = [];
+
+  for (const job of interrupted) {
+    if (AUTO_RECOVERABLE_JOB_TYPES.has(job.type)) {
+      recoverableIds.push(job.id);
+    } else {
+      failedIds.push(job.id);
+    }
+  }
+
+  // ── Non-recoverable jobs: mark failed, NOT re-queued ─────────────────────
+  // A reboot or crash mid-backup or mid-move leaves partial data. Silently restarting
+  // could be dangerous. The user (or the normal scheduler) must trigger the next run.
+  if (failedIds.length > 0) {
+    const placeholders = failedIds.map(() => '?').join(',');
+    getDb().prepare(`
+      UPDATE jobs
+      SET status     = 'failed',
+          error      = 'Server restarted during execution — check Job Center to retry',
+          finished_at = CURRENT_TIMESTAMP,
+          heartbeat_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id IN (${placeholders})
+    `).run(...failedIds);
+  }
+
+  // ── Whitelisted jobs: re-queue (strictly idempotent operations) ────────────
+  if (recoverableIds.length > 0) {
+    const placeholders = recoverableIds.map(() => '?').join(',');
+    getDb().prepare(`
+      UPDATE jobs
+      SET status     = 'queued',
+          error      = 'Recovered after server restart',
+          run_at     = datetime('now', '+2 seconds'),
+          heartbeat_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id IN (${placeholders})
+    `).run(...recoverableIds);
+  }
+
+  for (const job of interrupted) {
+    const isRecoverable = AUTO_RECOVERABLE_JOB_TYPES.has(job.type);
+    addEvent(
+      job.id,
+      isRecoverable ? 'recovered' : 'failed',
+      isRecoverable
+        ? `${job.name} recovered after server restart`
+        : `${job.name} interrupted by server restart`
+    );
+  }
+
+  // ── cleanup stale partials from interrupted backup jobs ────────────────────
+  // Run asynchronously; failures are non-fatal (partials are just wasted space).
+  const syncJobIds = new Set(
+    interrupted.filter((j) => j.type === 'sync.run').map((j) => j.id)
+  );
+  if (syncJobIds.size > 0) {
+    import('./sync.ts').then(async ({ listSyncPlans, cleanupStalePartials, SYNC_FOLDER }) => {
+      const plans = listSyncPlans();
+      const roots = new Set<string>();
+      for (const plan of plans) {
+        for (const dest of plan.destinations) {
+          roots.add(dest);
+        }
+      }
+      for (const root of roots) {
+        await cleanupStalePartials(root, syncJobIds).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 }
+
 
 export function startJobWorker() {
   if (workerStarted) return;
