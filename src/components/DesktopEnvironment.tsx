@@ -45,9 +45,8 @@ const BASE_APPS: Record<string, DesktopAppConfig> = {
   activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
   terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
-  coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#22D3EE] to-[#2563EB]' },
+  coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#8C52FF] to-[#5B13D5]' },
   immich: { id: 'immich', label: 'Immich', icon: Images, color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  finder: { id: 'finder', label: 'HomiOS', icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
   codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
 };
@@ -227,7 +226,7 @@ export default function DesktopEnvironment({
 
     for (const [id, app] of Object.entries(apps)) {
       // Core apps are always valid
-      if (['files', 'settings', 'activity', 'terminal', 'notes', 'finder'].includes(id)) {
+      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id)) {
         filtered[id] = app;
       } else if (id === 'coolify' && isEnabled('coolify')) {
         filtered[id] = app;
@@ -311,7 +310,7 @@ export default function DesktopEnvironment({
         window.open(url, '_blank');
       };
     }
-    if (id === 'finder' || id === 'files') return onHomiOS;
+    if (id === 'files') return onHomiOS;
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;
     if (id === 'activity') return onOpenActivity;

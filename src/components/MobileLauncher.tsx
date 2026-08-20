@@ -14,9 +14,8 @@ const ALL_APPS = [
   { id: 'settings', label: 'Settings',  icon: Settings,   color: 'from-[#8E8E93] to-[#48484A]' },
   { id: 'terminal', label: 'Terminal',  icon: Terminal,   color: 'from-[#2C2C2E] to-[#1C1C1E]' },
   { id: 'activity', label: 'Activity',  icon: Activity,   color: 'from-[#32ADE6] to-[#12648A]' },
-  { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#22D3EE] to-[#2563EB]' },
+  { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#8C52FF] to-[#5B13D5]' },
   { id: 'immich',   label: 'Immich',    icon: Images,     color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  { id: 'finder',   label: 'HomiOS',    icon: FolderOpen, color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'vscode',   label: 'VS Code',   icon: Code,       color: 'from-[#0066b8] to-[#007acc]' },
   { id: 'codex',    label: 'Codex',     icon: Sparkles,   color: 'from-[#17BE92] to-[#0A6F55]' },
 ];
@@ -175,7 +174,7 @@ export default function MobileLauncher({
 
   const getOnClick = useCallback((id: string) => {
     const map: Record<string, () => void> = {
-      files: onHomiOS, finder: onHomiOS,
+      files: onHomiOS,
       settings: onOpenSettings, terminal: onOpenTerminal,
       activity: onOpenActivity, coolify: onOpenCoolify, immich: onOpenImmich,
       notes: onOpenNotes,

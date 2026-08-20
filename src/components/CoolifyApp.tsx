@@ -48,7 +48,7 @@ export default function CoolifyApp({ onClose, isActive = true }: CoolifyAppProps
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#0b1120] text-white">
       <div className="h-12 flex items-center justify-between px-4 border-b border-white/10 bg-black/30 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#8C52FF] to-[#5B13D5] flex items-center justify-center shadow-lg">
             <Server size={17} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">

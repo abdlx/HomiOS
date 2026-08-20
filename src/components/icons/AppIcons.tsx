@@ -117,12 +117,26 @@ function Activity({ u }: { u: string }) {
 
 function Coolify({ u }: { u: string }) {
   return (
-    <Squircle u={u} from="#2FD4EF" to="#2563EB">
-      {/* isometric cube — three faces, three shades */}
-      <path d="M32 15l15 8.5-15 8.5-15-8.5z" fill="#EAF6FF" />
-      <path d="M17 23.5l15 8.5v17l-15-8.5z" fill="#A9CBF7" />
-      <path d="M47 23.5l-15 8.5v17l15-8.5z" fill="#7FB0EE" />
-      <path d="M32 32l15-8.5M32 32v17M32 32L17 23.5" stroke="#2563EB" strokeOpacity="0.18" strokeWidth="0.8" />
+    <Squircle u={u} from="#8C52FF" to="#5B13D5">
+      <g transform="translate(11.68, 11.69) scale(0.0748)">
+        <path
+          d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
+          transform="translate(84.664 310.016)"
+          fill="#ffffff"
+          fillOpacity={0.35}
+        />
+        <path
+          d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
+          transform="translate(71.406 296.758)"
+          fill="#ffffff"
+          fillOpacity={0.65}
+        />
+        <path
+          d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
+          transform="translate(58.147 283.5)"
+          fill="#ffffff"
+        />
+      </g>
     </Squircle>
   );
 }
@@ -197,7 +211,6 @@ function Globe({ u, from, to }: { u: string; from: string; to: string }) {
 
 const RENDERERS: Record<string, (u: string) => React.ReactNode> = {
   files: (u) => <Folder u={u} />,
-  finder: (u) => <Folder u={u} />,
   terminal: (u) => <Terminal u={u} />,
   settings: (u) => <Settings u={u} />,
   activity: (u) => <Activity u={u} />,
