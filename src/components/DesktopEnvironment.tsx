@@ -561,12 +561,12 @@ export default function DesktopEnvironment({
           whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.04, y: -2 }}
           whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 350, damping: 24 }}
-          className="group mb-2.5 inline-flex h-8.5 items-center gap-2.5 rounded-full border border-white/20 bg-black/45 px-4 text-[12px] font-semibold text-white/90 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-2xl hover:bg-black/60 hover:text-white transition-all cursor-pointer"
+          className="group mb-2 inline-flex h-7 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-[11px] font-medium text-white/90 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-2xl hover:bg-black/60 hover:text-white transition-all cursor-pointer"
           aria-label="Open Search (⌘K)"
         >
-          <Search size={13} strokeWidth={2.4} className="text-white/70 group-hover:text-white transition-colors" />
+          <Search size={11.5} strokeWidth={2.2} className="text-white/70 group-hover:text-white transition-colors" />
           <span>Search</span>
-          <kbd className="rounded-md border border-white/20 bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-white/60">⌘K</kbd>
+          <kbd className="rounded-[4px] border border-white/20 bg-white/10 px-1 py-[1px] text-[9px] font-mono text-white/60">⌘K</kbd>
         </motion.button>
 
         <div onDragOver={handleAppDragOver} onDrop={(e) => handleAppDrop(e, undefined, 'dock')}>

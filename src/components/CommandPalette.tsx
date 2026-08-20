@@ -5,9 +5,10 @@ import {
   Sparkles, Images, Boxes, Search, Shield, Share2, ArrowRight, Play, Database,
   Moon, Sun, Cpu
 } from 'lucide-react';
-import { GooeyInput } from '@/components/ui/gooey-input';
+import GlassSurface from '@/components/GlassSurface';
 import { SearchResult } from '../types';
 import { useCapabilities } from '../hooks/useCapabilities';
+import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -31,12 +32,18 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { isEnabled } = useCapabilities();
+  const { settings: performanceSettings } = usePerformanceSettings();
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
     setFileResults([]);
     setSelectedIndex(0);
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [open]);
 
   // Build command registry respecting capabilities
@@ -180,22 +187,43 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleKeyDown}
           >
-            <GooeyInput
-              autoFocus
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setSelectedIndex(0);
-              }}
-              placeholder="Search apps, drives, actions, files..."
-              aria-label="Search HomiOS"
-              trailing={
-                <div className="flex items-center gap-1.5">
-                  <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">⌘K</kbd>
-                  <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">ESC</kbd>
-                </div>
-              }
-            />
+            <div className="relative isolate flex h-14 w-full items-center overflow-hidden rounded-[28px] px-4.5 shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
+              <div className="pointer-events-none absolute inset-0 -z-10">
+                {performanceSettings.glassSurfaces ? (
+                  <GlassSurface
+                    width="100%"
+                    height="100%"
+                    borderRadius={28}
+                    distortionScale={300}
+                    opacity={1}
+                    borderWidth={0.07}
+                    displace={4}
+                    backgroundOpacity={0.45}
+                    blur={28}
+                  />
+                ) : (
+                  <div className="h-full w-full rounded-[28px] border border-white/10 bg-black/35 shadow-[0_16px_40px_rgba(0,0,0,0.22)] backdrop-blur-md" />
+                )}
+              </div>
+              <Search size={18} strokeWidth={2} className="text-white/60 shrink-0 mr-3" />
+              <input
+                ref={inputRef}
+                autoFocus
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
+                placeholder="Search apps, drives, actions, files..."
+                aria-label="Search HomiOS"
+                className="flex-1 min-w-0 bg-transparent text-[14px] md:text-[15px] font-normal text-white placeholder:text-white/40 border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none"
+                style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+              />
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">⌘K</kbd>
+                <kbd className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-white/60">ESC</kbd>
+              </div>
+            </div>
 
             {/* Results list only shown when searching */}
             <AnimatePresence>
