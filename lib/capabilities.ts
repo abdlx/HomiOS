@@ -58,10 +58,26 @@ async function isReachable(url: string, timeoutMs = 2000): Promise<boolean> {
   }
 }
 
+let cachedCapabilities: CapabilitiesResponse | null = null;
+let lastCacheTime = 0;
+let isProbing = false;
+const CACHE_TTL_MS = 15000;
+
 /**
  * Resolve all system capabilities with runtime health checks.
  */
 export async function getCapabilities(): Promise<CapabilitiesResponse> {
+  const now = Date.now();
+  if (cachedCapabilities && now - lastCacheTime < CACHE_TTL_MS) {
+    return cachedCapabilities;
+  }
+  if (cachedCapabilities && isProbing) {
+    // Stale-while-revalidate: return stale data immediately while a background probe is running
+    return cachedCapabilities;
+  }
+
+  isProbing = true;
+  try {
   const coolifyPort = asPort(process.env.COOLIFY_APP_PORT, 8000);
   const immichPort = asPort(process.env.IMMICH_APP_PORT, 2283);
   const codexPort = asPort(process.env.CODEX_PORT, 5900);
@@ -90,7 +106,7 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
     terminalInstalled = false;
   }
 
-  return {
+  const response: CapabilitiesResponse = {
     storage: {
       id: 'storage',
       name: 'Storage',
@@ -200,5 +216,12 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
           ? undefined
           : `Code Server is not responding on port ${codeServerPort}`,
     },
-  };
+    };
+
+    cachedCapabilities = response;
+    lastCacheTime = Date.now();
+    return response;
+  } finally {
+    isProbing = false;
+  }
 }
