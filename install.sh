@@ -625,36 +625,55 @@ systemctl enable homios --quiet
 systemctl restart homios
 log "HomiOS Node.js service started."
 
-# ── 7. Samba — isolated storage only, no root share ──────────
-log "Configuring secured Samba share..."
+# ── 7. Samba — secure service, no anonymous shares ──────────
+log "Configuring Samba without anonymous shares..."
 [ -f /etc/samba/smb.conf ] && cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
 
+if [ ! -f /etc/samba/smb.conf ]; then
 cat > /etc/samba/smb.conf <<EOF
 [global]
    workgroup = WORKGROUP
    server string = HomiOS Storage Hub
+   security = user
    server role = standalone server
-   map to guest = bad user
+   map to guest = never
    log file = /var/log/samba/log.%m
    max log size = 500
    logging = file
-
-[HomiOS-Storage]
-   comment = HomiOS Managed Storage
-   # Only share the isolated storage dir — NOT the root filesystem
-   path = /mnt/homios-storage
-   browsable = yes
-   writable = yes
-   guest ok = yes
-   read only = no
-   create mask = 0664
-   directory mask = 0775
-   force user = root
 EOF
+else
+  # Remove the anonymous writable share installed by older HomiOS versions,
+  # while preserving every Samba section maintained outside HomiOS.
+  awk '
+    function flush_section() {
+      if (section == "") return
+      if (!(legacy_name && legacy_path && legacy_guest && legacy_root)) printf "%s", section
+      section = ""
+      legacy_name = legacy_path = legacy_guest = legacy_root = 0
+    }
+    /^[[:space:]]*\[/ {
+      flush_section()
+      section = $0 ORS
+      legacy_name = (tolower($0) ~ /^[[:space:]]*\[homios-storage\][[:space:]]*$/)
+      next
+    }
+    section != "" {
+      section = section $0 ORS
+      normalized = tolower($0)
+      if (normalized ~ /^[[:space:]]*path[[:space:]]*=[[:space:]]*\/mnt\/homios-storage[[:space:]]*$/) legacy_path = 1
+      if (normalized ~ /^[[:space:]]*guest ok[[:space:]]*=[[:space:]]*yes[[:space:]]*$/) legacy_guest = 1
+      if (normalized ~ /^[[:space:]]*force user[[:space:]]*=[[:space:]]*root[[:space:]]*$/) legacy_root = 1
+      next
+    }
+    { print }
+    END { flush_section() }
+  ' /etc/samba/smb.conf > /etc/samba/smb.conf.homios.tmp
+  mv /etc/samba/smb.conf.homios.tmp /etc/samba/smb.conf
+fi
 
 systemctl enable smbd --quiet
 systemctl restart smbd
-log "Samba configured — sharing /mnt/homios-storage only."
+log "Samba configured — no guest shares were created."
 
 # ── 8. Install & configure code-server ───────────────────────
 log "Installing code-server..."
@@ -1233,7 +1252,7 @@ echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC
 if [ "$CODEX_UI_ENABLED" = "true" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Codex:      ${BOLD}http://$LOCAL_IP/codex/${NC}"
 fi
-echo -e "${GREEN}${BOLD}║${NC}  Samba share: ${BOLD}\\\\\\\\$LOCAL_IP\\\\HomiOS-Storage${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Samba:      ${BOLD}No shares by default — configure access in HomiOS${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u homios -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo homios-update${NC}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════╝${NC}"

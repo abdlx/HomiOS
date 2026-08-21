@@ -63,6 +63,78 @@ describe('/api/shares', () => {
     expect(getDb().prepare('SELECT COUNT(*) as count FROM shares').get().count).toBe(1);
   });
 
+  it('lists shares configured outside HomiOS as read-only external entries', async () => {
+    fs.writeFileSync(confPath, `[global]
+  security = user
+
+[Archive]
+  path = ${additionalRoot}
+  comment = Maintained by an administrator
+  read only = yes
+  guest ok = no
+  valid users = archivist, @staff
+`);
+
+    const response = mockRes();
+    await sharesHandler(mockReq({ method: 'GET', sessionId }), response);
+
+    const archive = response.body.find((share: any) => share.name === 'Archive');
+    expect(archive).toMatchObject({
+      path: additionalRoot,
+      read_only: 1,
+      managed: false,
+      source: 'external',
+      canManage: false,
+      guest_ok: false,
+      published: true,
+    });
+    expect(archive.valid_users).toEqual(['archivist', '@staff']);
+  });
+
+  it('preserves external shares when HomiOS regenerates its managed block', async () => {
+    fs.writeFileSync(confPath, `[global]
+  security = user
+
+[Archive]
+  path = ${additionalRoot}
+  read only = yes
+  guest ok = no
+`);
+
+    const response = await post({ name: 'Photos', path: path.join(sambaRoot, 'photos') });
+    expect(response.statusCode).toBe(201);
+
+    const config = fs.readFileSync(confPath, 'utf8');
+    expect(config).toContain(`[Archive]\n  path = ${additionalRoot}`);
+    expect(config).toContain('# BEGIN HOMIOS MANAGED SHARES');
+    expect(config).toContain(`[Photos]\n  path = ${path.join(sambaRoot, 'photos')}`);
+  });
+
+  it('removes the legacy writable guest storage share during regeneration', async () => {
+    fs.writeFileSync(confPath, `[global]
+  map to guest = bad user
+
+[HomiOS-Storage]
+  path = /mnt/homios-storage
+  writable = yes
+  guest ok = yes
+  read only = no
+  force user = root
+
+[Archive]
+  path = ${additionalRoot}
+  read only = yes
+`);
+
+    const response = await post({ name: 'Photos', path: path.join(sambaRoot, 'photos') });
+    expect(response.statusCode).toBe(201);
+
+    const config = fs.readFileSync(confPath, 'utf8');
+    expect(config).not.toContain('[HomiOS-Storage]');
+    expect(config).not.toContain('guest ok = yes');
+    expect(config).toContain('[Archive]');
+  });
+
   it('allows a share inside an explicitly configured additional root', async () => {
     const sharePath = path.join(additionalRoot, 'documents');
     const response = await post({ name: 'Documents', path: sharePath });

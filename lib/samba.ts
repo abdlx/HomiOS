@@ -2,7 +2,7 @@
  * Samba (SMB/CIFS) integration — smb.conf generation + smbpasswd management.
  * Schema lives in lib/db.ts; callers pass the shared connection in.
  */
-import { copyFileSync, existsSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { copyFileSync, existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { resolveWithinRoot, sanitizeSambaText, validateSambaShareName } from './safe-paths.ts';
 import { ValidationError } from './validate.ts';
@@ -29,6 +29,133 @@ function commandOutput(result: ReturnType<typeof spawnSync>): string {
   return String(result.stderr || result.stdout || '').trim();
 }
 
+const MANAGED_BEGIN = '# BEGIN HOMIOS MANAGED SHARES';
+const MANAGED_END = '# END HOMIOS MANAGED SHARES';
+
+export type ConfiguredSambaShare = {
+  name: string;
+  path: string;
+  comment: string;
+  browsable: boolean;
+  readOnly: boolean;
+  guestOk: boolean;
+  validUsers: string[];
+};
+
+function sambaBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  return /^(yes|true|1)$/i.test(value.trim());
+}
+
+/** Parse normalized testparm output, or smb.conf itself as a fallback. */
+export function parseSambaShares(config: string): ConfiguredSambaShare[] {
+  const sections: Array<{ name: string; values: Map<string, string> }> = [];
+  let current: { name: string; values: Map<string, string> } | null = null;
+
+  for (const rawLine of String(config || '').split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+    const section = line.match(/^\[([^\]]+)]$/);
+    if (section) {
+      current = { name: section[1].trim(), values: new Map() };
+      sections.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const separator = line.indexOf('=');
+    if (separator < 1) continue;
+    current.values.set(
+      line.slice(0, separator).trim().toLowerCase(),
+      line.slice(separator + 1).trim(),
+    );
+  }
+
+  return sections
+    .filter((section) => section.name.toLowerCase() !== 'global')
+    .map((section) => {
+      const writable = section.values.get('writable') ?? section.values.get('writeable');
+      const readOnly = section.values.has('read only')
+        ? sambaBoolean(section.values.get('read only'), true)
+        : !sambaBoolean(writable, false);
+      const validUsers = String(section.values.get('valid users') || '')
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      return {
+        name: section.name,
+        path: section.values.get('path') || '',
+        comment: section.values.get('comment') || '',
+        browsable: sambaBoolean(section.values.get('browsable') ?? section.values.get('browseable'), true),
+        readOnly,
+        guestOk: sambaBoolean(section.values.get('guest ok') ?? section.values.get('public'), false),
+        validUsers,
+      };
+    });
+}
+
+/** Read every live Samba service, including shares configured outside HomiOS. */
+export function discoverSambaShares(): ConfiguredSambaShare[] {
+  const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
+  if (!existsSync(target)) return [];
+
+  const testparmBin = process.env.SAMBA_TESTPARM_BIN || 'testparm';
+  const result = spawnSync(testparmBin, ['-s', target], { timeout: 5000, encoding: 'utf8' });
+  const normalized = String(result.stdout || '');
+  if (result.status === 0 && /^\s*\[global\]\s*$/im.test(normalized)) {
+    return parseSambaShares(normalized);
+  }
+
+  try {
+    return parseSambaShares(readFileSync(target, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function stripManagedBlock(config: string): string {
+  const start = config.indexOf(MANAGED_BEGIN);
+  if (start < 0) return config;
+  const end = config.indexOf(MANAGED_END, start);
+  return end < 0
+    ? config.slice(0, start)
+    : `${config.slice(0, start)}${config.slice(end + MANAGED_END.length)}`;
+}
+
+function stripSections(config: string, names: Set<string>): string {
+  if (names.size === 0) return config;
+  const kept: string[] = [];
+  let skip = false;
+  for (const line of config.split(/\r?\n/)) {
+    const section = line.trim().match(/^\[([^\]]+)]$/);
+    if (section) skip = names.has(section[1].trim().toLowerCase());
+    if (!skip) kept.push(line);
+  }
+  return kept.join('\n');
+}
+
+function isLegacyOpenStorageShare(share: ConfiguredSambaShare): boolean {
+  return share.name.toLowerCase() === 'homios-storage'
+    && share.path === '/mnt/homios-storage'
+    && share.guestOk
+    && !share.readOnly;
+}
+
+function secureBaseConfig(): string {
+  return `[global]
+  workgroup = WORKGROUP
+  server string = HomiOS
+  security = user
+  server role = standalone server
+  map to guest = never
+  log file = /var/log/samba/log.%m
+  max log size = 50
+  passdb backend = tdbsam
+  server min protocol = SMB2
+  client min protocol = SMB2
+  ntlm auth = yes
+`;
+}
+
 /** Generate, validate, atomically install, and reload smb.conf. Errors are never swallowed. */
 export function regenerateSmbConf(db: any): SambaApplyResult {
   const target = process.env.SAMBA_CONF_PATH || '/etc/samba/smb.conf';
@@ -41,20 +168,18 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
       WHERE enabled = 1 AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
     `).all() as any[];
 
-    let config = `[global]
-  workgroup = WORKGROUP
-  server string = HomiOS
-  security = user
-  server role = standalone server
-  map to guest = bad user
-  log file = /var/log/samba/log.%m
-  max log size = 50
-  passdb backend = tdbsam
-  server min protocol = SMB2
-  client min protocol = SMB2
-  ntlm auth = yes
+    let baseConfig = hadTarget ? readFileSync(target, 'utf8') : secureBaseConfig();
+    baseConfig = stripManagedBlock(baseConfig);
 
-`;
+    // Migrate configurations written by older HomiOS builds, which had no
+    // ownership markers, and remove the installer's unsafe anonymous share.
+    const managedNames = new Set(shares.map((share) => String(share.name).toLowerCase()));
+    for (const share of parseSambaShares(baseConfig)) {
+      if (isLegacyOpenStorageShare(share)) managedNames.add(share.name.toLowerCase());
+    }
+    baseConfig = stripSections(baseConfig, managedNames).trimEnd();
+
+    let managedConfig = `${MANAGED_BEGIN}\n`;
 
     for (const share of shares) {
       const shareName = validateSambaShareName(share.name);
@@ -70,7 +195,7 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
       const readUsers = rows.filter(r => r.access === 'read').map(r => r.username).join(', ');
       const writeUsers = rows.filter(r => r.access !== 'read').map(r => r.username).join(', ');
 
-      config += `[${shareName}]
+      managedConfig += `[${shareName}]
   path = ${sharePath}
   comment = ${sanitizeSambaText(share.comment, shareName)}
   browsable = yes
@@ -85,6 +210,9 @@ export function regenerateSmbConf(db: any): SambaApplyResult {
 
 `;
     }
+
+    managedConfig += `${MANAGED_END}\n`;
+    const config = `${baseConfig}\n\n${managedConfig}`;
 
     writeFileSync(tmp, config, { mode: 0o644 });
     const testparmBin = process.env.SAMBA_TESTPARM_BIN || 'testparm';

@@ -3,7 +3,7 @@ import { Share2, Users, HardDrive, Shield, Plus, Trash2, Edit2, Lock, Save, X, C
 import { confirmDialog, toast } from './SystemUI';
 
 interface SambaShare {
-  id: number;
+  id: number | string;
   name: string;
   path: string;
   read_only: number;
@@ -14,6 +14,12 @@ interface SambaShare {
   sambaUsers: any[];
   published?: boolean;
   publishError?: string | null;
+  managed?: boolean;
+  source?: 'homios' | 'external';
+  canManage?: boolean;
+  guest_ok?: boolean;
+  valid_users?: string[];
+  browsable?: boolean;
 }
 
 interface SambaUser {
@@ -262,7 +268,10 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
         {activeTab === 'shares' && (
           <div className="space-y-4 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Active Shares</h2>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Configured Shares</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Includes shares found in Samba even when they were configured outside HomiOS.</p>
+              </div>
               <button 
                 onClick={() => setIsAddingShare(!isAddingShare)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
@@ -335,7 +344,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
             )}
 
             {shares.map(share => (
-              <div key={share.id} className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col gap-4">
+              <div key={String(share.id)} className="bg-white dark:bg-[#1f1f22] p-5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col gap-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -357,7 +366,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                         </div>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-2 flex items-center gap-1.5 border-t border-slate-100 dark:border-white/10 pt-2">
-                        <Folder size={12} className="text-slate-400 dark:text-slate-500" /> {share.path}
+                        <Folder size={12} className="text-slate-400 dark:text-slate-500" /> {share.path || 'Path not reported by Samba'}
                       </p>
                     </div>
                   </div>
@@ -373,19 +382,29 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                     {share.enabled !== 0 && share.published === false && (
                       <span className="px-2 py-1 bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-semibold rounded">Not Published</span>
                     )}
-                    <button onClick={() => {
-                      setEditingShareId(share.id);
-                      setEditShareName(share.name);
-                      setEditSharePath(share.path);
-                      setEditShareReadOnly(!!share.read_only);
-                      setEditShareEnabled(share.enabled !== 0);
-                      setEditShareExpiresAt(share.expires_at ? String(share.expires_at).slice(0, 16) : '');
-                    }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Share">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => deleteShare(share.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Share">
-                      <Trash2 size={16} />
-                    </button>
+                    {share.managed === false && (
+                      <span className="px-2 py-1 bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 text-xs font-semibold rounded border border-violet-100 dark:border-violet-500/20">External config</span>
+                    )}
+                    {share.guest_ok && (
+                      <span className="px-2 py-1 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 text-xs font-semibold rounded border border-red-100 dark:border-red-500/20">Guest access</span>
+                    )}
+                    {share.canManage !== false && (
+                      <>
+                        <button onClick={() => {
+                          setEditingShareId(Number(share.id));
+                          setEditShareName(share.name);
+                          setEditSharePath(share.path);
+                          setEditShareReadOnly(!!share.read_only);
+                          setEditShareEnabled(share.enabled !== 0);
+                          setEditShareExpiresAt(share.expires_at ? String(share.expires_at).slice(0, 16) : '');
+                        }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Share">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => deleteShare(Number(share.id))} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Share">
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -433,6 +452,25 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                   </div>
                 )}
 
+                {share.managed === false ? (
+                  <div className="border-t border-slate-100 dark:border-white/10 pt-3 text-xs text-slate-600 dark:text-slate-300">
+                    <p className="font-semibold">Managed outside HomiOS</p>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">
+                      Edit this share in its Samba configuration source. HomiOS will preserve it when managed shares change.
+                    </p>
+                    <p className={`mt-2 ${share.guest_ok ? 'text-red-700 dark:text-red-300 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {share.guest_ok
+                        ? 'Anonymous guest access is enabled for this share.'
+                        : share.valid_users?.length
+                          ? `Allowed Samba users: ${share.valid_users.join(', ')}`
+                          : 'Samba does not report an explicit valid-users list for this share.'}
+                    </p>
+                  </div>
+                ) : share.canManage === false ? (
+                  <div className="border-t border-slate-100 dark:border-white/10 pt-3 text-xs text-slate-500 dark:text-slate-400">
+                    This HomiOS share belongs to another administrator and is shown read-only.
+                  </div>
+                ) : (
                 <div className="border-t border-slate-100 dark:border-white/10 pt-3">
                   <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-2">Access Control</p>
                   {(share.sambaUsers?.length || 0) === 0 && (
@@ -447,7 +485,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                       return (
                         <button
                           key={u.id}
-                          onClick={() => toggleShareAccess(share.id, share.sambaUsers || [], u.id)}
+                          onClick={() => toggleShareAccess(Number(share.id), share.sambaUsers || [], u.id)}
                           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 ${hasAccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'}`}
                         >
                           {hasAccess ? <Check size={12} /> : <Lock size={12} className="opacity-50" />}
@@ -457,6 +495,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
                     })}
                   </div>
                 </div>
+                )}
               </div>
             ))}
           </div>

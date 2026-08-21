@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { getDb, buildAllowedUpdate, withTransaction } from '../../../lib/db.ts';
 import { withAuth } from '../../../lib/api-auth.ts';
-import { regenerateSmbConf, SambaConfigError } from '../../../lib/samba.ts';
+import { discoverSambaShares, regenerateSmbConf, SambaConfigError } from '../../../lib/samba.ts';
 import { resolveWithinRoot, sanitizeSambaText, validateSambaShareName } from '../../../lib/safe-paths.ts';
 import { ValidationError } from '../../../lib/validate.ts';
 
@@ -76,10 +76,14 @@ export default withAuth(async function handler(req: any, res: any, session: any)
   try {
     if (req.method === 'GET') {
       const shares = db.prepare(
-        'SELECT * FROM shares WHERE user_id = ? ORDER BY created_at DESC'
-      ).all(session.userId) as any[];
+        'SELECT * FROM shares ORDER BY created_at DESC'
+      ).all() as any[];
+      const configuredShares = discoverSambaShares();
+      const configuredByName = new Map(
+        configuredShares.map((share) => [share.name.toLowerCase(), share]),
+      );
 
-      return res.json(shares.map((share) => {
+      const managedShares = shares.map((share) => {
         let publishError: string | null = null;
         try {
           if (share.enabled) resolveWithinRoot(share.path);
@@ -95,8 +99,49 @@ export default withAuth(async function handler(req: any, res: any, session: any)
         if (share.enabled && sambaUsers.filter((user) => user.enabled).length === 0) {
           publishError ||= 'Assign at least one enabled Samba user';
         }
-        return { ...share, sambaUsers, published: !!share.enabled && !publishError, publishError };
-      }));
+        const configured = configuredByName.get(String(share.name).toLowerCase());
+        if (share.enabled && !configured) publishError ||= 'Share is missing from the live Samba configuration';
+        if (share.enabled && configured?.path && configured.path !== share.path) {
+          publishError ||= `Live Samba path is ${configured.path}`;
+        }
+        return {
+          ...share,
+          sambaUsers,
+          published: !!share.enabled && !publishError,
+          publishError,
+          managed: true,
+          source: 'homios',
+          canManage: share.user_id === session.userId,
+          guest_ok: configured?.guestOk || false,
+          valid_users: configured?.validUsers || [],
+          browsable: configured?.browsable ?? true,
+        };
+      });
+
+      const managedNames = new Set(shares.map((share) => String(share.name).toLowerCase()));
+      const externalShares = configuredShares
+        .filter((share) => !managedNames.has(share.name.toLowerCase()))
+        .map((share) => ({
+          id: `external:${share.name.toLowerCase()}`,
+          name: share.name,
+          path: share.path,
+          read_only: share.readOnly ? 1 : 0,
+          enabled: 1,
+          expires_at: null,
+          comment: share.comment,
+          created_at: null,
+          sambaUsers: [],
+          published: true,
+          publishError: null,
+          managed: false,
+          source: 'external',
+          canManage: false,
+          guest_ok: share.guestOk,
+          valid_users: share.validUsers,
+          browsable: share.browsable,
+        }));
+
+      return res.json([...managedShares, ...externalShares]);
     }
 
     if (req.method === 'POST') {
@@ -118,7 +163,13 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       const safeExpiry = validateExpiry(expiresAt);
       const accessRows = validateAccessRows(db, normalizeAccessRows(userIds, userAccess, readOnly));
       requireAccessUser(accessRows, !!enabled);
-      const existingShare = db.prepare('SELECT * FROM shares WHERE name = ?').get(safeName) as any;
+      const existingShare = db.prepare('SELECT * FROM shares WHERE LOWER(name) = LOWER(?)').get(safeName) as any;
+      const externalNameConflict = discoverSambaShares().some(
+        (share) => share.name.toLowerCase() === safeName.toLowerCase() && !existingShare,
+      );
+      if (externalNameConflict) {
+        return res.status(409).json({ error: 'A Samba share with that name already exists outside HomiOS' });
+      }
       if (existingShare && (existingShare.user_id !== session.userId || existingShare.path !== sharePath)) {
         return res.status(409).json({ error: 'A Samba share with that name already exists' });
       }
@@ -173,6 +224,20 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       if (!id) return res.status(400).json({ error: 'id is required' });
       const existing = db.prepare('SELECT * FROM shares WHERE id = ? AND user_id = ?').get(id, session.userId) as any;
       if (!existing) return res.status(404).json({ error: 'Share not found' });
+      if (name !== undefined) {
+        const safeName = validateSambaShareName(name);
+        const databaseConflict = db.prepare(
+          'SELECT id FROM shares WHERE LOWER(name) = LOWER(?) AND id <> ?'
+        ).get(safeName, id);
+        const externalConflict = safeName.toLowerCase() !== String(existing.name).toLowerCase()
+          && discoverSambaShares().some(
+            (share) => share.name.toLowerCase() === safeName.toLowerCase()
+              && share.name.toLowerCase() !== String(existing.name).toLowerCase(),
+          );
+        if (databaseConflict || externalConflict) {
+          return res.status(409).json({ error: 'A Samba share with that name already exists' });
+        }
+      }
 
       withTransaction((tx) => {
         const patch: Record<string, any> = {};
