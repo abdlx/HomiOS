@@ -1,23 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
-  Folder, FolderOpen, Settings, Terminal, Activity, Boxes,
-  FileText, Code, Battery, Wifi,
-  Signal, Download, Search, ChevronRight, Sparkles, Images
+  Battery, Wifi, Signal, Download
 } from 'lucide-react';
-import PWAInstallChooser, { PWAInstallButton } from './PWAInstallChooser';
+import PWAInstallChooser from './PWAInstallChooser';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { AppIcon as HomiAppIcon } from './icons/AppIcons';
 
 const ALL_APPS = [
-  { id: 'files',    label: 'Files',     icon: Folder,     color: 'from-[#0A84FF] to-[#0055B3]' },
-  { id: 'notes',    label: 'Notes',     icon: FileText,   color: 'from-[#F59E0B] to-[#D97706]' },
-  { id: 'settings', label: 'Settings',  icon: Settings,   color: 'from-[#8E8E93] to-[#48484A]' },
-  { id: 'terminal', label: 'Terminal',  icon: Terminal,   color: 'from-[#2C2C2E] to-[#1C1C1E]' },
-  { id: 'activity', label: 'Activity',  icon: Activity,   color: 'from-[#32ADE6] to-[#12648A]' },
-  { id: 'coolify',  label: 'Coolify',   icon: Boxes,      color: 'from-[#8C52FF] to-[#5B13D5]' },
-  { id: 'immich',   label: 'Immich',    icon: Images,     color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  { id: 'vscode',   label: 'VS Code',   icon: Code,       color: 'from-[#0066b8] to-[#007acc]' },
-  { id: 'codex',    label: 'Codex',     icon: Sparkles,   color: 'from-[#17BE92] to-[#0A6F55]' },
+  { id: 'files',    label: 'Files',     color: 'from-[#0A84FF] to-[#0055B3]' },
+  { id: 'notes',    label: 'Notes',     color: 'from-[#F59E0B] to-[#D97706]' },
+  { id: 'settings', label: 'Settings',  color: 'from-[#8E8E93] to-[#48484A]' },
+  { id: 'terminal', label: 'Terminal',  color: 'from-[#2C2C2E] to-[#1C1C1E]' },
+  { id: 'activity', label: 'Activity',  color: 'from-[#32ADE6] to-[#12648A]' },
+  { id: 'coolify',  label: 'Coolify',   color: 'from-[#8C52FF] to-[#5B13D5]' },
+  { id: 'immich',   label: 'Immich',    color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
+  { id: 'vscode',   label: 'VS Code',   color: 'from-[#0066b8] to-[#007acc]' },
+  { id: 'codex',    label: 'Codex',     color: 'from-[#17BE92] to-[#0A6F55]' },
 ];
 
 const DOCK_IDS = ['files', 'notes', 'settings'];
@@ -58,10 +57,9 @@ function AppIcon({ app, onClick, size = 'md' }: {
   onClick: () => void;
   size?: 'sm' | 'md';
 }) {
-  const Icon = app.icon;
   const s = size === 'sm'
-    ? { box: 'w-[54px] h-[54px] rounded-[14px]', icon: 22, label: 'text-[11px]' }
-    : { box: 'w-[62px] h-[62px] rounded-[17px]', icon: 28, label: 'text-[11.5px]' };
+    ? { box: 'w-[54px] h-[54px]', label: 'text-[11px]' }
+    : { box: 'w-[62px] h-[62px]', label: 'text-[11.5px]' };
 
   return (
     <motion.div
@@ -70,10 +68,11 @@ function AppIcon({ app, onClick, size = 'md' }: {
       whileTap={{ scale: 0.85 }}
       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
     >
-      <div className={`${s.box} bg-gradient-to-b ${app.color} flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.45),inset_0_1px_3px_rgba(255,255,255,0.3)] relative overflow-hidden`}>
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/8 to-white/25 pointer-events-none" />
-        <Icon size={s.icon} strokeWidth={1.5} className="text-white drop-shadow z-10" />
-      </div>
+      <HomiAppIcon
+        id={app.id}
+        colorClass={app.color}
+        className={`${s.box} drop-shadow-[0_6px_14px_rgba(0,0,0,0.42)]`}
+      />
       <span className={`${s.label} font-medium text-white/90 drop-shadow-sm tracking-tight leading-tight text-center`}>{app.label}</span>
     </motion.div>
   );

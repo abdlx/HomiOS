@@ -17,25 +17,40 @@ function Squircle({ u, from, to, children }: { u: string; from: string; to: stri
   return (
     <>
       <defs>
-        <linearGradient id={`${u}-bg`} x1="32" y1="3" x2="32" y2="61" gradientUnits="userSpaceOnUse">
+        <linearGradient id={`${u}-bg`} x1="13" y1="5" x2="52" y2="58" gradientUnits="userSpaceOnUse">
           <stop stopColor={from} />
           <stop offset="1" stopColor={to} />
         </linearGradient>
+        <linearGradient id={`${u}-edge`} x1="32" y1="2" x2="32" y2="62" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ffffff" stopOpacity="0.72" />
+          <stop offset="0.48" stopColor="#ffffff" stopOpacity="0.12" />
+          <stop offset="1" stopColor="#000000" stopOpacity="0.28" />
+        </linearGradient>
+        <radialGradient id={`${u}-shine`} cx="0" cy="0" r="1" gradientTransform="translate(18 10) rotate(47) scale(45 38)" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ffffff" stopOpacity="0.36" />
+          <stop offset="0.55" stopColor="#ffffff" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <filter id={`${u}-tile-shadow`} x="-30%" y="-25%" width="160%" height="175%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="3.2" stdDeviation="2.8" floodColor="#07101f" floodOpacity="0.42" />
+        </filter>
+        <filter id={`${u}-art-shadow`} x="-35%" y="-35%" width="170%" height="185%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="2.2" stdDeviation="1.5" floodColor="#07101f" floodOpacity="0.32" />
+        </filter>
         <clipPath id={`${u}-clip`}>
-          <rect x="3" y="3" width="58" height="58" rx="15.5" />
+          <rect x="4" y="2" width="56" height="56" rx="15" />
         </clipPath>
       </defs>
-      <rect x="3" y="3" width="58" height="58" rx="15.5" fill={`url(#${u}-bg)`} />
+      {/* A visible lower shell makes the icon read as a tiny physical object. */}
+      <rect x="4" y="5" width="56" height="57" rx="15" fill={to} opacity="0.72" filter={`url(#${u}-tile-shadow)`} />
+      <rect x="4" y="2" width="56" height="56" rx="15" fill={`url(#${u}-bg)`} />
       <g clipPath={`url(#${u}-clip)`}>
-        {/* soft top gloss */}
-        <ellipse cx="32" cy="1" rx="42" ry="23" fill="#ffffff" fillOpacity="0.16" />
-        {children}
-        {/* faint inner bottom shade for depth */}
-        <rect x="3" y="46" width="58" height="15" fill="#000000" fillOpacity="0.05" />
+        <rect x="4" y="2" width="56" height="56" fill={`url(#${u}-shine)`} />
+        <g filter={`url(#${u}-art-shadow)`}>{children}</g>
+        <path d="M4 45c12 7 44 7 56-2v15H4z" fill="#000000" fillOpacity="0.07" />
       </g>
-      {/* rim light + hairline edge */}
-      <rect x="3.6" y="3.6" width="56.8" height="56.8" rx="15" fill="none" stroke="#ffffff" strokeOpacity="0.22" />
-      <rect x="3" y="3" width="58" height="58" rx="15.5" fill="none" stroke="#000000" strokeOpacity="0.07" />
+      <rect x="4.6" y="2.6" width="54.8" height="54.8" rx="14.4" fill="none" stroke={`url(#${u}-edge)`} strokeWidth="1.2" />
+      <path d="M17 59.5h30" stroke="#ffffff" strokeOpacity="0.16" strokeLinecap="round" />
     </>
   );
 }
@@ -44,18 +59,20 @@ function Folder({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#48A7FF" to="#0A63E4">
       <defs>
-        <linearGradient id={`${u}-f`} x1="32" y1="27" x2="32" y2="51" gradientUnits="userSpaceOnUse">
+        <linearGradient id={`${u}-f`} x1="20" y1="27" x2="43" y2="53" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" />
           <stop offset="1" stopColor="#D6E6FF" />
         </linearGradient>
+        <linearGradient id={`${u}-folder-front`} x1="32" y1="33" x2="32" y2="52" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#F8FBFF" />
+          <stop offset="1" stopColor="#BDD8FF" />
+        </linearGradient>
       </defs>
-      {/* back tab peeking above */}
-      <path d="M13 25.5a3 3 0 0 1 3-3h8.7a3 3 0 0 1 2.1.9l2.4 2.4a3 3 0 0 0 2.1.9H49a3 3 0 0 1 3 3v2H13z" fill="#BFDBFE" />
-      {/* body */}
-      <rect x="13" y="28.5" width="39" height="22" rx="4.5" fill={`url(#${u}-f)`} />
-      {/* top lip highlight + inner line for depth */}
-      <rect x="13" y="28.5" width="39" height="5" rx="2.5" fill="#ffffff" />
-      <rect x="13" y="33.5" width="39" height="1.2" fill="#0A63E4" fillOpacity="0.12" />
+      <path d="M13 24.5a3.5 3.5 0 0 1 3.5-3.5h8.2a4 4 0 0 1 2.8 1.2l3.1 3.1H49a3 3 0 0 1 3 3v5H13z" fill="#A9CEFF" />
+      <path d="M16 27h34l-2.2 17.5a4 4 0 0 1-4 3.5H20.2a4 4 0 0 1-4-3.5z" fill={`url(#${u}-f)`} opacity="0.78" />
+      <path d="M12.5 32h39L49 49a4 4 0 0 1-4 3.4H19a4 4 0 0 1-4-3.4z" fill={`url(#${u}-folder-front)`} />
+      <path d="M14 33h36.5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9" />
+      <path d="M18 49.5h28" stroke="#8DB9F4" strokeLinecap="round" opacity="0.65" />
     </Squircle>
   );
 }
@@ -64,15 +81,16 @@ function Terminal({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#4A4A4E" to="#1B1B1D">
       {/* screen */}
-      <rect x="12" y="15" width="40" height="34" rx="6" fill="#0E0E10" />
-      <rect x="12" y="15" width="40" height="9" rx="6" fill="#2E2E31" />
-      <rect x="12" y="21" width="40" height="3" fill="#2E2E31" />
+      <rect x="11" y="14" width="42" height="36" rx="7" fill="#08090B" stroke="#ffffff" strokeOpacity="0.2" />
+      <rect x="12" y="15" width="40" height="9" rx="6" fill="#3A3A3F" />
+      <rect x="12" y="20" width="40" height="4" fill="#3A3A3F" />
       <circle cx="18" cy="19.5" r="1.6" fill="#FF5F57" />
       <circle cx="24" cy="19.5" r="1.6" fill="#FEBC2E" />
       <circle cx="30" cy="19.5" r="1.6" fill="#28C840" />
       {/* prompt chevron + cursor */}
-      <path d="M18 30.5l5.5 4.5-5.5 4.5" stroke="#30D158" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <rect x="27.5" y="37" width="9.5" height="2.6" rx="1.3" fill="#EDEDED" />
+      <path d="M18 30l5.8 5-5.8 5" stroke="#56F08A" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <rect x="28" y="37.5" width="10" height="2.7" rx="1.35" fill="#F4F4F5" />
+      <path d="M16 46.5h32" stroke="#ffffff" strokeOpacity="0.07" />
     </Squircle>
   );
 }
@@ -85,14 +103,20 @@ function Settings({ u }: { u: string }) {
           <stop stopColor="#FCFCFD" />
           <stop offset="1" stopColor="#D2D2D7" />
         </radialGradient>
+        <linearGradient id={`${u}-gear-edge`} x1="32" y1="10" x2="32" y2="54" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#A9A9B0" />
+        </linearGradient>
       </defs>
       <g transform="translate(32 32)">
         {Array.from({ length: 12 }).map((_, i) => (
-          <rect key={i} x="-2.5" y="-22" width="5" height="9" rx="1.8" fill="#E9E9EE" transform={`rotate(${i * 30})`} />
+          <rect key={i} x="-2.6" y="-22" width="5.2" height="9" rx="1.8" fill={`url(#${u}-gear-edge)`} transform={`rotate(${i * 30})`} />
         ))}
+        <circle cy="1.5" r="15.5" fill="#4A4A50" opacity="0.45" />
         <circle r="15" fill={`url(#${u}-gear)`} />
         <circle r="15" fill="none" stroke="#ffffff" strokeOpacity="0.6" strokeWidth="0.8" />
-        <circle r="6.5" fill="#6A6A70" />
+        <circle r="7" fill="#55555B" />
+        <circle cy="-1" r="4.6" fill="#76767D" />
         <circle r="6.5" fill="none" stroke="#3F3F45" strokeOpacity="0.6" strokeWidth="1.2" />
       </g>
     </Squircle>
@@ -102,13 +126,19 @@ function Settings({ u }: { u: string }) {
 function Activity({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#43C6F2" to="#0F73B8">
-      <rect x="11" y="16" width="42" height="32" rx="6" fill="#082A3D" fillOpacity="0.82" />
       <defs>
+        <linearGradient id={`${u}-screen`} x1="16" y1="18" x2="47" y2="47" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#123D54" />
+          <stop offset="1" stopColor="#061D2C" />
+        </linearGradient>
         <linearGradient id={`${u}-a`} x1="14" y1="0" x2="50" y2="0" gradientUnits="userSpaceOnUse">
           <stop stopColor="#5AE0FF" />
           <stop offset="1" stopColor="#8CF0C4" />
         </linearGradient>
       </defs>
+      <rect x="10.5" y="15" width="43" height="34" rx="7" fill={`url(#${u}-screen)`} stroke="#B8EEFF" strokeOpacity="0.42" />
+      <path d="M15 23h34M15 31h34M15 39h34" stroke="#67D9FF" strokeOpacity="0.1" />
+      <path d="M23 19v26M32 19v26M41 19v26" stroke="#67D9FF" strokeOpacity="0.08" />
       <path d="M14 34h6l3.2-9 5 17 4-12 2.8 6H50" stroke={`url(#${u}-a)`} strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="50" cy="30" r="2.2" fill="#8CF0C4" />
     </Squircle>
@@ -121,15 +151,15 @@ function Coolify({ u }: { u: string }) {
       <g transform="translate(11.68, 11.69) scale(0.0748)">
         <path
           d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
-          transform="translate(84.664 310.016)"
+          transform="translate(97.664 323.016)"
           fill="#ffffff"
-          fillOpacity={0.35}
+          fillOpacity={0.23}
         />
         <path
           d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
-          transform="translate(71.406 296.758)"
+          transform="translate(77.406 302.758)"
           fill="#ffffff"
-          fillOpacity={0.65}
+          fillOpacity={0.5}
         />
         <path
           d="M63.7-161.7h-90.9v272.8h90.9zm0 363.7h363.7v-90.9H63.7zm0-363.7h363.7v-90.9H63.7z"
@@ -144,14 +174,22 @@ function Coolify({ u }: { u: string }) {
 function Notes({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#FFD75E" to="#F4A620">
-      <rect x="16" y="15" width="32" height="35" rx="4.5" fill="#ffffff" />
-      <rect x="16" y="15" width="32" height="8" rx="4.5" fill="#FFC83D" />
-      <rect x="16" y="20" width="32" height="3" fill="#FFC83D" />
+      <defs>
+        <linearGradient id={`${u}-paper`} x1="19" y1="16" x2="43" y2="51" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#EEF1F6" />
+        </linearGradient>
+      </defs>
+      <rect x="16" y="16.5" width="32" height="35" rx="4.5" fill="#B87108" opacity="0.42" />
+      <rect x="16" y="14" width="32" height="35" rx="4.5" fill={`url(#${u}-paper)`} />
+      <rect x="16" y="14" width="32" height="9" rx="4.5" fill="#FFD84B" />
+      <rect x="16" y="19" width="32" height="4" fill="#FFD84B" />
       <g stroke="#C9CDD6" strokeWidth="1.8" strokeLinecap="round">
         <path d="M21 30h22" />
         <path d="M21 36h22" />
         <path d="M21 42h14" />
       </g>
+      <path d="M41 49h3a4 4 0 0 0 4-4v-3z" fill="#D6DCE7" />
     </Squircle>
   );
 }
@@ -159,7 +197,14 @@ function Notes({ u }: { u: string }) {
 function CodeEditor({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#3AA0FF" to="#1E5FCF">
-      <rect x="11" y="16" width="42" height="32" rx="6" fill="#0C1B34" fillOpacity="0.92" />
+      <defs>
+        <linearGradient id={`${u}-editor`} x1="15" y1="18" x2="49" y2="48" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#173A6A" />
+          <stop offset="1" stopColor="#08162D" />
+        </linearGradient>
+      </defs>
+      <rect x="10.5" y="15" width="43" height="34" rx="7" fill={`url(#${u}-editor)`} stroke="#8CC9FF" strokeOpacity="0.35" />
+      <path d="M36 16v32" stroke="#ffffff" strokeOpacity="0.09" />
       <rect x="16" y="22" width="11" height="2.6" rx="1.3" fill="#FF9F0A" />
       <rect x="16" y="28" width="16" height="2.6" rx="1.3" fill="#30D158" />
       <rect x="20" y="34" width="12" height="2.6" rx="1.3" fill="#64D2FF" />
@@ -172,11 +217,16 @@ function CodeEditor({ u }: { u: string }) {
 function CodexSpark({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#17BE92" to="#0A6F55">
-      {/* main four-point AI spark */}
+      <defs>
+        <radialGradient id={`${u}-orb`} cx="0.35" cy="0.28" r="0.75">
+          <stop stopColor="#DFFFF4" />
+          <stop offset="0.55" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#BEEBDD" />
+        </radialGradient>
+      </defs>
       <path
         d="M32 13c1.9 9.9 6.1 14.1 16 16-9.9 1.9-14.1 6.1-16 16-1.9-9.9-6.1-14.1-16-16 9.9-1.9 14.1-6.1 16-16z"
-        fill="#ffffff"
-        fillOpacity="0.96"
+        fill={`url(#${u}-orb)`}
       />
       {/* companion sparks */}
       <path d="M46.5 40c.8 4.1 2.5 5.8 6.5 6.5-4 .7-5.7 2.4-6.5 6.5-.8-4.1-2.5-5.8-6.5-6.5 4-.7 5.7-2.4 6.5-6.5z" fill="#ffffff" fillOpacity="0.75" />
@@ -190,9 +240,38 @@ function Immich({ u }: { u: string }) {
   return (
     <Squircle u={u} from="#ffffff" to="#e5e7eb">
       <g transform="translate(32 32)">
-        {colors.map((color, index) => <ellipse key={color} rx="5.5" ry="13" fill={color} fillOpacity="0.92" transform={`rotate(${index * 60}) translate(0 -8)`} />)}
+        {colors.map((color, index) => (
+          <g key={color} transform={`rotate(${index * 60}) translate(0 -8)`}>
+            <ellipse cy="1.2" rx="5.7" ry="13" fill="#111827" fillOpacity="0.2" />
+            <ellipse rx="5.5" ry="13" fill={color} fillOpacity="0.96" />
+            <ellipse cy="-3" rx="2.2" ry="6" fill="#ffffff" fillOpacity="0.22" />
+          </g>
+        ))}
+        <circle cy="1" r="5.3" fill="#CBD2DC" opacity="0.55" />
         <circle r="5" fill="#ffffff" />
       </g>
+    </Squircle>
+  );
+}
+
+function AppStore({ u }: { u: string }) {
+  return (
+    <Squircle u={u} from="#7C73FF" to="#4A37D4">
+      <defs>
+        <linearGradient id={`${u}-bag`} x1="21" y1="18" x2="43" y2="51" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#DDE4FF" />
+        </linearGradient>
+      </defs>
+      <path d="M17 25h30l3 25H14z" fill={`url(#${u}-bag)`} stroke="#ffffff" strokeOpacity="0.7" />
+      <path d="M24 27v-4.5a8 8 0 0 1 16 0V27" fill="none" stroke="#DDE4FF" strokeWidth="3.5" strokeLinecap="round" />
+      <g transform="translate(32 38) rotate(45)">
+        <rect x="-8" y="-8" width="7" height="7" rx="2" fill="#42C9FF" />
+        <rect x="1" y="-8" width="7" height="7" rx="2" fill="#8D75FF" />
+        <rect x="-8" y="1" width="7" height="7" rx="2" fill="#31D19A" />
+        <rect x="1" y="1" width="7" height="7" rx="2" fill="#FFB643" />
+      </g>
+      <path d="M18 48h28" stroke="#9AA7E8" strokeOpacity="0.5" strokeLinecap="round" />
     </Squircle>
   );
 }
@@ -219,6 +298,7 @@ const RENDERERS: Record<string, (u: string) => React.ReactNode> = {
   notes: (u) => <Notes u={u} />,
   vscode: (u) => <CodeEditor u={u} />,
   codex: (u) => <CodexSpark u={u} />,
+  'app-store': (u) => <AppStore u={u} />,
 };
 
 export function AppIcon({

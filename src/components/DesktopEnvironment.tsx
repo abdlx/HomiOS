@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images, Plus
+  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -573,9 +573,10 @@ export default function DesktopEnvironment({
               className="group flex flex-col items-center"
               aria-label="Open App Store"
             >
-              <span className="mb-2 flex h-[70px] w-[70px] items-center justify-center rounded-[19px] border border-white/30 bg-gradient-to-br from-blue-500 to-violet-600 shadow-[0_8px_18px_rgba(0,0,0,0.45)]">
-                <Plus size={34} strokeWidth={2.2} />
-              </span>
+              <AppIcon
+                id="app-store"
+                className="mb-2 h-[70px] w-[70px] drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]"
+              />
               <span className="text-[13px] font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">App Store</span>
             </motion.button>
           </div>
