@@ -1,4 +1,4 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Grid3X3,
   Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, RotateCw, Search, Server,
@@ -36,8 +36,6 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const [domainEditor, setDomainEditor] = useState<{app:InstalledApp;routes:DomainRoute[];loading:boolean;conflicts?:any[]} | null>(null);
   const { apps: installed, refresh: refreshInstalled } = useInstalledApps();
   const { jobs, refresh: refreshJobs } = useJobActivity();
-  const deferredQuery = useDeferredValue(query);
-  const [isNavigating, startTransition] = useTransition();
   const refreshInFlight = useRef<Promise<void> | null>(null);
   const lastReconcileAt = useRef(0);
 
@@ -76,21 +74,24 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
     catalog.forEach((app) => counts.set(app.category || 'Other', (counts.get(app.category || 'Other') || 0) + 1));
     return [...counts.entries()].sort(([a],[b]) => a.localeCompare(b));
   }, [catalog]);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
   const visible = useMemo(() => category === 'Installed Apps' ? [] : catalog.filter((app) => {
     const categoryMatch = category === 'All Apps' || category === 'HomiOS Verified' ? (category === 'All Apps' || app.verified) : app.category === category;
-    return categoryMatch && `${app.name} ${app.category} ${app.description} ${(app.tags || []).join(' ')}`.toLowerCase().includes(deferredQuery.toLowerCase());
-  }), [catalog, category, deferredQuery]);
+    return categoryMatch && `${app.name} ${app.category} ${app.description} ${(app.tags || []).join(' ')}`.toLocaleLowerCase().includes(normalizedQuery);
+  }), [catalog, category, normalizedQuery]);
   const installedByCatalogId = useMemo(() => new Map(installed.map((app) => [app.catalogId, app])), [installed]);
   const catalogById = useMemo(() => new Map(catalog.map((app) => [app.id, app])), [catalog]);
   const activeInstalls = useMemo(() => new Map(jobs.filter((job:any) => job.type === 'app.install' && ['queued','running'].includes(job.status)).map((job:any) => [job.payload?.appId, job])), [jobs]);
-  const visibleInstalled = useMemo(() => installed.filter((app) => `${app.name} ${app.status}`.toLowerCase().includes(deferredQuery.toLowerCase())), [installed, deferredQuery]);
+  const visibleInstalled = useMemo(() => installed.filter((app) => `${app.name} ${app.status} ${app.primaryUrl || ''}`.toLocaleLowerCase().includes(normalizedQuery)), [installed, normalizedQuery]);
   const renderedVisible = visible.slice(0, visibleLimit);
   const activeInstall = (id:string) => activeInstalls.get(id) as any;
   const installedFor = (id:string) => installedByCatalogId.get(id);
 
-  useEffect(() => { setVisibleLimit(60); }, [category, deferredQuery]);
+  useEffect(() => { setVisibleLimit(60); }, [category, normalizedQuery]);
   const navigate = useCallback((next:string) => {
-    startTransition(() => { setCategory(next); setSelected(null); setVisibleLimit(60); });
+    setCategory(next);
+    setSelected(null);
+    setVisibleLimit(60);
     setQuery('');
     setSidebarOpen(false);
   }, []);
@@ -146,8 +147,8 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   }
 
   const unavailable = integration && integration.appStoreState !== 'available';
-  return <div className="relative flex h-full w-full select-none overflow-hidden bg-gray-50 font-sans text-slate-800 transition-colors dark:bg-[#161618] dark:text-slate-200">
-    {sidebarOpen && <button className="absolute inset-0 z-30 bg-black/45 md:hidden" onClick={()=>setSidebarOpen(false)} aria-label="Close categories"/>}
+  return <div className="relative flex h-full w-full overflow-hidden bg-gray-50 font-sans text-slate-800 transition-colors dark:bg-[#161618] dark:text-slate-200">
+    {sidebarOpen && <button type="button" className="absolute inset-0 z-30 bg-black/45 md:hidden" onClick={()=>setSidebarOpen(false)} aria-label="Close categories"/>}
     <aside className={`${sidebarOpen?'translate-x-0':'-translate-x-full'} absolute z-40 m-0 flex h-full w-[290px] flex-shrink-0 flex-col border-r border-neutral-200/60 bg-white p-4 shadow-2xl transition-transform dark:border-white/10 dark:bg-[#1f1f22] md:static md:m-3 md:h-auto md:translate-x-0 md:rounded-[32px] md:border md:shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
       <div className="mb-7 flex items-center gap-2 px-1 pt-1"><button onClick={onClose} className="h-3 w-3 rounded-full border border-[#e0443e] bg-[#ff5f56]" title="Close"/><span className="h-3 w-3 rounded-full border border-[#dfa123] bg-[#ffbd2e]"/><span className="h-3 w-3 rounded-full border border-[#1aab29] bg-[#27c93f]"/></div>
       <div className="mb-6 flex items-center gap-3 px-2"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 text-white shadow-lg"><AppWindow size={20}/></div><div><h2 className="font-semibold text-slate-900 dark:text-white">App Store</h2><p className="text-[11px] text-slate-400">Powered by Coolify</p></div></div>
@@ -165,14 +166,14 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
 
     <main className="min-w-0 flex-1 overflow-y-auto px-5 pb-24 pt-6 md:px-10 md:pt-10">
       <div className="mx-auto max-w-[1320px]">
-        <div className="mb-7 flex items-center gap-3"><button className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse Coolify one-click services from HomiOS.'}</p></div><button onClick={refresh} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]"><RefreshCw size={17}/></button></div>
-        <div className="relative mb-7 max-w-2xl"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder={category==='Installed Apps'?'Search installed apps':'Search apps, categories, and tags'} className="w-full rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
+        <div className="mb-7 flex items-center gap-3"><button type="button" className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse Coolify one-click services from HomiOS.'}</p></div><button type="button" onClick={()=>void refresh()} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]"><RefreshCw size={17}/></button></div>
+        <div className="relative mb-7 max-w-2xl"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input type="search" value={query} onChange={(event)=>setQuery(event.currentTarget.value)} autoComplete="off" aria-label="Search apps" placeholder={category==='Installed Apps'?'Search installed apps':'Search apps, categories, and tags'} className="relative w-full select-text rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
         {!catalogAvailable&&<div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">Showing the cached HomiOS catalog. The latest Coolify catalog could not be refreshed.</div>}
         {error&&<div className="mb-5 flex items-center justify-between rounded-2xl bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-300">{error}<button onClick={()=>setError('')}><X size={15}/></button></div>}
 
         {category==='Installed Apps' ? <InstalledAppsView apps={visibleInstalled} catalogById={catalogById} busy={busy} onDomains={openDomains} onAction={action}/> : unavailable ? <ConnectionPanel integration={integration} baseUrl={baseUrl} token={token} busy={busy} pending={pendingConnect} setBaseUrl={setBaseUrl} setToken={setToken} connect={connect}/> : <>
           <div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-semibold text-slate-900 dark:text-white">{visible.length} apps</h3><p className="text-xs text-slate-400">HomiOS verified and Coolify community templates</p></div></div>
-          <div className={`grid gap-4 transition-opacity duration-150 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${isNavigating?'opacity-60':'opacity-100'}`}>{renderedVisible.map((app)=><CatalogCard key={app.id} app={app} selected={selected?.id===app.id} installed={!!installedFor(app.id)} job={activeInstall(app.id)} onSelect={selectApp}/>)}</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{renderedVisible.map((app)=><CatalogCard key={app.id} app={app} selected={selected?.id===app.id} installed={!!installedFor(app.id)} job={activeInstall(app.id)} onSelect={selectApp}/>)}</div>
           {visible.length===0&&<div className="rounded-3xl border border-dashed border-neutral-300 py-20 text-center text-slate-400 dark:border-white/10"><Package className="mx-auto mb-3"/><p>No apps match this search.</p></div>}
           {renderedVisible.length<visible.length&&<div className="mt-8 flex justify-center"><button onClick={()=>setVisibleLimit((value)=>value+60)} className="rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:text-blue-500 active:translate-y-0 dark:border-white/10 dark:bg-[#1f1f22] dark:text-slate-300">Show more apps · {visible.length-renderedVisible.length} remaining</button></div>}
 
@@ -186,7 +187,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   </div>;
 }
 
-function CategoryButton({active,icon:Icon,label,count,onClick}:any){return <button onClick={onClick} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${active?'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300':'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'}`}><Icon size={17} className={active?'text-blue-500':'text-slate-400'}/><span className="min-w-0 flex-1 truncate text-left">{label}</span><span className="text-[10px] text-slate-400">{count}</span></button>}
+function CategoryButton({active,icon:Icon,label,count,onClick}:any){return <button type="button" aria-pressed={active} onClick={onClick} className={`flex w-full select-none items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${active?'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300':'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'}`}><Icon size={17} className={active?'text-blue-500':'text-slate-400'}/><span className="min-w-0 flex-1 truncate text-left">{label}</span><span className="text-[10px] text-slate-400">{count}</span></button>}
 const CatalogCard = React.memo(function CatalogCard({app,selected,installed,job,onSelect}:{app:CatalogApp;selected:boolean;installed:boolean;job:any;onSelect:(app:CatalogApp)=>void}){
   return <button onClick={()=>onSelect(app)} style={{contentVisibility:'auto',containIntrinsicSize:'180px'}} className={`group rounded-2xl border bg-white p-5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-xl dark:bg-[#1f1f22] ${selected?'border-blue-500 ring-4 ring-blue-500/10':'border-neutral-200/70 dark:border-white/10'}`}>
     <div className="flex items-start gap-3"><AppGlyph app={app}/><div className="min-w-0 flex-1"><h4 className="truncate font-semibold text-slate-900 dark:text-white">{app.name}</h4><p className="text-xs text-blue-500">{app.category}</p></div>{installed?<CheckCircle2 className="text-emerald-500" size={18}/>:<ChevronRight className="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-500" size={18}/>}</div>
