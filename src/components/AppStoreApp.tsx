@@ -1,4 +1,4 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   AppWindow, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Grid3X3,
   Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, RotateCw, Search, Server,
@@ -38,18 +38,36 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const { jobs, refresh: refreshJobs } = useJobActivity();
   const deferredQuery = useDeferredValue(query);
   const [isNavigating, startTransition] = useTransition();
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const lastReconcileAt = useRef(0);
 
-  const refresh = useCallback(async () => {
-    const [catalogResponse, statusResponse] = await Promise.all([fetch('/api/apps/catalog'), fetch('/api/integrations/coolify/status')]);
-    if (catalogResponse.ok) {
-      const value = await catalogResponse.json();
-      setCatalog(value.apps || []); setCatalogAvailable(value.catalogAvailable !== false);
-    }
-    if (statusResponse.ok) {
-      const status = await statusResponse.json(); setIntegration(status);
-      if (status.appStoreState === 'available') await fetch('/api/apps/reconcile', { method:'POST' }).catch(() => {});
-    }
-    await refreshInstalled();
+  const refresh = useCallback(() => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const request = (async () => {
+      try {
+        const [catalogResponse, statusResponse] = await Promise.all([fetch('/api/apps/catalog'), fetch('/api/integrations/coolify/status')]);
+        if (catalogResponse.ok) {
+          const value = await catalogResponse.json();
+          setCatalog(value.apps || []); setCatalogAvailable(value.catalogAvailable !== false);
+        } else if (catalogResponse.status === 429) {
+          setError('The App Store is refreshing too quickly. Please retry in a moment.');
+        }
+        if (statusResponse.ok) {
+          const status = await statusResponse.json(); setIntegration(status);
+          const now = Date.now();
+          if (status.appStoreState === 'available' && now - lastReconcileAt.current >= 30_000) {
+            lastReconcileAt.current = now;
+            await fetch('/api/apps/reconcile', { method:'POST' }).catch(() => {});
+          }
+        }
+        await refreshInstalled();
+      } catch {
+        setError('The App Store could not reach the HomiOS API.');
+      }
+    })();
+    refreshInFlight.current = request;
+    void request.finally(() => { if (refreshInFlight.current === request) refreshInFlight.current = null; });
+    return request;
   }, [refreshInstalled]);
   useEffect(() => { void refresh(); }, [refresh]);
 

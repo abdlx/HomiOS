@@ -50,6 +50,7 @@ function originAllowed(origin, hostHeader) {
 app.prepare().then(async () => {
   const server = express();
   const { hitRateLimit, rateLimitKey } = await import('./lib/request-security.ts');
+  const { apiRateLimitPreset } = await import('./lib/api-rate-limits.ts');
   const { getSession } = await import('./lib/auth.ts');
   const { hasAbility } = await import('./lib/api-auth.ts');
   const { isCodexPath, createCodexProxy, CODEX_UPSTREAM } = await import('./lib/codex-proxy.ts');
@@ -58,21 +59,6 @@ app.prepare().then(async () => {
   // downstream (rate limiting especially) keys off req.ip, never a raw X-Forwarded-For.
   server.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
   server.disable('x-powered-by');
-
-  // Longest prefix wins, so /api/auth/login is matched before the catch-all /api.
-  const rateLimitPresets = [
-    { prefix: '/api/auth/login', bucket: 'auth-login', windowMs: 5 * 60_000, max: 10 },
-    { prefix: '/api/auth/setup', bucket: 'auth-setup', windowMs: 10 * 60_000, max: 5 },
-    { prefix: '/api/auth/register', bucket: 'auth-register', windowMs: 10 * 60_000, max: 10 },
-    { prefix: '/api/upload', bucket: 'upload', windowMs: 60_000, max: 30 },
-    { prefix: '/api/search', bucket: 'search', windowMs: 60_000, max: 120 },
-    { prefix: '/api/thumbnails', bucket: 'thumbnails', windowMs: 60_000, max: 180 },
-    { prefix: '/api/jobs', bucket: 'jobs', windowMs: 60_000, max: 120 },
-    { prefix: '/api/apps/install', bucket: 'app-install', windowMs: 60_000, max: 10 },
-    { prefix: '/api/apps/', bucket: 'app-lifecycle', windowMs: 60_000, max: 30 },
-    { prefix: '/api/integrations/coolify/connect', bucket: 'coolify-connect', windowMs: 5 * 60_000, max: 10 },
-    { prefix: '/api', bucket: 'api', windowMs: 60_000, max: 600 },
-  ].sort((a, b) => b.prefix.length - a.prefix.length);
 
   server.use((req, res, nextMiddleware) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -124,9 +110,7 @@ app.prepare().then(async () => {
     }
 
     if (req.path.startsWith('/api')) {
-      const preset = /^\/api\/apps\/[^/]+\/deploy$/.test(req.path)
-        ? { prefix: req.path, bucket: 'app-deploy', windowMs: 60_000, max: 20 }
-        : rateLimitPresets.find((p) => req.path.startsWith(p.prefix));
+      const preset = apiRateLimitPreset(req.path);
       if (preset) {
         const hit = hitRateLimit(rateLimitKey(req, preset.bucket), preset);
         if (hit.limited) {
