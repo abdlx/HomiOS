@@ -7,6 +7,10 @@ const CACHE_PATH = path.join(process.cwd(), 'data', 'coolify-service-catalog.jso
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 let memoryCache: AppTemplate[] | null = null;
 
+function normalizeIconUrl(icon: string) {
+  return icon.replace('/refs/heads/main/templates/compose/', '/refs/heads/main/public/');
+}
+
 function humanize(id: string) {
   return id.split(/[-_]/).filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(' ');
 }
@@ -15,7 +19,10 @@ function readDiskCache(): AppTemplate[] {
   if (memoryCache) return memoryCache;
   try {
     const value = JSON.parse(fs.readFileSync(CACHE_PATH, 'utf8'));
-    memoryCache = Array.isArray(value) ? value : [];
+    memoryCache = Array.isArray(value) ? value.map((item) => ({
+      ...item,
+      icon: typeof item?.icon === 'string' ? normalizeIconUrl(item.icon) : '',
+    })) : [];
   } catch { memoryCache = []; }
   return memoryCache;
 }
@@ -36,7 +43,7 @@ export function mapCoolifyCatalog(raw: Record<string, any>): AppTemplate[] {
     tags: Array.isArray(item?.tags) ? item.tags.map(String).slice(0, 20) : [],
     documentation: typeof item?.documentation === 'string' ? item.documentation : undefined,
     port: item?.port == null ? undefined : String(item.port),
-    icon: item?.logo ? `https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/templates/compose/${String(item.logo).replace(/^\/+/, '')}` : '',
+    icon: item?.logo ? `https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/${String(item.logo).replace(/^\/+/, '')}` : '',
     storage: [],
     desktop: { enabled: true, openMode: 'external-url' },
   })).sort((a, b) => a.name.localeCompare(b.name));

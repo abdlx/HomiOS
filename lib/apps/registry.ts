@@ -19,9 +19,17 @@ export function listCatalog(): AppTemplate[] {
 }
 
 export function listFullCatalog(): AppTemplate[] {
-  const homios = listCatalog().map((item) => ({ ...item, source: 'homios' as const }));
+  const coolify = getCachedCoolifyCatalog();
+  const coolifyById = new Map(coolify.map((item) => [item.id, item]));
+  const homios = listCatalog().map((item) => ({
+    ...item,
+    // The verified manifest owns HomiOS metadata while Coolify remains the
+    // canonical source for the app's real artwork.
+    icon: coolifyById.get(item.id)?.icon || item.icon,
+    source: 'homios' as const,
+  }));
   const localIds = new Set(homios.map((item) => item.id));
-  return [...homios, ...getCachedCoolifyCatalog().filter((item) => !localIds.has(item.id))]
+  return [...homios, ...coolify.filter((item) => !localIds.has(item.id))]
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

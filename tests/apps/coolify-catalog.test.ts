@@ -7,6 +7,7 @@ describe('Coolify catalog import', () => {
       actualbudget: { slogan: 'Local-first finance.', category: 'finance', tags: ['budget'], logo: 'svgs/actualbudget.png', compose: 'secret-compose-payload', port: 5006 },
     });
     expect(app).toMatchObject({ id: 'actualbudget', name: 'Actualbudget', providerType: 'actualbudget', category: 'Finance', source: 'coolify', port: '5006' });
+    expect(app?.icon).toBe('https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/svgs/actualbudget.png');
     expect(app).not.toHaveProperty('compose');
   });
 });
