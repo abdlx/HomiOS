@@ -1,4 +1,4 @@
-import type { AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderConnectionStatus, RuntimeApp } from '../types.ts';
+import type { AppDomainRoute, AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderConnectionStatus, RuntimeApp } from '../types.ts';
 
 export interface AppRuntimeProvider {
   getConnectionStatus(): Promise<ProviderConnectionStatus>;
@@ -13,4 +13,6 @@ export interface AppRuntimeProvider {
   removeApp(id: string): Promise<void>;
   getLogs(id: string): Promise<AppLog[]>;
   getStatus(id: string): Promise<AppRuntimeStatus>;
+  getDomains(id: string): Promise<AppDomainRoute[]>;
+  updateDomains(id: string, routes: AppDomainRoute[], force?: boolean): Promise<RuntimeApp>;
 }

@@ -1,1 +1,1 @@
-export { listCatalog, getCatalogApp } from './registry.ts';
+export { listCatalog, listFullCatalog, getCatalogApp } from './registry.ts';

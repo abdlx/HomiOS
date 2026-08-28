@@ -1,6 +1,6 @@
 import type { AppRuntimeProvider } from './provider.ts';
 import type {
-  AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderCapabilities,
+  AppDomainRoute, AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderCapabilities,
   ProviderConnectionStatus, RuntimeApp,
 } from '../types.ts';
 
@@ -61,6 +61,7 @@ export class CoolifyClient {
   listServices = () => this.request<any[]>('/services');
   createService = (input: Record<string, any>) => this.request<{ uuid: string; domains?: string[] }>('/services', { method: 'POST', body: JSON.stringify(input) });
   getService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}`);
+  updateService = (uuid: string, input: Record<string, any>) => this.request<any>(`/services/${encodeURIComponent(uuid)}`, { method: 'PATCH', body: JSON.stringify(input) });
   deploy = (uuid: string) => this.request<any>('/deploy', { method: 'POST', body: JSON.stringify({ uuid }) });
   deleteService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}?delete_configurations=true&delete_volumes=false&docker_cleanup=false&delete_connected_networks=true`, { method: 'DELETE' });
   startService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}/start`, { method: 'POST' });
@@ -155,6 +156,18 @@ export class CoolifyProvider implements AppRuntimeProvider {
     return String(result.logs || '').split('\n').filter(Boolean).map((message) => ({ message }));
   }
   async getStatus(id: string) { return normalizedStatus(await this.client.getService(id)); }
+  async getDomains(id: string): Promise<AppDomainRoute[]> {
+    const service = await this.client.getService(id);
+    const applications = Array.isArray(service?.applications) ? service.applications : [];
+    return applications.flatMap((app: any) => {
+      const urls = [app?.fqdn, app?.domains].flatMap((value) => String(value || '').split(',')).map((value) => value.trim()).filter(Boolean);
+      return urls.length ? urls.map((url) => ({ name: String(app?.name || app?.uuid || 'web'), url })) : [{ name: String(app?.name || app?.uuid || 'web'), url: '' }];
+    });
+  }
+  async updateDomains(id: string, routes: AppDomainRoute[], force = false): Promise<RuntimeApp> {
+    await this.client.updateService(id, { urls: routes.map(({ name, url }) => ({ name, url })), force_domain_override: force });
+    return this.getApp(id);
+  }
   private toRuntime(item: any): RuntimeApp {
     return { id: item.uuid || item.id, name: item.name || item.uuid, status: normalizedStatus(item), primaryUrl: domainsOf(item)[0] || null, raw: item };
   }

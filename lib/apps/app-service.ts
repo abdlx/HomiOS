@@ -6,7 +6,7 @@ import { getCatalogApp } from './registry.ts';
 import { getCoolifyProvider } from './integration-storage.ts';
 import { assertManagedOwnership } from './ownership.ts';
 import { validateStorageSelection } from './storage.ts';
-import type { ManagedApp } from './types.ts';
+import type { AppDomainRoute, ManagedApp } from './types.ts';
 
 function parse(value: string | null | undefined) {
   try { return value ? JSON.parse(value) : {}; } catch { return {}; }
@@ -125,6 +125,35 @@ export async function performAppAction(appId: string, action: 'start' | 'stop' |
 export async function getAppLogs(appId: string) {
   const row = assertManagedOwnership(appId);
   return getCoolifyProvider().getLogs(row.provider_resource_uuid);
+}
+
+function normalizeDomainRoute(route: AppDomainRoute): AppDomainRoute {
+  const name = String(route?.name || '').trim();
+  const value = String(route?.url || '').trim();
+  if (!name || name.length > 255) throw new Error('Each address requires a valid service name');
+  if (!value) return { name, url: '' };
+  let url: URL;
+  try { url = new URL(value); } catch { throw new Error(`Invalid app address: ${value}`); }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) {
+    throw new Error(`App addresses must be full HTTP(S) URLs without credentials, query strings, or fragments`);
+  }
+  return { name, url: url.toString().replace(/\/$/, url.pathname === '/' ? '' : '/') };
+}
+
+export async function getAppDomains(appId: string) {
+  const row = assertManagedOwnership(appId);
+  return getCoolifyProvider().getDomains(row.provider_resource_uuid);
+}
+
+export async function updateAppDomains(appId: string, routes: AppDomainRoute[], force: boolean, actor: { teamId?: string; userId?: number }) {
+  const row = assertManagedOwnership(appId);
+  if (!Array.isArray(routes) || routes.length > 20) throw new Error('Provide up to 20 app addresses');
+  const normalized = routes.map(normalizeDomainRoute);
+  const runtime = await getCoolifyProvider().updateDomains(row.provider_resource_uuid, normalized, force);
+  const primaryUrl = runtime.primaryUrl || normalized.find((route) => route.url)?.url || null;
+  getDb().prepare('UPDATE managed_apps SET primary_url=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(primaryUrl, appId);
+  logAudit({ ...actor, action: 'app.domains.updated', resourceType: 'managed_app', resourceId: appId, meta: { domains: normalized.map((route) => route.url).filter(Boolean) } });
+  return { routes: normalized, app: getManagedApp(appId) };
 }
 
 export async function removeManagedApp(appId: string, actor: { teamId?: string; userId?: number }) {

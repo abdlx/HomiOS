@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { AppTemplate } from './types.ts';
+import { getCachedCoolifyCatalog } from './coolify-catalog.ts';
 
 let cached: AppTemplate[] | null = null;
 
@@ -17,8 +18,15 @@ export function listCatalog(): AppTemplate[] {
   return cached;
 }
 
+export function listFullCatalog(): AppTemplate[] {
+  const homios = listCatalog().map((item) => ({ ...item, source: 'homios' as const }));
+  const localIds = new Set(homios.map((item) => item.id));
+  return [...homios, ...getCachedCoolifyCatalog().filter((item) => !localIds.has(item.id))]
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function getCatalogApp(id: string) {
-  return listCatalog().find((item) => item.id === id) || null;
+  return listFullCatalog().find((item) => item.id === id) || null;
 }
 
 export function clearCatalogCache() { cached = null; }

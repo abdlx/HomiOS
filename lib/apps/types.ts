@@ -23,10 +23,16 @@ export interface AppTemplate {
   description: string;
   verified: boolean;
   icon: string;
+  source?: 'homios' | 'coolify';
+  tags?: string[];
+  documentation?: string;
+  port?: string;
   requirements?: { recommendedRamMb?: number };
   storage: AppStorageRequirement[];
   desktop: { enabled: boolean; openMode: 'external-url' };
 }
+
+export interface AppDomainRoute { name: string; url: string }
 
 export interface InstallOptions {
   storage?: Record<string, string>;

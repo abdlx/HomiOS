@@ -3,10 +3,12 @@ import { enqueueJob } from '../../../lib/jobs.ts';
 import { createInstallJobRecord, findActiveInstall, listManagedApps } from '../../../lib/apps/app-service.ts';
 import { getCatalogApp } from '../../../lib/apps/catalog.ts';
 import { logAudit } from '../../../lib/audit.ts';
+import { refreshCoolifyCatalog } from '../../../lib/apps/coolify-catalog.ts';
 
 export default withAuth(async (req: any, res: any, session: any) => {
   if (req.method !== 'POST') return res.status(405).end();
   const appId = String(req.body?.appId || '');
+  try { await refreshCoolifyCatalog(); } catch {}
   const template = getCatalogApp(appId);
   if (!template) return res.status(404).json({ error: 'App not found in catalog' });
   if (listManagedApps().some((app) => app.catalogId === appId)) return res.status(409).json({ error: `${template.name} is already installed` });
