@@ -1,6 +1,6 @@
 import type { AppRuntimeProvider } from './provider.ts';
 import type {
-  AppDomainRoute, AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderCapabilities,
+  AppDomainRoute, AppHostMount, AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderCapabilities,
   ProviderConnectionStatus, RuntimeApp,
 } from '../types.ts';
 
@@ -61,6 +61,8 @@ export class CoolifyClient {
   listServices = () => this.request<any[]>('/services');
   createService = (input: Record<string, any>) => this.request<{ uuid: string; domains?: string[] }>('/services', { method: 'POST', body: JSON.stringify(input) });
   getService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}`);
+  listServiceStorages = (uuid: string) => this.request<{ persistent_storages?: any[]; file_storages?: any[] }>(`/services/${encodeURIComponent(uuid)}/storages`);
+  createServiceStorage = (uuid: string, input: Record<string, any>) => this.request<any>(`/services/${encodeURIComponent(uuid)}/storages`, { method: 'POST', body: JSON.stringify(input) });
   updateService = (uuid: string, input: Record<string, any>) => this.request<any>(`/services/${encodeURIComponent(uuid)}`, { method: 'PATCH', body: JSON.stringify(input) });
   deploy = (uuid: string) => this.request<any>('/deploy', { method: 'POST', body: JSON.stringify({ uuid }) });
   deleteService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}?delete_configurations=true&delete_volumes=false&docker_cleanup=false&delete_connected_networks=true`, { method: 'DELETE' });
@@ -142,6 +144,38 @@ export class CoolifyProvider implements AppRuntimeProvider {
       instant_deploy: false,
     });
     return { id: created.uuid, name: template.name, status: 'installing', primaryUrl: created.domains?.[0] || null, raw: created };
+  }
+  async configureStorage(id: string, mounts: AppHostMount[]) {
+    const service = await this.client.getService(id);
+    const resource = (Array.isArray(service?.applications) ? service.applications[0] : null)
+      || (Array.isArray(service?.databases) ? service.databases[0] : null);
+    if (!resource?.uuid) throw new Error('Coolify did not expose an application resource for HomiOS storage');
+
+    let existing: any[] = [];
+    try {
+      const response = await this.client.listServiceStorages(id);
+      existing = Array.isArray(response?.persistent_storages) ? response.persistent_storages : [];
+    } catch (error) {
+      if (error instanceof CoolifyApiError && error.status === 404) {
+        throw new Error('This Coolify version does not support host storage for services');
+      }
+      throw error;
+    }
+
+    let added = 0;
+    for (const mount of mounts) {
+      const alreadyConfigured = existing.some((storage) => storage?.host_path === mount.path && storage?.mount_path === mount.path);
+      if (alreadyConfigured) continue;
+      await this.client.createServiceStorage(id, {
+        type: 'persistent',
+        resource_uuid: resource.uuid,
+        name: `homios-${mount.id.slice(0, 16)}`,
+        mount_path: mount.path,
+        host_path: mount.path,
+      });
+      added += 1;
+    }
+    return { added, removed: 0 };
   }
   async startApp(id: string) { await this.client.startService(id); }
   async stopApp(id: string) { await this.client.stopService(id); }

@@ -10,4 +10,11 @@ describe('Coolify catalog import', () => {
     expect(app?.icon).toBe('https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/svgs/actualbudget.png');
     expect(app).not.toHaveProperty('compose');
   });
+
+  it('marks Coolify templates with persistent volumes as storage-aware without exposing Compose', () => {
+    const compose = Buffer.from('services:\n  app:\n    image: example/app\n    volumes:\n      - app-data:/data\n').toString('base64');
+    const [app] = mapCoolifyCatalog({ files: { slogan: 'Files', category: 'storage', compose } });
+    expect(app?.storage).toEqual([{ id: 'homios-storage', label: 'HomiOS Storage', required: false, protectable: false }]);
+    expect(app).not.toHaveProperty('compose');
+  });
 });

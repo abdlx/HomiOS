@@ -15,6 +15,16 @@ function humanize(id: string) {
   return id.split(/[-_]/).filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(' ');
 }
 
+function usesPersistentStorage(item: any) {
+  if (typeof item?.compose !== 'string') return false;
+  try {
+    const compose = Buffer.from(item.compose, 'base64').toString('utf8');
+    return /^\s{4,}volumes:\s*$/m.test(compose);
+  } catch {
+    return false;
+  }
+}
+
 function readDiskCache(): AppTemplate[] {
   if (memoryCache) return memoryCache;
   try {
@@ -44,7 +54,9 @@ export function mapCoolifyCatalog(raw: Record<string, any>): AppTemplate[] {
     documentation: typeof item?.documentation === 'string' ? item.documentation : undefined,
     port: item?.port == null ? undefined : String(item.port),
     icon: item?.logo ? `https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/${String(item.logo).replace(/^\/+/, '')}` : '',
-    storage: [],
+    storage: usesPersistentStorage(item)
+      ? [{ id: 'homios-storage', label: 'HomiOS Storage', required: false, protectable: false }]
+      : [],
     desktop: { enabled: true, openMode: 'external-url' },
   })).sort((a, b) => a.name.localeCompare(b.name));
 }

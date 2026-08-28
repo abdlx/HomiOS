@@ -51,4 +51,35 @@ describe('CoolifyClient', () => {
     await expect(provider.getDomains('service-1')).resolves.toEqual([{ name: 'web', url: 'https://status.example.com' }]);
     await expect(provider.updateDomains('service-1', [{ name: 'web', url: 'https://status.example.com' }])).resolves.toMatchObject({ primaryUrl: 'https://status.example.com' });
   });
+
+  it('attaches each HomiOS host mount to the primary service application', async () => {
+    const requests: Array<{ url:string; method:string; body?:any }> = [];
+    const fetcher = vi.fn(async (url: string, init: RequestInit = {}) => {
+      const method = init.method || 'GET';
+      requests.push({ url, method, body: init.body ? JSON.parse(String(init.body)) : undefined });
+      if (url.endsWith('/services/service-1')) {
+        return response(200, { uuid: 'service-1', applications: [{ uuid: 'application-1', name: 'immich' }] });
+      }
+      if (url.endsWith('/services/service-1/storages') && method === 'GET') {
+        return response(200, { persistent_storages: [] });
+      }
+      if (url.endsWith('/services/service-1/storages') && method === 'POST') return response(201, { uuid: 'storage-1' });
+      return response(404, { message: 'Not found' });
+    });
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+
+    await provider.configureStorage('service-1', [
+      { id: 'mount-1', name: 'sda1', path: '/mnt/homios-storage/sda1', source: '/dev/sda1', filesystem: 'ext4', readOnly: false },
+      { id: 'mount-2', name: 'sdb1', path: '/mnt/homios-storage/sdb1', source: '/dev/sdb1', filesystem: 'ext4', readOnly: false },
+    ]);
+
+    const creates = requests.filter((request) => request.method === 'POST');
+    expect(creates).toHaveLength(2);
+    expect(creates[0]?.body).toMatchObject({
+      type: 'persistent',
+      resource_uuid: 'application-1',
+      host_path: '/mnt/homios-storage/sda1',
+      mount_path: '/mnt/homios-storage/sda1',
+    });
+  });
 });

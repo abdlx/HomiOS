@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Grid3X3,
-  Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, Rocket, RotateCw, Search, Server,
+  HardDrive, Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, Rocket, RotateCw, Search, Server,
   ShieldCheck, Sparkles, Square, Trash2, X,
 } from 'lucide-react';
 import { useInstalledApps, type InstalledApp } from '../hooks/useInstalledApps';
@@ -14,6 +14,7 @@ type CatalogApp = {
 };
 type Integration = { appStoreState:string; connected:boolean; authenticated:boolean; reachable:boolean; mode:string; baseUrl:string|null; storageAware:boolean };
 type DomainRoute = { name:string; url:string };
+type StorageMount = { id:string; name:string; path:string; source?:string; filesystem?:string; readOnly:boolean };
 
 const accents = ['from-blue-500 to-cyan-400','from-violet-500 to-fuchsia-500','from-emerald-500 to-teal-400','from-amber-500 to-orange-500','from-rose-500 to-pink-500'];
 const accentFor = (id:string) => accents[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % accents.length];
@@ -33,6 +34,8 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const [token, setToken] = useState('');
   const [pendingConnect, setPendingConnect] = useState<any>(null);
   const [connectOptions, setConnectOptions] = useState<Record<string, any>>({});
+  const [storageMounts, setStorageMounts] = useState<StorageMount[]>([]);
+  const [selectedMountIds, setSelectedMountIds] = useState<string[]>([]);
   const [domainEditor, setDomainEditor] = useState<{app:InstalledApp;routes:DomainRoute[];loading:boolean;conflicts?:any[]} | null>(null);
   const { apps: installed, refresh: refreshInstalled } = useInstalledApps();
   const { jobs, refresh: refreshJobs } = useJobActivity();
@@ -43,7 +46,11 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
     if (refreshInFlight.current) return refreshInFlight.current;
     const request = (async () => {
       try {
-        const [catalogResponse, statusResponse] = await Promise.all([fetch('/api/apps/catalog'), fetch('/api/integrations/coolify/status')]);
+        const [catalogResponse, statusResponse, mountsResponse] = await Promise.all([
+          fetch('/api/apps/catalog'),
+          fetch('/api/integrations/coolify/status'),
+          fetch('/api/apps/storage-mounts'),
+        ]);
         if (catalogResponse.ok) {
           const value = await catalogResponse.json();
           setCatalog(value.apps || []); setCatalogAvailable(value.catalogAvailable !== false);
@@ -57,6 +64,12 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
             lastReconcileAt.current = now;
             await fetch('/api/apps/reconcile', { method:'POST' }).catch(() => {});
           }
+        }
+        if (mountsResponse.ok) {
+          const value = await mountsResponse.json();
+          const nextMounts = Array.isArray(value.mounts) ? value.mounts : [];
+          setStorageMounts(nextMounts);
+          setSelectedMountIds(nextMounts.map((mount:StorageMount) => mount.id));
         }
         await refreshInstalled();
       } catch {
@@ -110,7 +123,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   async function install(app:CatalogApp) {
     setBusy(true); setError('');
     try {
-      const response = await fetch('/api/apps/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ appId:app.id, storage:{} }) });
+      const response = await fetch('/api/apps/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ appId:app.id, storage:{}, mountIds:app.storage.length && integration?.storageAware ? selectedMountIds : [] }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Installation could not be queued');
       await refreshJobs();
     } catch (next:any) { setError(next.message); } finally { setBusy(false); }
@@ -182,7 +195,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
       </div>
     </main>
 
-    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<div className="mt-5 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">This app needs HomiOS drive mapping. Storage-aware installation is coming next.</div>}<button disabled={busy||!!activeInstall(selected.id)||(!installedFor(selected.id)&&selected.storage.length>0)} onClick={()=>{const installedApp=installedFor(selected.id); return installedApp?action(installedApp.id,'deploy'):install(selected);}} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><Rocket size={16}/>Redeploy</>:<><Plus size={16}/>Install</>}</button></aside>}
+    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<StorageMountSelector mounts={storageMounts} selectedIds={selectedMountIds} disabled={!integration?.storageAware} onChange={setSelectedMountIds}/>}<button disabled={busy||!!activeInstall(selected.id)||(!installedFor(selected.id)&&selected.storage.some((item)=>item.required)&&selectedMountIds.length===0)} onClick={()=>{const installedApp=installedFor(selected.id); return installedApp?action(installedApp.id,'deploy'):install(selected);}} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><Rocket size={16}/>Redeploy</>:<><Plus size={16}/>Install</>}</button></aside>}
 
     {domainEditor&&<DomainEditor value={domainEditor} onChange={(routes)=>setDomainEditor({...domainEditor,routes})} onClose={()=>setDomainEditor(null)} onSave={()=>saveDomains(false)} onForce={()=>saveDomains(true)}/>} 
   </div>;
@@ -224,6 +237,12 @@ function InstalledAppCard({app,catalogApp,busy,onDomains,onAction}:{app:Installe
 }
 function SidebarAction({children,title,onClick,danger=false,disabled=false}:any){return <button disabled={disabled} aria-label={title} title={title} onClick={onClick} className={`rounded-lg p-1.5 transition disabled:cursor-not-allowed disabled:opacity-30 ${danger?'text-red-500 hover:bg-red-500/10':'text-slate-500 hover:bg-white hover:text-blue-500 dark:text-slate-300 dark:hover:bg-white/10'}`}>{children}</button>}
 function Info({label,value}:{label:string;value:string}){return <div className="mt-5"><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{value}</p></div>}
+
+function StorageMountSelector({mounts,selectedIds,disabled,onChange}:{mounts:StorageMount[];selectedIds:string[];disabled:boolean;onChange:(ids:string[])=>void}){
+  const selected = new Set(selectedIds);
+  const toggle = (id:string) => onChange(selected.has(id) ? selectedIds.filter((value)=>value!==id) : [...selectedIds,id]);
+  return <div className="mt-5 rounded-2xl border border-blue-500/15 bg-blue-500/5 p-3"><div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><HardDrive size={15} className="text-blue-500"/>HomiOS storage</div><p className="mb-3 text-xs leading-5 text-slate-500">All mounted drives are enabled by default and appear at their existing paths.</p>{disabled?<p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">Storage mapping is available only on the local HomiOS Coolify server.</p>:mounts.length===0?<p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">No drives are currently mounted inside /mnt/homios-storage.</p>:<div className="max-h-44 space-y-2 overflow-y-auto">{mounts.map((mount)=><label key={mount.id} className="flex cursor-pointer items-start gap-2 rounded-lg bg-white/80 p-2 text-xs dark:bg-black/15"><input type="checkbox" checked={selected.has(mount.id)} onChange={()=>toggle(mount.id)} className="mt-0.5"/><span className="min-w-0"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{mount.name}</span><span className="block truncate text-[10px] text-slate-400">{mount.path}{mount.readOnly?' · read-only':''}</span></span></label>)}</div>}</div>;
+}
 
 function ConnectionPanel({integration,baseUrl,token,busy,pending,setBaseUrl,setToken,connect}:any){return <div className="mx-auto mt-16 max-w-xl rounded-[28px] border border-neutral-200 bg-white p-7 shadow-xl dark:border-white/10 dark:bg-[#1f1f22]"><Server className="mb-4 text-violet-500" size={34}/><h3 className="text-xl font-semibold">{integration?.appStoreState==='needs_coolify'?'Apps require Coolify':'Connect Coolify'}</h3><p className="mt-2 text-sm text-slate-500">HomiOS manages apps only inside its dedicated project.</p><div className="mt-5 space-y-3"><input value={baseUrl} onChange={(e)=>setBaseUrl(e.target.value)} placeholder="http://192.168.0.101:8000" className="w-full rounded-xl border border-neutral-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-black/20"/><input type="password" value={token} onChange={(e)=>setToken(e.target.value)} placeholder="API token" className="w-full rounded-xl border border-neutral-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-black/20"/><p className="flex items-center gap-2 text-xs text-slate-500"><ShieldCheck size={14}/>Read, Write, Deploy. Never Root.</p>{pending?.needsServerSelection&&<select onChange={(e)=>connect({serverUuid:e.target.value})} defaultValue="" className="w-full rounded-xl border bg-transparent p-3"><option value="" disabled>Select server</option>{pending.servers.map((item:any)=><option key={item.uuid} value={item.uuid}>{item.name} — {item.ip}</option>)}</select>}{pending?.needsDestinationSelection&&<select onChange={(e)=>connect({destinationUuid:e.target.value})} defaultValue="" className="w-full rounded-xl border bg-transparent p-3"><option value="" disabled>Select Docker destination</option>{pending.destinations.map((item:any)=><option key={item.uuid} value={item.uuid}>{item.name||item.network}</option>)}</select>}{pending?.needsProjectSelection&&<div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-sm"><button onClick={()=>connect({conflictResolution:'create-new'})} className="rounded-lg bg-slate-800 px-3 py-2 text-white">Create new</button><button onClick={()=>connect({conflictResolution:'use-existing'})} className="rounded-lg border px-3 py-2">Use existing</button></div>}<button disabled={busy||!baseUrl||!token} onClick={()=>connect()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white disabled:opacity-40">{busy&&<Loader2 className="animate-spin" size={16}/>}Connect</button></div></div>}
 

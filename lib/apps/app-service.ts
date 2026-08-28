@@ -3,9 +3,10 @@ import { getDb, withTransaction } from '../db.ts';
 import { logAudit } from '../audit.ts';
 import { createNotification } from '../notifications.ts';
 import { getCatalogApp } from './registry.ts';
-import { getCoolifyProvider } from './integration-storage.ts';
+import { getCoolifyIntegration, getCoolifyProvider } from './integration-storage.ts';
 import { assertManagedOwnership } from './ownership.ts';
 import { validateStorageSelection } from './storage.ts';
+import { resolveAppStorageMounts } from './mount-inventory.ts';
 import type { AppDomainRoute, ManagedApp } from './types.ts';
 
 function parse(value: string | null | undefined) {
@@ -52,7 +53,7 @@ function updateInstall(jobId: string, stage: string, appId?: string, error?: str
 }
 
 export async function runAppInstall(input: {
-  jobId: string; catalogId: string; storage?: Record<string, string>; serverUuid?: string;
+  jobId: string; catalogId: string; storage?: Record<string, string>; mountIds?: string[]; serverUuid?: string;
   teamId?: string; userId?: number; onProgress: (progress: number, message?: string, data?: any) => void;
 }) {
   const template = getCatalogApp(input.catalogId);
@@ -60,16 +61,24 @@ export async function runAppInstall(input: {
   if (getDb().prepare('SELECT 1 FROM managed_apps WHERE catalog_id=? AND removed_at IS NULL').get(template.id)) {
     throw new Error(`${template.name} is already installed`);
   }
-  const storage = validateStorageSelection(template, input.storage || {});
-  if (Object.keys(storage).length) {
-    throw new Error('Host bind-storage configuration is not supported by this Coolify API version yet');
+  const integration = getCoolifyIntegration();
+  if (template.storage.some((requirement) => requirement.required) && !integration?.storageAware) {
+    throw new Error(`${template.name} storage requires the local HomiOS Coolify server`);
   }
+  const mounts = resolveAppStorageMounts(template, integration?.storageAware ? input.mountIds : []);
+  const storage = validateStorageSelection(template, input.storage || {}, mounts[0]?.path);
   const provider = getCoolifyProvider();
   let appId: string | undefined;
+  let createdResourceUuid: string | undefined;
   try {
     updateInstall(input.jobId, 'creating');
     input.onProgress(15, 'Creating Coolify service', { stage: 'creating', appId: template.id });
     const runtime = await provider.installApp(template, { storage, serverUuid: input.serverUuid });
+    createdResourceUuid = runtime.id;
+    if (mounts.length) {
+      input.onProgress(35, 'Attaching HomiOS storage', { stage: 'configuring_storage', appId: template.id });
+      await provider.configureStorage(runtime.id, mounts);
+    }
     const managedId = randomUUID();
     appId = managedId;
     withTransaction((db) => {
@@ -80,7 +89,7 @@ export async function runAppInstall(input: {
       ) VALUES (?, ?, 'coolify', ?, ?, ?, ?, ?, ?, 'installing', ?, 1, ?)`)
         .run(managedId, template.id, runtime.id, provider.config.projectUuid,
           provider.config.environmentUuid, input.serverUuid || provider.config.serverUuid,
-          template.name, runtime.primaryUrl, JSON.stringify(storage), template.schemaVersion);
+          template.name, runtime.primaryUrl, JSON.stringify({ requirements: storage, mounts }), template.schemaVersion);
       db.prepare('UPDATE app_install_jobs SET app_id=?, stage=?, updated_at=CURRENT_TIMESTAMP WHERE job_id=?')
         .run(managedId, 'configuring', input.jobId);
     });
@@ -105,6 +114,9 @@ export async function runAppInstall(input: {
     createNotification({ teamId: input.teamId, userId: input.userId, title: `${template.name} installed`, message: finalStatus === 'running' ? 'The app is ready to open.' : 'Coolify is finishing the deployment.', tone: 'success', sourceType: 'app', sourceId: managedId });
     return { appId: managedId, resourceUuid: runtime.id, status: finalStatus };
   } catch (error: any) {
+    if (createdResourceUuid && !appId) {
+      try { await provider.removeApp(createdResourceUuid); } catch {}
+    }
     updateInstall(input.jobId, 'failed_deploy', appId, error?.message || 'Install failed');
     if (appId) getDb().prepare("UPDATE managed_apps SET status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(appId);
     logAudit({ teamId: input.teamId, userId: input.userId, action: 'app.install.failed', resourceType: 'managed_app', resourceId: appId, meta: { catalogId: input.catalogId, error: error?.message } });

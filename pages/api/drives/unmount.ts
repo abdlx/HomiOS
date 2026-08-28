@@ -38,6 +38,11 @@ export default withAuth(async function handler(req: any, res: any) {
       mountPoint: req.body?.mountPoint,
       activeSharePaths,
     }, execFileAsync);
+    queueMicrotask(() => {
+      void import('../../../lib/apps/reconciliation.ts')
+        .then(({ reconcileManagedApps }) => reconcileManagedApps())
+        .catch((nextError) => console.error('App storage reconciliation after unmount failed:', nextError));
+    });
     return res.json(result);
   } catch (error: any) {
     if (error instanceof DriveUnmountError) {

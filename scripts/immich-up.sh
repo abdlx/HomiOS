@@ -5,7 +5,9 @@ IMMICH_DATA_DIR="${IMMICH_DATA_DIR:-/data/immich}"
 IMMICH_APP_PORT="${IMMICH_APP_PORT:-2283}"
 IMMICH_VERSION="${IMMICH_VERSION:-v3}"
 IMMICH_COMPOSE_URL="${IMMICH_COMPOSE_URL:-https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml}"
+HOMIOS_STORAGE_ROOT="${HOMIOS_STORAGE_ROOT:-${HOMIOS_DRIVE_MOUNT_ROOT:-/mnt/homios-storage}}"
 COMPOSE_FILE="$IMMICH_DATA_DIR/docker-compose.yml"
+STORAGE_OVERRIDE_FILE="$IMMICH_DATA_DIR/docker-compose.homios-storage.yml"
 ENV_FILE="$IMMICH_DATA_DIR/.env"
 
 log() { echo "[immich] $1"; }
@@ -22,6 +24,7 @@ fi
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required"
 
 mkdir -p "$IMMICH_DATA_DIR/library" "$IMMICH_DATA_DIR/postgres"
+mkdir -p "$HOMIOS_STORAGE_ROOT"
 chmod 700 "$IMMICH_DATA_DIR"
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -60,7 +63,19 @@ mv "$tmp_compose" "$COMPOSE_FILE"
 trap - EXIT
 chmod 600 "$COMPOSE_FILE"
 
+cat > "$STORAGE_OVERRIDE_FILE" <<EOF
+services:
+  immich-server:
+    volumes:
+      - type: bind
+        source: $HOMIOS_STORAGE_ROOT
+        target: /mnt/homios-storage
+        bind:
+          propagation: rslave
+EOF
+chmod 600 "$STORAGE_OVERRIDE_FILE"
+
 log "Pulling and starting Immich $IMMICH_VERSION on port $IMMICH_APP_PORT..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -f "$STORAGE_OVERRIDE_FILE" pull
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -f "$STORAGE_OVERRIDE_FILE" up -d --remove-orphans
 log "Immich is available at http://$(hostname -I 2>/dev/null | awk '{print $1}'):$IMMICH_APP_PORT"

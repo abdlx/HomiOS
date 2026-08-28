@@ -602,6 +602,8 @@ Environment=DATABASE_URL=$INSTALL_DIR/data/filemanager.db
 Environment=TUS_UPLOAD_DIR=$INSTALL_DIR/data/.tus_uploads
 Environment=ROOT_DIR=/
 Environment=HOMIOS_SAMBA_ROOT=/mnt/homios-storage
+Environment=HOMIOS_DRIVE_MOUNT_ROOT=/mnt/homios-storage
+Environment=HOMIOS_STORAGE_ROOT=/mnt/homios-storage
 EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/npm start
 # Auto-restart on crash with 5s delay

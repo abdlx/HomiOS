@@ -92,6 +92,12 @@ export default withAuth(async function handler(req: any, res: any) {
     args.push(devPath, mountPoint);
     await execFileAsync('mount', args);
 
+    queueMicrotask(() => {
+      void import('../../../lib/apps/reconciliation.ts')
+        .then(({ reconcileManagedApps }) => reconcileManagedApps())
+        .catch((error) => console.error('App storage reconciliation after mount failed:', error));
+    });
+
     return res.json({
       ok: true,
       mountPoint,

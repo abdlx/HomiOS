@@ -16,7 +16,7 @@ export default withAuth(async (req: any, res: any, session: any) => {
   if (active) return res.status(202).json({ jobId: active.id, appId, existing: true });
   const jobId = enqueueJob({
     type: 'app.install', name: `Install ${template.name}`,
-    payload: { appId, storage: req.body?.storage || {}, serverUuid: req.body?.serverUuid },
+    payload: { appId, storage: req.body?.storage || {}, mountIds: req.body?.mountIds, serverUuid: req.body?.serverUuid },
     teamId: session.teamId, userId: session.userId, maxAttempts: 1,
   });
   try { createInstallJobRecord(jobId, appId); } catch {}

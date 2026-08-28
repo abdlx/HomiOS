@@ -9,10 +9,14 @@ function within(candidate: string, root: string) {
   return candidate === root || candidate.startsWith(root + path.sep);
 }
 
-export function validateStorageSelection(template: AppTemplate, selection: Record<string, string> = {}) {
+export function validateStorageSelection(
+  template: AppTemplate,
+  selection: Record<string, string> = {},
+  fallbackPath?: string,
+) {
   const normalized: Record<string, string> = {};
   for (const requirement of template.storage) {
-    const raw = selection[requirement.id];
+    const raw = selection[requirement.id] || (requirement.required ? fallbackPath : undefined);
     if (!raw) {
       if (requirement.required) throw new Error(`${requirement.label} storage is required`);
       continue;

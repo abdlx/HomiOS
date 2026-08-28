@@ -16,6 +16,7 @@ set -euo pipefail
 
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
+HOMIOS_STORAGE_ROOT="${HOMIOS_STORAGE_ROOT:-${HOMIOS_DRIVE_MOUNT_ROOT:-/mnt/homios-storage}}"
 COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
 COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-false}"
 if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
@@ -79,6 +80,7 @@ if ! docker network inspect coolify > /dev/null 2>&1; then
 fi
 
 mkdir -p \
+  "$HOMIOS_STORAGE_ROOT" \
   "$ENV_DIR" \
   "$COOLIFY_DATA_DIR/ssh/keys" \
   "$COOLIFY_DATA_DIR/ssh/mux" \
@@ -127,6 +129,7 @@ set_env_default "PUSHER_APP_SECRET" "$(openssl rand -hex 32)"
 set_env_default "REGISTRY_URL" "${REGISTRY_URL:-ghcr.io}"
 set_env_default "COOLIFY_BUILD_LOCAL" "$COOLIFY_BUILD_LOCAL"
 set_env_default "COOLIFY_IMAGE" "$COOLIFY_IMAGE"
+set_env_default "HOMIOS_STORAGE_ROOT" "$HOMIOS_STORAGE_ROOT"
 
 if [ -n "${ROOT_USERNAME:-}" ] && [ -n "${ROOT_USER_EMAIL:-}" ] && [ -n "${ROOT_USER_PASSWORD:-}" ]; then
   set_env_default "ROOT_USERNAME" "$ROOT_USERNAME"

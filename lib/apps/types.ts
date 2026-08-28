@@ -13,6 +13,20 @@ export interface AppStorageRequirement {
   protectable: boolean;
 }
 
+export interface AppHostMount {
+  id: string;
+  name: string;
+  path: string;
+  source?: string;
+  filesystem?: string;
+  readOnly: boolean;
+}
+
+export interface AppStorageConfiguration {
+  requirements: Record<string, string>;
+  mounts: AppHostMount[];
+}
+
 export interface AppTemplate {
   schemaVersion: number;
   id: string;
@@ -36,6 +50,7 @@ export interface AppDomainRoute { name: string; url: string }
 
 export interface InstallOptions {
   storage?: Record<string, string>;
+  mounts?: AppHostMount[];
   serverUuid?: string;
   destinationUuid?: string;
 }
@@ -72,7 +87,7 @@ export interface ManagedApp extends RuntimeApp {
   providerProjectUuid: string;
   providerEnvironmentUuid: string;
   providerServerUuid: string;
-  storage: Record<string, string>;
+  storage: AppStorageConfiguration | Record<string, string>;
   managedByHomiOS: boolean;
   metadataVersion: number;
   installedAt: string;
