@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
 import {
   AppWindow, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Grid3X3,
-  Loader2, Menu, Package, Pencil, Play, Plus, RefreshCw, RotateCw, Search, Server,
+  Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, RotateCw, Search, Server,
   ShieldCheck, Sparkles, Square, Trash2, X,
 } from 'lucide-react';
 import { useInstalledApps, type InstalledApp } from '../hooks/useInstalledApps';
@@ -24,6 +24,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const [integration, setIntegration] = useState<Integration | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All Apps');
+  const [visibleLimit, setVisibleLimit] = useState(60);
   const [selected, setSelected] = useState<CatalogApp | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,8 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const [domainEditor, setDomainEditor] = useState<{app:InstalledApp;routes:DomainRoute[];loading:boolean;conflicts?:any[]} | null>(null);
   const { apps: installed, refresh: refreshInstalled } = useInstalledApps();
   const { jobs, refresh: refreshJobs } = useJobActivity();
+  const deferredQuery = useDeferredValue(query);
+  const [isNavigating, startTransition] = useTransition();
 
   const refresh = useCallback(async () => {
     const [catalogResponse, statusResponse] = await Promise.all([fetch('/api/apps/catalog'), fetch('/api/integrations/coolify/status')]);
@@ -55,13 +58,25 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
     catalog.forEach((app) => counts.set(app.category || 'Other', (counts.get(app.category || 'Other') || 0) + 1));
     return [...counts.entries()].sort(([a],[b]) => a.localeCompare(b));
   }, [catalog]);
-  const visible = useMemo(() => catalog.filter((app) => {
+  const visible = useMemo(() => category === 'Installed Apps' ? [] : catalog.filter((app) => {
     const categoryMatch = category === 'All Apps' || category === 'HomiOS Verified' ? (category === 'All Apps' || app.verified) : app.category === category;
-    return categoryMatch && `${app.name} ${app.category} ${app.description} ${(app.tags || []).join(' ')}`.toLowerCase().includes(query.toLowerCase());
-  }), [catalog, category, query]);
-  const activeInstall = (id:string) => jobs.find((job:any) => job.type === 'app.install' && job.payload?.appId === id && ['queued','running'].includes(job.status));
-  const installedFor = (id:string) => installed.find((app) => app.catalogId === id);
-  const catalogFor = (app:InstalledApp) => catalog.find((item) => item.id === app.catalogId);
+    return categoryMatch && `${app.name} ${app.category} ${app.description} ${(app.tags || []).join(' ')}`.toLowerCase().includes(deferredQuery.toLowerCase());
+  }), [catalog, category, deferredQuery]);
+  const installedByCatalogId = useMemo(() => new Map(installed.map((app) => [app.catalogId, app])), [installed]);
+  const catalogById = useMemo(() => new Map(catalog.map((app) => [app.id, app])), [catalog]);
+  const activeInstalls = useMemo(() => new Map(jobs.filter((job:any) => job.type === 'app.install' && ['queued','running'].includes(job.status)).map((job:any) => [job.payload?.appId, job])), [jobs]);
+  const visibleInstalled = useMemo(() => installed.filter((app) => `${app.name} ${app.status}`.toLowerCase().includes(deferredQuery.toLowerCase())), [installed, deferredQuery]);
+  const renderedVisible = visible.slice(0, visibleLimit);
+  const activeInstall = (id:string) => activeInstalls.get(id) as any;
+  const installedFor = (id:string) => installedByCatalogId.get(id);
+
+  useEffect(() => { setVisibleLimit(60); }, [category, deferredQuery]);
+  const navigate = useCallback((next:string) => {
+    startTransition(() => { setCategory(next); setSelected(null); setVisibleLimit(60); });
+    setQuery('');
+    setSidebarOpen(false);
+  }, []);
+  const selectApp = useCallback((app:CatalogApp) => setSelected(app), []);
 
   async function connect(extra:Record<string,any> = {}) {
     setBusy(true); setError('');
@@ -120,65 +135,69 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
       <div className="mb-6 flex items-center gap-3 px-2"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 text-white shadow-lg"><AppWindow size={20}/></div><div><h2 className="font-semibold text-slate-900 dark:text-white">App Store</h2><p className="text-[11px] text-slate-400">Powered by Coolify</p></div></div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pb-5">
         <p className="mb-2 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">DISCOVER</p>
-        <CategoryButton active={category==='All Apps'} icon={Grid3X3} label="All Apps" count={catalog.length} onClick={()=>{setCategory('All Apps');setSidebarOpen(false)}}/>
-        <CategoryButton active={category==='HomiOS Verified'} icon={Sparkles} label="HomiOS Verified" count={catalog.filter((app)=>app.verified).length} onClick={()=>{setCategory('HomiOS Verified');setSidebarOpen(false)}}/>
-        <p className="mb-2 mt-6 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">INSTALLED · {installed.length}</p>
-        {installed.length ? <div className="space-y-2">
-          {installed.map((app)=><InstalledSidebarApp key={app.id} app={app} catalogApp={catalogFor(app)} busy={busy} onOpen={()=>app.primaryUrl&&window.open(app.primaryUrl,'_blank','noopener,noreferrer')} onDomains={()=>openDomains(app)} onAction={action}/>) }
-        </div> : <p className="px-3 py-2 text-xs text-slate-400">Installed apps will appear here.</p>}
+        <CategoryButton active={category==='All Apps'} icon={Grid3X3} label="All Apps" count={catalog.length} onClick={()=>navigate('All Apps')}/>
+        <CategoryButton active={category==='HomiOS Verified'} icon={Sparkles} label="HomiOS Verified" count={catalog.filter((app)=>app.verified).length} onClick={()=>navigate('HomiOS Verified')}/>
+        <p className="mb-2 mt-6 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">LIBRARY</p>
+        <CategoryButton active={category==='Installed Apps'} icon={PackageCheck} label="Installed Apps" count={installed.length} onClick={()=>navigate('Installed Apps')}/>
         <p className="mb-2 mt-6 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">CATEGORIES</p>
-        {categories.map(([name,count])=><CategoryButton key={name} active={category===name} icon={Package} label={name} count={count} onClick={()=>{setCategory(name);setSidebarOpen(false)}}/>)}
+        {categories.map(([name,count])=><CategoryButton key={name} active={category===name} icon={Package} label={name} count={count} onClick={()=>navigate(name)}/>)}
       </nav>
       <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-white/5 dark:text-slate-400"><div className="mb-1 flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200"><Server size={14}/>{integration?.reachable?'Coolify connected':'Coolify unavailable'}</div>{catalog.length} one-click apps available</div>
     </aside>
 
     <main className="min-w-0 flex-1 overflow-y-auto px-5 pb-24 pt-6 md:px-10 md:pt-10">
       <div className="mx-auto max-w-[1320px]">
-        <div className="mb-7 flex items-center gap-3"><button className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Browse and manage Coolify one-click services from HomiOS.</p></div><button onClick={refresh} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm hover:text-blue-500 dark:border-white/10 dark:bg-[#1f1f22]"><RefreshCw size={17}/></button></div>
-        <div className="relative mb-7 max-w-2xl"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search apps, categories, and tags" className="w-full rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
+        <div className="mb-7 flex items-center gap-3"><button className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse Coolify one-click services from HomiOS.'}</p></div><button onClick={refresh} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]"><RefreshCw size={17}/></button></div>
+        <div className="relative mb-7 max-w-2xl"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder={category==='Installed Apps'?'Search installed apps':'Search apps, categories, and tags'} className="w-full rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
         {!catalogAvailable&&<div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">Showing the cached HomiOS catalog. The latest Coolify catalog could not be refreshed.</div>}
         {error&&<div className="mb-5 flex items-center justify-between rounded-2xl bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-300">{error}<button onClick={()=>setError('')}><X size={15}/></button></div>}
 
-        {unavailable ? <ConnectionPanel integration={integration} baseUrl={baseUrl} token={token} busy={busy} pending={pendingConnect} setBaseUrl={setBaseUrl} setToken={setToken} connect={connect}/> : <>
+        {category==='Installed Apps' ? <InstalledAppsView apps={visibleInstalled} catalogById={catalogById} busy={busy} onDomains={openDomains} onAction={action}/> : unavailable ? <ConnectionPanel integration={integration} baseUrl={baseUrl} token={token} busy={busy} pending={pendingConnect} setBaseUrl={setBaseUrl} setToken={setToken} connect={connect}/> : <>
           <div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-semibold text-slate-900 dark:text-white">{visible.length} apps</h3><p className="text-xs text-slate-400">HomiOS verified and Coolify community templates</p></div></div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visible.map((app)=>{
-            const installedApp=installedFor(app.id); const job:any=activeInstall(app.id);
-            return <button key={app.id} onClick={()=>setSelected(app)} className={`group rounded-2xl border bg-white p-5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-xl dark:bg-[#1f1f22] ${selected?.id===app.id?'border-blue-500 ring-4 ring-blue-500/10':'border-neutral-200/70 dark:border-white/10'}`}>
-              <div className="flex items-start gap-3"><AppGlyph app={app}/><div className="min-w-0 flex-1"><h4 className="truncate font-semibold text-slate-900 dark:text-white">{app.name}</h4><p className="text-xs text-blue-500">{app.category}</p></div>{installedApp?<CheckCircle2 className="text-emerald-500" size={18}/>:<ChevronRight className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500" size={18}/>}</div>
-              <p className="mt-4 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500 dark:text-slate-400">{app.description}</p>
-              <div className="mt-4 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-slate-400">{app.verified?<><ShieldCheck size={12} className="text-emerald-500"/> HomiOS verified</>:<>Coolify catalog</>}</div>
-              {job&&<div className="mt-3"><div className="mb-1 flex justify-between text-[10px] text-slate-400"><span>{job.progressData?.stage?.replace('_',' ')||job.status}</span><span>{job.progress}%</span></div><div className="h-1 overflow-hidden rounded-full bg-black/10"><div className="h-full bg-blue-500" style={{width:`${job.progress}%`}}/></div></div>}
-            </button>})}</div>
+          <div className={`grid gap-4 transition-opacity duration-150 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${isNavigating?'opacity-60':'opacity-100'}`}>{renderedVisible.map((app)=><CatalogCard key={app.id} app={app} selected={selected?.id===app.id} installed={!!installedFor(app.id)} job={activeInstall(app.id)} onSelect={selectApp}/>)}</div>
           {visible.length===0&&<div className="rounded-3xl border border-dashed border-neutral-300 py-20 text-center text-slate-400 dark:border-white/10"><Package className="mx-auto mb-3"/><p>No apps match this search.</p></div>}
+          {renderedVisible.length<visible.length&&<div className="mt-8 flex justify-center"><button onClick={()=>setVisibleLimit((value)=>value+60)} className="rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:text-blue-500 active:translate-y-0 dark:border-white/10 dark:bg-[#1f1f22] dark:text-slate-300">Show more apps · {visible.length-renderedVisible.length} remaining</button></div>}
 
         </>}
       </div>
     </main>
 
-    {selected&&!unavailable&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<div className="mt-5 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">This app needs HomiOS drive mapping. Storage-aware installation is coming next.</div>}<button disabled={busy||!!installedFor(selected.id)||!!activeInstall(selected.id)||selected.storage.length>0} onClick={()=>install(selected)} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><CheckCircle2 size={16}/>Installed</>:<><Plus size={16}/>Install</>}</button></aside>}
+    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<div className="mt-5 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">This app needs HomiOS drive mapping. Storage-aware installation is coming next.</div>}<button disabled={busy||!!installedFor(selected.id)||!!activeInstall(selected.id)||selected.storage.length>0} onClick={()=>install(selected)} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><CheckCircle2 size={16}/>Installed</>:<><Plus size={16}/>Install</>}</button></aside>}
 
     {domainEditor&&<DomainEditor value={domainEditor} onChange={(routes)=>setDomainEditor({...domainEditor,routes})} onClose={()=>setDomainEditor(null)} onSave={()=>saveDomains(false)} onForce={()=>saveDomains(true)}/>} 
   </div>;
 }
 
 function CategoryButton({active,icon:Icon,label,count,onClick}:any){return <button onClick={onClick} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${active?'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300':'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'}`}><Icon size={17} className={active?'text-blue-500':'text-slate-400'}/><span className="min-w-0 flex-1 truncate text-left">{label}</span><span className="text-[10px] text-slate-400">{count}</span></button>}
+const CatalogCard = React.memo(function CatalogCard({app,selected,installed,job,onSelect}:{app:CatalogApp;selected:boolean;installed:boolean;job:any;onSelect:(app:CatalogApp)=>void}){
+  return <button onClick={()=>onSelect(app)} style={{contentVisibility:'auto',containIntrinsicSize:'180px'}} className={`group rounded-2xl border bg-white p-5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-xl dark:bg-[#1f1f22] ${selected?'border-blue-500 ring-4 ring-blue-500/10':'border-neutral-200/70 dark:border-white/10'}`}>
+    <div className="flex items-start gap-3"><AppGlyph app={app}/><div className="min-w-0 flex-1"><h4 className="truncate font-semibold text-slate-900 dark:text-white">{app.name}</h4><p className="text-xs text-blue-500">{app.category}</p></div>{installed?<CheckCircle2 className="text-emerald-500" size={18}/>:<ChevronRight className="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-500" size={18}/>}</div>
+    <p className="mt-4 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500 dark:text-slate-400">{app.description}</p>
+    <div className="mt-4 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-slate-400">{app.verified?<><ShieldCheck size={12} className="text-emerald-500"/> HomiOS verified</>:<>Coolify catalog</>}</div>
+    {job&&<div className="mt-3"><div className="mb-1 flex justify-between text-[10px] text-slate-400"><span>{job.progressData?.stage?.replace('_',' ')||job.status}</span><span>{job.progress}%</span></div><div className="h-1 overflow-hidden rounded-full bg-black/10"><div className="h-full bg-blue-500 transition-[width]" style={{width:`${job.progress}%`}}/></div></div>}
+  </button>;
+});
 function AppGlyph({app,large=false}:{app:CatalogApp;large?:boolean}){return <AppIcon id={app.id} name={app.name} hasIcon={!!app.icon} large={large}/>}
-function AppIcon({id,name,hasIcon=true,large=false,compact=false}:{id:string;name:string;hasIcon?:boolean;large?:boolean;compact?:boolean}){
+const AppIcon = React.memo(function AppIcon({id,name,hasIcon=true,large=false,compact=false}:{id:string;name:string;hasIcon?:boolean;large?:boolean;compact?:boolean}){
   const [failed,setFailed]=useState(!hasIcon);
   const size=large?'h-16 w-16 rounded-2xl text-2xl':compact?'h-9 w-9 rounded-xl text-sm':'h-11 w-11 rounded-xl text-base';
   return <div className={`${size} flex flex-shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br ${accentFor(id)} font-bold text-white shadow-md`}>{failed?name.slice(0,1).toUpperCase():<img src={`/api/apps/${encodeURIComponent(id)}/icon`} alt={`${name} icon`} loading="lazy" className="h-full w-full bg-white object-contain p-1" onError={()=>setFailed(true)}/>}</div>;
+});
+function InstalledAppsView({apps,catalogById,busy,onDomains,onAction}:{apps:InstalledApp[];catalogById:Map<string,CatalogApp>;busy:boolean;onDomains:(app:InstalledApp)=>void;onAction:(id:string,name:string,method?:string)=>void}){
+  if (!apps.length) return <div className="rounded-3xl border border-dashed border-neutral-300 py-20 text-center text-slate-400 dark:border-white/10"><PackageCheck className="mx-auto mb-3"/><p>No installed apps match this search.</p></div>;
+  return <div><div className="mb-4"><h3 className="text-lg font-semibold text-slate-900 dark:text-white">{apps.length} installed {apps.length===1?'app':'apps'}</h3><p className="text-xs text-slate-400">Manage addresses and runtime controls from one place</p></div><div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">{apps.map((app)=><InstalledAppCard key={app.id} app={app} catalogApp={catalogById.get(app.catalogId)} busy={busy} onDomains={()=>onDomains(app)} onAction={onAction}/>)}</div></div>;
 }
-function InstalledSidebarApp({app,catalogApp,busy,onOpen,onDomains,onAction}:{app:InstalledApp;catalogApp?:CatalogApp;busy:boolean;onOpen:()=>void;onDomains:()=>void;onAction:(id:string,name:string,method?:string)=>void}){
+function InstalledAppCard({app,catalogApp,busy,onDomains,onAction}:{app:InstalledApp;catalogApp?:CatalogApp;busy:boolean;onDomains:()=>void;onAction:(id:string,name:string,method?:string)=>void}){
   const statusColor=app.status==='running'?'bg-emerald-500':app.status==='error'||app.status==='missing'?'bg-red-500':'bg-amber-500';
-  return <div className="rounded-2xl border border-neutral-200/70 bg-slate-50/80 p-2.5 dark:border-white/10 dark:bg-white/[.035]">
-    <div className="flex items-center gap-2.5"><AppIcon compact id={app.catalogId} name={app.name} hasIcon={!!catalogApp?.icon}/><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{app.name}</p><p className="flex items-center gap-1.5 text-[10px] capitalize text-slate-400"><span className={`h-1.5 w-1.5 rounded-full ${statusColor}`}/>{app.status}</p></div></div>
-    <div className="mt-2 flex items-center justify-between border-t border-neutral-200/70 pt-1.5 dark:border-white/10">
-      <SidebarAction disabled={busy||!app.primaryUrl} title="Open app" onClick={onOpen}><ExternalLink size={14}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Edit domains and addresses" onClick={onDomains}><Pencil size={14}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Start" onClick={()=>onAction(app.id,'start')}><Play size={14}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Stop" onClick={()=>onAction(app.id,'stop')}><Square size={13}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Restart" onClick={()=>onAction(app.id,'restart')}><RotateCw size={14}/></SidebarAction>
-      <SidebarAction disabled={busy} danger title="Remove" onClick={()=>onAction(app.id,'remove','DELETE')}><Trash2 size={14}/></SidebarAction>
+  return <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] dark:border-white/10 dark:bg-[#1f1f22]">
+    <div className="flex items-center gap-3"><AppIcon id={app.catalogId} name={app.name} hasIcon={!!catalogApp?.icon}/><div className="min-w-0 flex-1"><p className="truncate font-semibold text-slate-800 dark:text-slate-100">{app.name}</p><p className="flex items-center gap-1.5 text-xs capitalize text-slate-400"><span className={`h-2 w-2 rounded-full ${statusColor}`}/>{app.status}</p></div>{app.primaryUrl&&<button onClick={()=>window.open(app.primaryUrl!,'_blank','noopener,noreferrer')} className="rounded-xl bg-blue-500/10 p-2.5 text-blue-500 transition hover:bg-blue-500 hover:text-white active:scale-95" title="Open app"><ExternalLink size={16}/></button>}</div>
+    {app.primaryUrl&&<p className="mt-3 truncate text-xs text-slate-400">{app.primaryUrl}</p>}
+    <div className="mt-3 flex items-center justify-between border-t border-neutral-200/70 pt-2 dark:border-white/10">
+      <SidebarAction disabled={busy} title="Edit domains and addresses" onClick={onDomains}><Pencil size={16}/></SidebarAction>
+      <SidebarAction disabled={busy} title="Start" onClick={()=>onAction(app.id,'start')}><Play size={16}/></SidebarAction>
+      <SidebarAction disabled={busy} title="Stop" onClick={()=>onAction(app.id,'stop')}><Square size={15}/></SidebarAction>
+      <SidebarAction disabled={busy} title="Restart" onClick={()=>onAction(app.id,'restart')}><RotateCw size={16}/></SidebarAction>
+      <SidebarAction disabled={busy} danger title="Remove" onClick={()=>onAction(app.id,'remove','DELETE')}><Trash2 size={16}/></SidebarAction>
     </div>
   </div>;
 }
