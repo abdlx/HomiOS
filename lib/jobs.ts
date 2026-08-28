@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { EventEmitter } from 'events';
 import { getDb, withTransaction } from './db.ts';
 import { getResourceProfileConfig } from './resource-profile.ts';
 import { createNotification } from './notifications.ts';
@@ -19,7 +20,8 @@ export type JobType =
   | 'ocr.run'
   | 'zip.create'
   | 'file.move'
-  | 'file.copy';
+  | 'file.copy'
+  | 'app.install';
 
 export type JobStatus = 'queued' | 'running' | 'paused' | 'cancelled' | 'failed' | 'completed';
 export type JobResourceClass = 'cpu' | 'io' | 'media' | 'backup';
@@ -35,12 +37,19 @@ const JOB_RESOURCE_CLASS: Record<JobType, JobResourceClass> = {
   'zip.create': 'cpu',
   'file.move': 'io',
   'file.copy': 'io',
+  'app.install': 'io',
 };
 
 let workerStarted = false;
 let workerTimer: NodeJS.Timeout | null = null;
 const runningJobs = new Set<string>();
 const lastProgressEventAt = new Map<string, number>();
+const jobEventBus = new EventEmitter();
+
+export function onJobProgress(listener: (payload: any) => void) {
+  jobEventBus.on('apps:install-progress', listener);
+  return () => jobEventBus.off('apps:install-progress', listener);
+}
 
 function parseJson(value: string | null | undefined, fallback: any = {}) {
   try {
@@ -89,6 +98,7 @@ function updateProgress(jobId: string, progress: number, message?: string, data:
     UPDATE jobs SET progress = ?, progress_data = ?, heartbeat_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND status = 'running'
   `).run(safeProgress, JSON.stringify(data || {}), jobId);
+  if (data?.appId) jobEventBus.emit('apps:install-progress', { jobId, appId: data.appId, stage: data.stage, progress: safeProgress, message });
   const now = Date.now();
   if (message && (safeProgress === 100 || now - (lastProgressEventAt.get(jobId) || 0) >= 2000)) {
     lastProgressEventAt.set(jobId, now);
@@ -352,6 +362,17 @@ async function executeJob(job: any) {
       });
     } else if (job.type === 'zip.create') {
       throw new Error('zip.create jobs are queued, but folder zip export is still handled by /api/files in v1.');
+    } else if (job.type === 'app.install') {
+      const { runAppInstall } = await import('./apps/app-service.ts');
+      result = await runAppInstall({
+        jobId: job.id,
+        catalogId: payload.appId,
+        storage: payload.storage,
+        serverUuid: payload.serverUuid,
+        teamId: job.teamId,
+        userId: job.userId,
+        onProgress,
+      });
     }
 
     setJobStatus(job.id, 'completed', { progress: 100, result, error: null });
@@ -359,7 +380,7 @@ async function executeJob(job: any) {
     createNotification({
       teamId: job.teamId,
       userId: job.userId,
-      title: job.type.startsWith('file.') ? 'Transfer completed' : 'Job completed',
+      title: job.type === 'app.install' ? 'App installation completed' : job.type.startsWith('file.') ? 'Transfer completed' : 'Job completed',
       message: job.name,
       tone: 'success',
       sourceType: job.type.startsWith('file.') ? 'transfer' : 'job',

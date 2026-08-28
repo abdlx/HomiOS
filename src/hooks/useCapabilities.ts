@@ -12,6 +12,10 @@ export interface Capability {
   url?: string;
   port?: number;
   reason?: string;
+  mode?: 'disabled' | 'managed' | 'external';
+  connected?: boolean;
+  appStoreAvailable?: boolean;
+  ownership?: 'homios' | 'external';
 }
 
 export interface CapabilitiesMap {

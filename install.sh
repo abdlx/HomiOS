@@ -35,8 +35,8 @@ fi
 # ── CLI option defaults ───────────────────────────────────────
 # COOLIFY_MODE: managed | external | disabled
 #   managed   = HomiOS installs, owns, and manages Coolify.
-#   external  = Coolify is already running independently. HomiOS is a
-#               read-only guest: no install, no restart, no reconfigure.
+#   external  = Coolify is already running independently. HomiOS never manages
+#               its lifecycle, but may manage explicitly authorized HomiOS-owned resources.
 #   disabled  = No Coolify integration. HomiOS does not start, stop,
 #               or configure Coolify, and never touches an existing instance.
 #
@@ -78,8 +78,8 @@ Coolify options (mutually exclusive — pick at most one):
   --with-coolify        HomiOS installs and manages a bundled Coolify instance.
                         Fails if an unowned Coolify is already detected on the host.
   --existing-coolify    Coolify is already running on this host. HomiOS will
-                        detect it in read-only mode and will NOT install, restart,
-                        reconfigure, or stop it. Implies external proxy mode (host
+                        leave its installation and lifecycle untouched. After explicit
+                        API authorization, HomiOS may manage only its own project. Implies external proxy mode (host
                         Nginx will NOT be installed or reconfigured).
   --without-coolify     No Coolify integration. HomiOS does not start, stop, or
                         configure Coolify. Does NOT shut down an existing instance.
@@ -230,7 +230,7 @@ else
 fi
 
 # ── Coolify helper functions ──────────────────────────────────
-# These run read-only checks only. No Coolify state is modified here.
+# These detection checks are read-only. Resource writes require later API authorization.
 
 # detect_running_coolify: returns 0 if a container named exactly 'coolify' is
 # actively running, 1 otherwise. Uses docker inspect for an exact match.
@@ -290,7 +290,7 @@ not marked as owned by HomiOS (COOLIFY_OWNED_BY_HOMIOS is not true).
 HomiOS refuses to take lifecycle control of a Coolify instance it did not create.
 
 Options:
-  --existing-coolify    Integrate with the running Coolify in read-only mode.
+  --existing-coolify    Integrate with external Coolify without taking lifecycle ownership.
   --without-coolify     Skip Coolify integration entirely.
 
 If you previously installed Coolify via HomiOS and lost the env file, you can

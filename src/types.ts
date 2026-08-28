@@ -186,7 +186,7 @@ export interface JobEvent {
 
 export interface SearchResult {
   id: string;
-  kind: 'file' | 'folder' | 'note' | 'media';
+  kind: 'file' | 'folder' | 'note' | 'media' | 'application';
   name: string;
   path?: string;
   snippet?: string;

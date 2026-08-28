@@ -12,6 +12,7 @@ const VALID_TYPES = new Set<JobType>([
   'zip.create',
   'file.move',
   'file.copy',
+  'app.install',
 ]);
 
 export default withAuth(async (req: any, res: any, session: any) => {

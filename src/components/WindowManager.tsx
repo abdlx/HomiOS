@@ -11,6 +11,7 @@ import VSCodeApp from './VSCodeApp';
 import CodexApp from './CodexApp';
 import CoolifyApp from './CoolifyApp';
 import ImmichApp from './ImmichApp';
+import AppStoreApp from './AppStoreApp';
 import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
@@ -22,7 +23,7 @@ import TransferActivityPanel from './TransferActivityPanel';
 
 const TerminalApp = dynamic(() => import('./TerminalApp'), { ssr: false });
 interface WindowManagerProps {
-  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'vscode' | 'codex' | 'coolify' | 'immich';
+  initialView?: 'desktop' | 'files' | 'settings' | 'terminal' | 'activity' | 'notes' | 'vscode' | 'codex' | 'coolify' | 'immich' | 'app-store';
   username?: string;
 }
 
@@ -206,6 +207,8 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       window.history.pushState(null, '', '/coolify');
     } else if (view === 'immich') {
       window.history.pushState(null, '', '/immich');
+    } else if (view === 'app-store') {
+      window.history.pushState(null, '', '/dashboard?view=app-store');
     }
   }, [view]);
 
@@ -273,6 +276,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
             onOpenVSCode={() => setView('vscode')}
             onOpenCodex={() => setView('codex')}
             onOpenSearch={() => setIsCommandPaletteOpen(true)}
+            onOpenAppStore={() => setView('app-store')}
             username={username}
           />
         )}
@@ -387,6 +391,12 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       <motion.div initial={false} animate={view === 'immich' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('immich', 'z-50')} onClickCapture={(event) => handleChromeCapture('immich', event)}>
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#111827] shadow-2xl relative">
           {windowState.openedViews.includes('immich') && <ImmichApp onClose={() => dispatchWindow({ type: 'close', view: 'immich' })} isActive={view === 'immich'} />}
+        </div>
+      </motion.div>
+
+      <motion.div initial={false} animate={view === 'app-store' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('app-store', 'z-[60]')}>
+        <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#f5f5f7] dark:bg-[#151517] shadow-2xl relative">
+          {windowState.openedViews.includes('app-store') && <AppStoreApp onClose={() => dispatchWindow({ type: 'close', view: 'app-store' })} />}
         </div>
       </motion.div>
 

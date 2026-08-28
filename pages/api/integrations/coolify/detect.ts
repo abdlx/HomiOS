@@ -1,0 +1,2 @@
+import { withAuth } from '../../../../lib/api-auth.ts';
+export default withAuth(async (req:any,res:any)=> { if(req.method!=='GET') return res.status(405).end(); const port=Number(process.env.COOLIFY_APP_PORT||8000); try { const response=await fetch(`http://127.0.0.1:${port}/api/health`,{signal:AbortSignal.timeout(2000)}); return res.json({detected:response.status<500,url:`http://127.0.0.1:${port}`}); } catch { return res.json({detected:false,url:null}); } }, {adminOnly:true});

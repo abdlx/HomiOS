@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"uptime-kuma","name":"Uptime Kuma","provider":"coolify","providerType":"uptime-kuma","category":"Monitoring","description":"A friendly, self-hosted monitoring dashboard.","verified":true,"icon":"/apps/uptime-kuma.svg","requirements":{"recommendedRamMb":512},"storage":[],"desktop":{"enabled":true,"openMode":"external-url"}}

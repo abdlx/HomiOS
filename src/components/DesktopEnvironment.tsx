@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images
+  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images, Plus
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -13,6 +13,7 @@ import { AppIcon } from './icons/AppIcons';
 import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser from './PWAInstallChooser';
+import { useInstalledApps } from '../hooks/useInstalledApps';
 
 interface DesktopEnvironmentProps {
   onHomiOS: () => void;
@@ -25,6 +26,7 @@ interface DesktopEnvironmentProps {
   onOpenVSCode: () => void;
   onOpenCodex: () => void;
   onOpenSearch: () => void;
+  onOpenAppStore: () => void;
   username?: string;
 }
 
@@ -186,13 +188,14 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
 
 export default function DesktopEnvironment({
   onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify,
-  onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch
+  onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch, onOpenAppStore
 }: DesktopEnvironmentProps) {
   const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
   const { username } = useUsername();
   const { settings: performanceSettings } = usePerformanceSettings();
   const { isEnabled } = useCapabilities();
+  const { apps: installedApps } = useInstalledApps();
   const [now, setNow] = useState<Date | null>(null);
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(FACTORY_DOCK_APPS);
@@ -222,11 +225,22 @@ export default function DesktopEnvironment({
   // Filter available apps based on authoritative backend capability state
   const availableApps = useMemo(() => {
     const apps: Record<string, DesktopAppConfig> = { ...BASE_APPS };
+    for (const app of installedApps) {
+      if (!app.primaryUrl || app.status === 'missing') continue;
+      apps[`managed:${app.id}`] = {
+        id: `managed:${app.id}`,
+        label: app.name,
+        icon: Globe,
+        color: 'from-[#2563EB] to-[#7C3AED]',
+        subtitle: app.status,
+        url: app.primaryUrl,
+      };
+    }
     const filtered: Record<string, DesktopAppConfig> = {};
 
     for (const [id, app] of Object.entries(apps)) {
       // Core apps are always valid
-      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id)) {
+      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id) || id.startsWith('managed:')) {
         filtered[id] = app;
       } else if (id === 'coolify' && isEnabled('coolify')) {
         filtered[id] = app;
@@ -239,7 +253,7 @@ export default function DesktopEnvironment({
       }
     }
     return filtered;
-  }, [isEnabled]);
+  }, [isEnabled, installedApps]);
 
   useEffect(() => {
     const intervalByMode = {
@@ -550,6 +564,21 @@ export default function DesktopEnvironment({
               </div>
             ) : null;
           })}
+          <div className="flex flex-col items-center w-[82px]">
+            <motion.button
+              type="button"
+              onClick={onOpenAppStore}
+              whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.06, y: -6 }}
+              whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.92 }}
+              className="group flex flex-col items-center"
+              aria-label="Open App Store"
+            >
+              <span className="mb-2 flex h-[70px] w-[70px] items-center justify-center rounded-[19px] border border-white/30 bg-gradient-to-br from-blue-500 to-violet-600 shadow-[0_8px_18px_rgba(0,0,0,0.45)]">
+                <Plus size={34} strokeWidth={2.2} />
+              </span>
+              <span className="text-[13px] font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">App Store</span>
+            </motion.button>
+          </div>
         </div>
       </div>
 

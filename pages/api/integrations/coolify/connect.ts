@@ -1,0 +1,5 @@
+import { withAuth } from '../../../../lib/api-auth.ts';
+import { connectCoolify } from '../../../../lib/apps/integration-storage.ts';
+import { clearIntegrationStatusCache } from '../../../../lib/apps/integration-status.ts';
+import { logAudit } from '../../../../lib/audit.ts';
+export default withAuth(async (req:any,res:any,session:any)=> { if(req.method!=='POST') return res.status(405).end(); try { const result=await connectCoolify({ baseUrl:String(req.body?.baseUrl||''), token:String(req.body?.token||''), mode:'external', serverUuid:req.body?.serverUuid, destinationUuid:req.body?.destinationUuid, conflictResolution:req.body?.conflictResolution }); clearIntegrationStatusCache(); if ('connected' in result) logAudit({teamId:session.teamId,userId:session.userId,action:'coolify.connected',resourceType:'integration',resourceId:'coolify'}); return res.json(result); } catch(error:any) { const status=Number(error?.status)||400; return res.status(status >= 500 ? 502 : status).json({error:error?.message||'Could not connect to Coolify'}); } }, {adminOnly:true,ability:'write'});

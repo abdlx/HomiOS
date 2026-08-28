@@ -13,7 +13,7 @@ import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'vscode' | 'codex' | 'notes' | 'coolify' | 'immich') => void;
+  onOpenView: (view: 'files' | 'settings' | 'terminal' | 'activity' | 'vscode' | 'codex' | 'notes' | 'coolify' | 'immich' | 'app-store') => void;
 }
 
 interface CommandEntry {
@@ -55,6 +55,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
       { id: 'app-terminal', category: 'Applications', label: 'Terminal', subtitle: 'Interactive host shell session', icon: Terminal, action: () => onOpenView('terminal'), keywords: ['bash', 'sh', 'ssh', 'cmd', 'powershell'] },
       { id: 'app-notes', category: 'Applications', label: 'Notes', subtitle: 'Server scratchpad & text editor', icon: FileText, action: () => onOpenView('notes'), keywords: ['memo', 'text', 'doc'] },
       { id: 'app-settings', category: 'Applications', label: 'Settings', subtitle: 'Storage, backups, Samba & system config', icon: Settings, action: () => onOpenView('settings'), keywords: ['preferences', 'config', 'users', 'samba', 'network'] },
+      { id: 'app-store', category: 'Applications', label: 'App Store', subtitle: 'Install self-hosted apps with Coolify', icon: Boxes, action: () => onOpenView('app-store'), keywords: ['install', 'apps', 'store', 'coolify'] },
     ];
 
     if (isEnabled('codeServer')) {
@@ -157,7 +158,8 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
       } else {
         const file = fileResults[selectedIndex - filteredCommands.length];
         if (file) {
-          onOpenView(file.kind === 'note' ? 'notes' : 'files');
+          if (file.kind === 'application' && file.path) window.open(file.path, '_blank', 'noopener,noreferrer');
+          else onOpenView(file.kind === 'note' ? 'notes' : 'files');
           onClose();
         }
       }
@@ -286,7 +288,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
                   {(fileResults.length > 0 || loadingFiles) && (
                     <div className={`${filteredCommands.length > 0 ? 'pt-2 border-t border-white/10' : ''} space-y-0.5`}>
                       <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center justify-between">
-                        <span>Files &amp; Documents</span>
+                        <span>Search Results</span>
                         {loadingFiles && <span className="text-blue-400">Searching...</span>}
                       </div>
                       {fileResults.map((result, idx) => {
@@ -297,7 +299,8 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
                             key={result.id}
                             type="button"
                             onClick={() => {
-                              onOpenView(result.kind === 'note' ? 'notes' : 'files');
+                              if (result.kind === 'application' && result.path) window.open(result.path, '_blank', 'noopener,noreferrer');
+                              else onOpenView(result.kind === 'note' ? 'notes' : 'files');
                               onClose();
                             }}
                             onMouseEnter={() => setSelectedIndex(itemIndex)}

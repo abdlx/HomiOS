@@ -364,6 +364,49 @@ export function getDb(): any {
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS integrations (
+      id                    TEXT PRIMARY KEY,
+      provider              TEXT NOT NULL UNIQUE,
+      mode                  TEXT NOT NULL,
+      base_url              TEXT,
+      encrypted_credentials TEXT,
+      config_json           TEXT NOT NULL DEFAULT '{}',
+      created_at            DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at            DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS managed_apps (
+      id                         TEXT PRIMARY KEY,
+      catalog_id                 TEXT NOT NULL,
+      provider                   TEXT NOT NULL,
+      provider_resource_uuid     TEXT NOT NULL UNIQUE,
+      provider_project_uuid      TEXT NOT NULL,
+      provider_environment_uuid  TEXT NOT NULL,
+      provider_server_uuid       TEXT NOT NULL,
+      display_name               TEXT NOT NULL,
+      primary_url                TEXT,
+      status                     TEXT NOT NULL DEFAULT 'installing',
+      storage_json               TEXT NOT NULL DEFAULT '{}',
+      managed                    INTEGER NOT NULL DEFAULT 1,
+      metadata_version           INTEGER NOT NULL DEFAULT 1,
+      removed_at                 DATETIME,
+      created_at                 DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at                 DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS app_install_jobs (
+      id          TEXT PRIMARY KEY,
+      job_id      TEXT NOT NULL UNIQUE,
+      catalog_id  TEXT NOT NULL,
+      stage       TEXT NOT NULL DEFAULT 'pending',
+      app_id      TEXT,
+      error       TEXT,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+      FOREIGN KEY(app_id) REFERENCES managed_apps(id) ON DELETE SET NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_audit_team    ON audit_logs(team_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_jobs_status   ON jobs(status, priority, created_at);
@@ -371,6 +414,8 @@ export function getDb(): any {
     CREATE INDEX IF NOT EXISTS idx_media_index_path ON media_index(path);
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at, created_at);
     CREATE INDEX IF NOT EXISTS idx_sync_runs_plan ON sync_runs(plan_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_managed_apps_active ON managed_apps(removed_at, status);
+    CREATE INDEX IF NOT EXISTS idx_managed_apps_catalog ON managed_apps(catalog_id, removed_at);
   `);
 
   try {

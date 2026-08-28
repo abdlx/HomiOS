@@ -68,6 +68,9 @@ app.prepare().then(async () => {
     { prefix: '/api/search', bucket: 'search', windowMs: 60_000, max: 120 },
     { prefix: '/api/thumbnails', bucket: 'thumbnails', windowMs: 60_000, max: 180 },
     { prefix: '/api/jobs', bucket: 'jobs', windowMs: 60_000, max: 120 },
+    { prefix: '/api/apps/install', bucket: 'app-install', windowMs: 60_000, max: 10 },
+    { prefix: '/api/apps/', bucket: 'app-lifecycle', windowMs: 60_000, max: 30 },
+    { prefix: '/api/integrations/coolify/connect', bucket: 'coolify-connect', windowMs: 5 * 60_000, max: 10 },
     { prefix: '/api', bucket: 'api', windowMs: 60_000, max: 600 },
   ].sort((a, b) => b.prefix.length - a.prefix.length);
 
@@ -121,7 +124,9 @@ app.prepare().then(async () => {
     }
 
     if (req.path.startsWith('/api')) {
-      const preset = rateLimitPresets.find((p) => req.path.startsWith(p.prefix));
+      const preset = /^\/api\/apps\/[^/]+\/deploy$/.test(req.path)
+        ? { prefix: req.path, bucket: 'app-deploy', windowMs: 60_000, max: 20 }
+        : rateLimitPresets.find((p) => req.path.startsWith(p.prefix));
       if (preset) {
         const hit = hitRateLimit(rateLimitKey(req, preset.bucket), preset);
         if (hit.limited) {
@@ -283,6 +288,9 @@ app.prepare().then(async () => {
       cors: { origin: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : false, credentials: true },
     });
 
+    const { onJobProgress } = await import('./lib/jobs.ts');
+    onJobProgress((payload) => io.emit('apps:install-progress', payload));
+
     let activeTerminalSessions = 0;
     global.homiosTerminalSessions = global.homiosTerminalSessions || new Map();
 
@@ -407,6 +415,7 @@ app.prepare().then(async () => {
   });
 
   let checkpointTimer = null;
+  let appReconcileTimer = null;
   try {
     const { runStartupIntegrityChecks, checkpointWal } = await import('./lib/db.ts');
     runStartupIntegrityChecks();
@@ -417,6 +426,16 @@ app.prepare().then(async () => {
     const { startJobWorker } = await import('./lib/jobs.ts');
     startJobWorker();
     console.log('HomiOS job worker started');
+
+    const { getCoolifyIntegration } = await import('./lib/apps/integration-storage.ts');
+    const { reconcileManagedApps } = await import('./lib/apps/reconciliation.ts');
+    const reconcileApps = async () => {
+      if (!getCoolifyIntegration()?.connected) return;
+      try { await reconcileManagedApps(); } catch (e) { console.warn('[apps] reconciliation deferred:', e?.message || e); }
+    };
+    void reconcileApps();
+    appReconcileTimer = setInterval(reconcileApps, 60_000);
+    appReconcileTimer.unref?.();
 
     const { startSyncScheduler } = await import('./lib/sync.ts');
     startSyncScheduler();
@@ -445,6 +464,7 @@ app.prepare().then(async () => {
     force.unref();
 
     if (checkpointTimer) clearInterval(checkpointTimer);
+    if (appReconcileTimer) clearInterval(appReconcileTimer);
     try {
       const { stopSyncScheduler } = await import('./lib/sync.ts');
       stopSyncScheduler();

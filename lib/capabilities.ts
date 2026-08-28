@@ -7,6 +7,7 @@
 import { existsSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
+import { getCoolifyIntegration } from './apps/integration-storage.ts';
 
 const require = createRequire(import.meta.url);
 
@@ -27,6 +28,10 @@ export interface Capability {
   url?: string;
   port?: number;
   reason?: string;
+  mode?: 'disabled' | 'managed' | 'external';
+  connected?: boolean;
+  appStoreAvailable?: boolean;
+  ownership?: 'homios' | 'external';
 }
 
 export interface CapabilitiesResponse {
@@ -88,6 +93,7 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
 
   const coolifyMode = (process.env.COOLIFY_MODE || (asEnabled(process.env.COOLIFY_ENABLED) ? 'managed' : 'disabled')).toLowerCase();
   const coolifyConfigured = coolifyMode !== 'disabled' && asEnabled(process.env.COOLIFY_INTEGRATION_ENABLED !== undefined ? process.env.COOLIFY_INTEGRATION_ENABLED : 'true');
+  const coolifyIntegration = getCoolifyIntegration();
   const immichConfigured = asEnabled(process.env.IMMICH_ENABLED);
   const codexConfigured = asEnabled(process.env.CODEX_UI_ENABLED);
   const codeServerConfigured = asEnabled(process.env.CODE_SERVER_ENABLED);
@@ -160,6 +166,10 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
         : coolifyOnline
           ? undefined
           : `Coolify service is not responding on port ${coolifyPort}`,
+      mode: (['managed', 'external'].includes(coolifyMode) ? coolifyMode : 'disabled') as 'disabled' | 'managed' | 'external',
+      connected: !!coolifyIntegration?.connected,
+      appStoreAvailable: !!coolifyIntegration?.connected && coolifyOnline,
+      ownership: coolifyIntegration?.installationOwnedByHomiOS || coolifyMode === 'managed' ? 'homios' : 'external',
     },
     immich: {
       id: 'immich',
