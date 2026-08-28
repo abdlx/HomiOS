@@ -37,6 +37,7 @@ type DesktopAppConfig = {
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   color: string;
+  iconUrl?: string;
   subtitle?: string;
   url?: string;
 };
@@ -130,6 +131,35 @@ const HeaderMetric = React.memo(function HeaderMetric({
   );
 });
 
+const DesktopAppArtwork = React.memo(function DesktopAppArtwork({
+  app,
+  className,
+}: {
+  app: DesktopAppConfig;
+  className: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (app.iconUrl && !imageFailed) {
+    return (
+      <span
+        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-[23%] border border-white/35 bg-white p-[6%] shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]`}
+        aria-hidden="true"
+      >
+        <img
+          src={app.iconUrl}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-contain"
+          onError={() => setImageFailed(true)}
+        />
+      </span>
+    );
+  }
+
+  return <AppIcon id={app.id} colorClass={app.color} className={className} />;
+});
+
 const DashboardAppIcon = React.memo(function DashboardAppIcon({
   app,
   source,
@@ -169,7 +199,7 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
           {app.label}
         </span>
       )}
-      <AppIcon id={app.id} colorClass={app.color} className={`${sizeClass} mb-2 drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]`} />
+      <DesktopAppArtwork app={app} className={`${sizeClass} mb-2 drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]`} />
       {source === 'grid' && (
         <div className="flex flex-col items-center min-h-[32px]">
           <span className="text-white text-[13px] font-semibold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center leading-tight truncate max-w-[88px]">
@@ -232,6 +262,7 @@ export default function DesktopEnvironment({
         label: app.name,
         icon: Globe,
         color: 'from-[#2563EB] to-[#7C3AED]',
+        iconUrl: `/api/apps/${encodeURIComponent(app.catalogId)}/icon`,
         subtitle: app.status,
         url: app.primaryUrl,
       };
@@ -619,7 +650,7 @@ export default function DesktopEnvironment({
                     className="w-full h-full"
                     onContextMenu={(e) => handleContextMenu(e, app.id, 'dock')}
                   >
-                    <AppIcon id={app.id} colorClass={app.color} className="w-full h-full drop-shadow-[0_5px_12px_rgba(0,0,0,0.45)]" />
+                    <DesktopAppArtwork app={app} className="h-full w-full drop-shadow-[0_5px_12px_rgba(0,0,0,0.45)]" />
                   </div>
                 ),
                 href: "#",

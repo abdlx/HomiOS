@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Grid3X3,
-  Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, RotateCw, Search, Server,
+  Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, Rocket, RotateCw, Search, Server,
   ShieldCheck, Sparkles, Square, Trash2, X,
 } from 'lucide-react';
 import { useInstalledApps, type InstalledApp } from '../hooks/useInstalledApps';
@@ -117,6 +117,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   }
   async function action(id:string, name:string, method='POST') {
     if (name === 'remove' && !window.confirm('Remove this app? Application data and backups will be kept.')) return;
+    if (name === 'deploy' && !window.confirm('Redeploy this app with its current Coolify configuration?')) return;
     setBusy(true); setError('');
     try {
       const response = await fetch(`/api/apps/${encodeURIComponent(id)}/${name}`, { method });
@@ -181,7 +182,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
       </div>
     </main>
 
-    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<div className="mt-5 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">This app needs HomiOS drive mapping. Storage-aware installation is coming next.</div>}<button disabled={busy||!!installedFor(selected.id)||!!activeInstall(selected.id)||selected.storage.length>0} onClick={()=>install(selected)} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><CheckCircle2 size={16}/>Installed</>:<><Plus size={16}/>Install</>}</button></aside>}
+    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{selected.storage.length>0&&<div className="mt-5 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">This app needs HomiOS drive mapping. Storage-aware installation is coming next.</div>}<button disabled={busy||!!activeInstall(selected.id)||(!installedFor(selected.id)&&selected.storage.length>0)} onClick={()=>{const installedApp=installedFor(selected.id); return installedApp?action(installedApp.id,'deploy'):install(selected);}} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>Installing</>:installedFor(selected.id)?<><Rocket size={16}/>Redeploy</>:<><Plus size={16}/>Install</>}</button></aside>}
 
     {domainEditor&&<DomainEditor value={domainEditor} onChange={(routes)=>setDomainEditor({...domainEditor,routes})} onClose={()=>setDomainEditor(null)} onSave={()=>saveDomains(false)} onForce={()=>saveDomains(true)}/>} 
   </div>;
@@ -216,6 +217,7 @@ function InstalledAppCard({app,catalogApp,busy,onDomains,onAction}:{app:Installe
       <SidebarAction disabled={busy} title="Start" onClick={()=>onAction(app.id,'start')}><Play size={16}/></SidebarAction>
       <SidebarAction disabled={busy} title="Stop" onClick={()=>onAction(app.id,'stop')}><Square size={15}/></SidebarAction>
       <SidebarAction disabled={busy} title="Restart" onClick={()=>onAction(app.id,'restart')}><RotateCw size={16}/></SidebarAction>
+      <SidebarAction disabled={busy||app.status==='deploying'} title="Redeploy" onClick={()=>onAction(app.id,'deploy')}><Rocket size={16}/></SidebarAction>
       <SidebarAction disabled={busy} danger title="Remove" onClick={()=>onAction(app.id,'remove','DELETE')}><Trash2 size={16}/></SidebarAction>
     </div>
   </div>;
