@@ -11,8 +11,11 @@ const disablePWA =
 
 const withPWA = withPWAInit({
   dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  // Authenticated SSR pages must always reach HomiOS. Caching a redirect that was
+  // produced before login makes /dashboard keep resolving to /login even after the
+  // browser has received a valid session cookie.
+  cacheOnFrontEndNav: false,
+  aggressiveFrontEndNavCaching: false,
   reloadOnOnline: true,
   swcMinify: true,
   disable: disablePWA,
@@ -26,10 +29,14 @@ const withPWA = withPWAInit({
     "!**/Cookies/**/*",
   ],
   workboxOptions: {
+    cleanupOutdatedCaches: true,
+    clientsClaim: true,
+    skipWaiting: true,
     maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
     exclude: [
       /\/_next\/static\/.*(?<!\.p)\.woff2/,
       /\.map$/,
+      /dynamic-css-manifest\.json$/,
       /^manifest.*\.js$/,
       /(?:^|[\\/])data(?:[\\/]|$)/,
       /(?:^|[\\/])data_mock(?:[\\/]|$)/,

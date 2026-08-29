@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { getSession, isAppInitialized } from '../lib/auth';
 import AuthShell, { Field, SubmitButton, inputClass } from '../src/components/auth/AuthShell';
@@ -18,7 +17,6 @@ export async function getServerSideProps(context: any) {
 type Step = 'credentials' | 'totp';
 
 export default function Login() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,12 +29,26 @@ export default function Login() {
     if (step === 'totp') requestAnimationFrame(() => totpRef.current?.focus());
   }, [step]);
 
+  // Older HomiOS builds cached SSR navigation responses. In particular, an
+  // anonymous /dashboard -> /login response could survive a redeploy and mask a
+  // newly-created session. Remove those legacy caches on the one page where doing
+  // so is always safe; the current worker only caches immutable application assets.
+  useEffect(() => {
+    if (!('caches' in window)) return;
+    void caches.keys().then((names) => Promise.all(
+      names
+        .filter((name) => name.startsWith('workbox-') || name.startsWith('homios-'))
+        .map((name) => caches.delete(name))
+    )).catch(() => undefined);
+  }, []);
+
   async function submit(payload: Record<string, string>) {
     setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -48,7 +60,9 @@ export default function Login() {
         return;
       }
       if (res.ok && data?.ok) {
-        router.replace('/dashboard');
+        // Force a document request so authentication is verified by SSR instead of
+        // any stale client-navigation response left behind by an older worker.
+        window.location.assign('/dashboard');
         return;
       }
       setError(data?.error || 'Something went wrong. Please try again.');
