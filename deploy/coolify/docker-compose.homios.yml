@@ -1,0 +1,6 @@
+services:
+  coolify:
+    volumes:
+      - type: bind
+        source: ${HOMIOS_STORAGE_ROOT:-/mnt/homios-storage}
+        target: /mnt/homios-storage

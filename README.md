@@ -344,7 +344,9 @@ disabled
 
 ### Managed
 
-HomiOS manages the Coolify lifecycle.
+HomiOS manages the Coolify lifecycle. During installation it downloads the
+official deployment files and pulls a pinned official Coolify image; the
+Coolify source repository is not bundled inside HomiOS.
 
 ### External
 

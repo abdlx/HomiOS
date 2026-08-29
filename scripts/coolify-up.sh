@@ -17,16 +17,18 @@ set -euo pipefail
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
 HOMIOS_STORAGE_ROOT="${HOMIOS_STORAGE_ROOT:-${HOMIOS_DRIVE_MOUNT_ROOT:-/mnt/homios-storage}}"
-COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
-COOLIFY_BUILD_LOCAL="${COOLIFY_BUILD_LOCAL:-false}"
-if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
-  COOLIFY_IMAGE="${COOLIFY_IMAGE:-homios/coolify:local}"
-else
-  COOLIFY_IMAGE="${COOLIFY_IMAGE:-ghcr.io/coollabsio/coolify:latest}"
-fi
+COOLIFY_VERSION="${COOLIFY_VERSION:-4.1.2}"
+COOLIFY_VERSION="${COOLIFY_VERSION#v}"
+COOLIFY_AUTOUPDATE="${COOLIFY_AUTOUPDATE:-false}"
+COOLIFY_ARTIFACT_BASE_URL="${COOLIFY_ARTIFACT_BASE_URL:-https://raw.githubusercontent.com/coollabsio/coolify/v${COOLIFY_VERSION}}"
+HOMIOS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOMIOS_COMPOSE_TEMPLATE="$HOMIOS_ROOT/deploy/coolify/docker-compose.homios.yml"
 ENV_DIR="$COOLIFY_DATA_DIR/source"
 ENV_FILE="$ENV_DIR/.env"
-ENV_TEMPLATE="$COOLIFY_SOURCE_DIR/.env.production"
+ENV_TEMPLATE="$ENV_DIR/.env.production"
+BASE_COMPOSE_FILE="$ENV_DIR/docker-compose.yml"
+PROD_COMPOSE_FILE="$ENV_DIR/docker-compose.prod.yml"
+HOMIOS_COMPOSE_FILE="$ENV_DIR/docker-compose.homios.yml"
 
 log()  { echo "[coolify] $1"; }
 fail() { echo "[coolify] ERROR: $1" >&2; exit 1; }
@@ -55,8 +57,20 @@ Use --existing-coolify to integrate with an externally installed Coolify instanc
 fi
 # Both guards passed — proceeding with managed installation.
 
-if [ ! -d "$COOLIFY_SOURCE_DIR" ]; then
-  fail "Coolify source directory not found at $COOLIFY_SOURCE_DIR"
+if [[ ! "$COOLIFY_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  fail "Invalid COOLIFY_VERSION '$COOLIFY_VERSION'. Use a release such as 4.1.2."
+fi
+if [[ "$COOLIFY_AUTOUPDATE" != "true" && "$COOLIFY_AUTOUPDATE" != "false" ]]; then
+  fail "COOLIFY_AUTOUPDATE must be true or false."
+fi
+if [[ "$COOLIFY_DATA_DIR" != /* || "$HOMIOS_STORAGE_ROOT" != /* ]]; then
+  fail "COOLIFY_DATA_DIR and HOMIOS_STORAGE_ROOT must be absolute Linux paths."
+fi
+if [[ "$COOLIFY_DATA_DIR" == *'|'* ]]; then
+  fail "COOLIFY_DATA_DIR cannot contain a pipe character."
+fi
+if [ ! -f "$HOMIOS_COMPOSE_TEMPLATE" ]; then
+  fail "HomiOS Coolify Compose override not found at $HOMIOS_COMPOSE_TEMPLATE"
 fi
 
 if ! command -v docker > /dev/null 2>&1; then
@@ -89,16 +103,43 @@ mkdir -p \
   "$COOLIFY_DATA_DIR/services" \
   "$COOLIFY_DATA_DIR/backups"
 
-chown -R 9999:root "$COOLIFY_DATA_DIR"
-chmod -R 700 "$COOLIFY_DATA_DIR"
+download_artifact() {
+  local name="$1"
+  local destination="$2"
+  local temporary
+  temporary=$(mktemp "${destination}.XXXXXX")
+  if ! curl -fsSL --retry 3 --retry-delay 2 \
+    "$COOLIFY_ARTIFACT_BASE_URL/$name" -o "$temporary"; then
+    rm -f "$temporary"
+    fail "Could not download official Coolify artifact: $name"
+  fi
+  mv "$temporary" "$destination"
+}
+
+log "Downloading official Coolify $COOLIFY_VERSION deployment artifacts..."
+download_artifact "docker-compose.yml" "$BASE_COMPOSE_FILE"
+download_artifact "docker-compose.prod.yml" "$PROD_COMPOSE_FILE"
+download_artifact ".env.production" "$ENV_TEMPLATE"
+cp "$HOMIOS_COMPOSE_TEMPLATE" "$HOMIOS_COMPOSE_FILE"
+# Official files use /data/coolify. Preserve HomiOS's existing configurable
+# data root without carrying a fork of those files.
+sed -i "s|/data/coolify|$COOLIFY_DATA_DIR|g" "$PROD_COMPOSE_FILE"
 
 if [ ! -f "$ENV_FILE" ]; then
-  if [ -f "$ENV_TEMPLATE" ]; then
-    cp "$ENV_TEMPLATE" "$ENV_FILE"
-  else
-    touch "$ENV_FILE"
-  fi
+  cp "$ENV_TEMPLATE" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
+else
+  # Preserve secrets and operator choices while adding newly introduced
+  # upstream variables with their official defaults.
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+    key="${line%%=*}"
+    if ! grep -q "^${key}=" "$ENV_FILE"; then
+      printf '%s\n' "$line" >> "$ENV_FILE"
+    fi
+  done < "$ENV_TEMPLATE"
 fi
 
 set_env_default() {
@@ -111,6 +152,16 @@ set_env_default() {
   fi
 }
 
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local temporary
+  temporary=$(mktemp "${ENV_FILE}.XXXXXX")
+  grep -v "^${key}=" "$ENV_FILE" > "$temporary" || true
+  printf '%s=%s\n' "$key" "$value" >> "$temporary"
+  mv "$temporary" "$ENV_FILE"
+}
+
 default_host() {
   hostname -I 2>/dev/null | awk '{print $1}' | grep -E '.+' || echo "localhost"
 }
@@ -118,7 +169,7 @@ default_host() {
 set_env_default "APP_ID" "$(openssl rand -hex 16)"
 set_env_default "APP_NAME" "Coolify"
 set_env_default "APP_KEY" "base64:$(openssl rand -base64 32)"
-set_env_default "APP_PORT" "$COOLIFY_APP_PORT"
+set_env_value "APP_PORT" "$COOLIFY_APP_PORT"
 set_env_default "APP_URL" "${COOLIFY_APP_URL:-http://$(default_host):$COOLIFY_APP_PORT}"
 set_env_default "DB_USERNAME" "coolify"
 set_env_default "DB_PASSWORD" "$(openssl rand -base64 32)"
@@ -127,9 +178,9 @@ set_env_default "PUSHER_APP_ID" "$(openssl rand -hex 32)"
 set_env_default "PUSHER_APP_KEY" "$(openssl rand -hex 32)"
 set_env_default "PUSHER_APP_SECRET" "$(openssl rand -hex 32)"
 set_env_default "REGISTRY_URL" "${REGISTRY_URL:-ghcr.io}"
-set_env_default "COOLIFY_BUILD_LOCAL" "$COOLIFY_BUILD_LOCAL"
-set_env_default "COOLIFY_IMAGE" "$COOLIFY_IMAGE"
-set_env_default "HOMIOS_STORAGE_ROOT" "$HOMIOS_STORAGE_ROOT"
+set_env_value "LATEST_IMAGE" "$COOLIFY_VERSION"
+set_env_value "AUTOUPDATE" "$COOLIFY_AUTOUPDATE"
+set_env_value "HOMIOS_STORAGE_ROOT" "$HOMIOS_STORAGE_ROOT"
 
 if [ -n "${ROOT_USERNAME:-}" ] && [ -n "${ROOT_USER_EMAIL:-}" ] && [ -n "${ROOT_USER_PASSWORD:-}" ]; then
   set_env_default "ROOT_USERNAME" "$ROOT_USERNAME"
@@ -137,13 +188,8 @@ if [ -n "${ROOT_USERNAME:-}" ] && [ -n "${ROOT_USER_EMAIL:-}" ] && [ -n "${ROOT_
   set_env_default "ROOT_USER_PASSWORD" "$ROOT_USER_PASSWORD"
 fi
 
-if [ "$COOLIFY_BUILD_LOCAL" = "true" ]; then
-  log "Building HomiOS-themed Coolify image ($COOLIFY_IMAGE)..."
-  docker build \
-    -f "$COOLIFY_SOURCE_DIR/docker/production/Dockerfile" \
-    -t "$COOLIFY_IMAGE" \
-    "$COOLIFY_SOURCE_DIR"
-fi
+chown -R 9999:root "$COOLIFY_DATA_DIR"
+chmod -R 700 "$COOLIFY_DATA_DIR"
 
 # ── SSH: Ensure openssh-server is installed and running ──────────────────────
 # Coolify connects to "This Machine" via SSH on localhost.
@@ -199,9 +245,10 @@ fi
 log "Starting Coolify on port $COOLIFY_APP_PORT..."
 "${COMPOSE[@]}" \
   --env-file "$ENV_FILE" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.yml" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.prod.yml" \
-  up -d
+  -f "$BASE_COMPOSE_FILE" \
+  -f "$PROD_COMPOSE_FILE" \
+  -f "$HOMIOS_COMPOSE_FILE" \
+  up -d --pull always --remove-orphans --force-recreate
 
 log "Coolify is available at http://$(default_host):$COOLIFY_APP_PORT"
 

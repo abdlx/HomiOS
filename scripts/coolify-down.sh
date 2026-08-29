@@ -12,8 +12,11 @@
 set -euo pipefail
 
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
-COOLIFY_SOURCE_DIR="${COOLIFY_SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/coolify}"
-ENV_FILE="$COOLIFY_DATA_DIR/source/.env"
+ENV_DIR="$COOLIFY_DATA_DIR/source"
+ENV_FILE="$ENV_DIR/.env"
+BASE_COMPOSE_FILE="$ENV_DIR/docker-compose.yml"
+PROD_COMPOSE_FILE="$ENV_DIR/docker-compose.prod.yml"
+HOMIOS_COMPOSE_FILE="$ENV_DIR/docker-compose.homios.yml"
 
 fail() { echo "[coolify] ERROR: $1" >&2; exit 1; }
 
@@ -40,9 +43,11 @@ In external mode, Coolify lifecycle operations are read-only."
 fi
 # Both guards passed — proceeding with managed teardown.
 
-if [ ! -d "$COOLIFY_SOURCE_DIR" ]; then
-  fail "Coolify source directory not found at $COOLIFY_SOURCE_DIR"
-fi
+for compose_file in "$BASE_COMPOSE_FILE" "$PROD_COMPOSE_FILE" "$HOMIOS_COMPOSE_FILE"; do
+  if [ ! -f "$compose_file" ]; then
+    fail "Coolify deployment file not found at $compose_file"
+  fi
+done
 
 if docker compose version > /dev/null 2>&1; then
   COMPOSE=(docker compose)
@@ -59,8 +64,9 @@ fi
 
 "${COMPOSE[@]}" \
   "${ARGS[@]}" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.yml" \
-  -f "$COOLIFY_SOURCE_DIR/docker-compose.prod.yml" \
+  -f "$BASE_COMPOSE_FILE" \
+  -f "$PROD_COMPOSE_FILE" \
+  -f "$HOMIOS_COMPOSE_FILE" \
   stop
 
 echo "[coolify] Coolify stopped. Volumes and /data/coolify were preserved."
