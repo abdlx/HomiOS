@@ -1,0 +1,2 @@
+# HomiOS native cloud storage uses its private embedded SQLite database.
+provider = "sqlite"

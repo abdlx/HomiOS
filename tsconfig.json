@@ -35,6 +35,6 @@
   "exclude": [
     "node_modules",
     "apps/mobile",
-    "9drive-main"
+    "internal/cloud-storage-engine"
   ]
 }

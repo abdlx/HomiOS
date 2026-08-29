@@ -128,6 +128,35 @@ app.prepare().then(async () => {
     return nextMiddleware();
   });
 
+  // Cloud storage is an HomiOS subsystem, mounted inside this server. Its
+  // database and private API identity are derived automatically from HomiOS's
+  // own APP_KEY; administrators never configure a URL or service API key.
+  let cloudStoragePrisma = null;
+  try {
+    const {
+      CLOUD_ENGINE_MOUNT,
+      applyCloudStorageEnvironment,
+      migrateCloudStorageDatabase,
+      validInternalCloudRequest,
+    } = await import('./lib/cloud-storage-runtime.ts');
+    const cloudRuntime = applyCloudStorageEnvironment();
+    migrateCloudStorageDatabase();
+    const [{ app: cloudStorageApp }, { bootstrapHomiCloudStorage }, { prisma }] = await Promise.all([
+      import('./internal/cloud-storage-engine/dist/app.js'),
+      import('./internal/cloud-storage-engine/dist/bootstrap.js'),
+      import('./internal/cloud-storage-engine/dist/config/prisma.js'),
+    ]);
+    await bootstrapHomiCloudStorage(cloudRuntime.internalKey);
+    cloudStoragePrisma = prisma;
+    server.use(CLOUD_ENGINE_MOUNT, (req, res, nextMiddleware) => {
+      if (!validInternalCloudRequest(req.headers['x-homios-internal'])) return res.status(404).end();
+      return nextMiddleware();
+    }, cloudStorageApp);
+    console.log('HomiOS cloud storage subsystem mounted');
+  } catch (error) {
+    console.warn('HomiOS cloud storage subsystem unavailable:', error?.message || error);
+  }
+
   // Codex internal app: session-gated reverse proxy to the loopback codex-web-ui
   // service. Mounted before TUS/Next so /codex* never falls through to the SPA.
   let codexProxy = null;
@@ -493,6 +522,7 @@ app.prepare().then(async () => {
       try { term.kill(); } catch {}
     }
     if (io) { try { io.close(); } catch {} }
+    if (cloudStoragePrisma) { try { await cloudStoragePrisma.$disconnect(); } catch {} }
 
     httpServer.close(async () => {
       try {

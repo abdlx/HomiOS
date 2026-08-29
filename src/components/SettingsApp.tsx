@@ -32,6 +32,7 @@ const WALLPAPERS = [
 ];
 
 const PHOTOS_SOURCES_KEY = 'homios_photos_sources';
+const SETTINGS_TAB_IDS = new Set(['general', 'appearance', 'storage', 'samba', 'users', 'members', 'tokens', 'notifications', '2fa', 'network', 'security', 'about']);
 
 export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [activeTab, setActiveTab] = useState('general');
@@ -46,8 +47,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [shortcuts, setShortcuts] = useState<any[]>([]);
   const [photoSources, setPhotoSources] = useState<string[]>([]);
   const [cloudSettings, setCloudSettings] = useState({
-    baseUrl: '', clientId: '', apiKey: '', clientSecret: '', redirectUri: '',
-    configured: false, hasApiKey: false, hasSecret: false, status: 'unconfigured', accounts: 0,
+    clientId: '', clientSecret: '', redirectUri: '',
+    configured: true, hasSecret: false, status: 'unconfigured', accounts: 0,
   });
   const [cloudSaving, setCloudSaving] = useState(false);
 
@@ -98,10 +99,12 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
 
   const loadCloudSettings = useCallback(async () => {
     const value = await fetch('/api/cloud-drive/settings').then(async (response) => response.ok ? response.json() : null).catch(() => null);
-    if (value) setCloudSettings((current) => ({ ...current, ...value, apiKey: '', clientSecret: '' }));
+    if (value) setCloudSettings((current) => ({ ...current, ...value, clientSecret: '' }));
   }, []);
 
   useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    if (requestedTab && SETTINGS_TAB_IDS.has(requestedTab)) setActiveTab(requestedTab);
     fetch('/api/system/stats').then(res => res.json()).then(setSysStats).catch(console.error);
     fetch('/api/users').then(res => res.json()).then(setUsers).catch(console.error);
     fetch('/api/drives/available').then(res => res.json()).then(data => setDrives(Array.isArray(data) ? data : [])).catch(console.error);
@@ -118,15 +121,13 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
       const response = await fetch('/api/cloud-drive/settings', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          baseUrl: cloudSettings.baseUrl,
-          apiKey: cloudSettings.apiKey,
           clientId: cloudSettings.clientId,
           clientSecret: cloudSettings.clientSecret,
         }),
       });
       const value = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(value.error || 'Could not save cloud storage settings');
-      setCloudSettings((current) => ({ ...current, ...value, apiKey: '', clientSecret: '', accounts: current.accounts }));
+      setCloudSettings((current) => ({ ...current, ...value, clientSecret: '', accounts: current.accounts }));
       await loadCloudSettings();
       const driveData = await fetch('/api/drives/available').then((result) => result.json());
       if (Array.isArray(driveData)) setDrives(driveData);
@@ -640,7 +641,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                     <p className="text-xs text-slate-400 dark:text-slate-500">Mount: /</p>
                   </div>
 
-                  <div className="border-t border-slate-100 dark:border-white/10 pt-6">
+                  <div id="cloud-account-pool" className="border-t border-slate-100 dark:border-white/10 pt-6 scroll-mt-6">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 flex items-center justify-center">
@@ -648,7 +649,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                         </div>
                         <div>
                           <h4 className="font-semibold text-slate-800 dark:text-white">Cloud Account Pool</h4>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">Connect the internal cloud service and Google OAuth application.</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Add Google OAuth credentials for HomiOS's built-in pooled cloud drive.</p>
                         </div>
                       </div>
                       <span className={`self-start px-2.5 py-1 rounded-full text-xs font-semibold ${cloudSettings.status === 'ready' ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300' : cloudSettings.status === 'unavailable' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>
@@ -657,14 +658,6 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <label className="space-y-1.5">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Internal service URL</span>
-                        <input value={cloudSettings.baseUrl} onChange={(event) => setCloudSettings({ ...cloudSettings, baseUrl: event.target.value })} placeholder="http://127.0.0.1:9400" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </label>
-                      <label className="space-y-1.5">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Service API key</span>
-                        <input type="password" value={cloudSettings.apiKey} onChange={(event) => setCloudSettings({ ...cloudSettings, apiKey: event.target.value })} placeholder={cloudSettings.hasApiKey ? 'Saved — leave blank to keep' : 'HomiOS service API key'} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </label>
                       <label className="space-y-1.5">
                         <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Google OAuth Client ID</span>
                         <input value={cloudSettings.clientId} onChange={(event) => setCloudSettings({ ...cloudSettings, clientId: event.target.value })} placeholder="…apps.googleusercontent.com" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />

@@ -23,6 +23,16 @@ function DrivesPanel({ onNavigateDrive, onOpenBackupsTab }: { onNavigateDrive: (
   const [mountMessage, setMountMessage] = useState<{ device: string; msg: string; rawError?: string; ok: boolean; showDetails?: boolean } | null>(null);
   const [protectingDrive, setProtectingDrive] = useState<DriveItem | null>(null);
 
+  const addCloudAccount = async () => {
+    try {
+      const response = await fetch('/api/cloud-drive/settings');
+      const settings = response.ok ? await response.json() : null;
+      window.location.href = settings?.status === 'ready' ? '/api/cloud-drive/connect' : '/settings?tab=storage#cloud-account-pool';
+    } catch {
+      window.location.href = '/settings?tab=storage#cloud-account-pool';
+    }
+  };
+
   const loadDrives = async () => {
     setLoading(true);
     try {
@@ -168,7 +178,7 @@ function DrivesPanel({ onNavigateDrive, onOpenBackupsTab }: { onNavigateDrive: (
             <span>Refresh</span>
           </button>
           <button
-            onClick={() => { window.location.href = '/api/cloud-drive/connect'; }}
+            onClick={addCloudAccount}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
           >
             <Cloud size={14} /> Add cloud account

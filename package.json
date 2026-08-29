@@ -11,7 +11,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audit:ci": "npm audit --omit=dev --audit-level=high"
+    "audit:ci": "npm audit --omit=dev --audit-level=high",
+    "postinstall": "npm run cloud-engine:install && npm run cloud-engine:build",
+    "cloud-engine:install": "npm --prefix internal/cloud-storage-engine ci --legacy-peer-deps",
+    "cloud-engine:build": "npm --prefix internal/cloud-storage-engine run prisma:generate && npm --prefix internal/cloud-storage-engine run build",
+    "cloud-engine:smoke": "node scripts/smoke-cloud-engine.mjs",
+    "cloud-engine:smoke-integrated": "node scripts/smoke-integrated-cloud.mjs"
   },
   "overrides": {
     "serialize-javascript": "^7.0.7"

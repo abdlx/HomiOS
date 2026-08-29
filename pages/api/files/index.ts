@@ -129,7 +129,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
 
     // Cloud Drive is a virtual HomiOS mount. Keep its identifiers inside this
     // server route so the Files UI can use the same operations without learning
-    // about 9Drive or receiving its service credential.
+    // about the internal engine or receiving its private service credential.
     if (req.method === 'GET' && isCloudPath(filePath)) {
       if (!requireAbility(res, session, 'read')) return;
       if (req.query.raw === 'true') {

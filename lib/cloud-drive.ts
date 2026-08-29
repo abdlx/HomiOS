@@ -1,12 +1,16 @@
 import { Readable } from 'node:stream';
 import { getCloudDriveIntegration } from './cloud-drive-settings.ts';
+import { internalCloudHeaders } from './cloud-storage-runtime.ts';
 
 const CLOUD_ROOT = 'Cloud Drive';
 const MARKER = '.homios-cloud';
 
 export class CloudDriveError extends Error {
-  constructor(public status: number, message: string) {
+  status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
     this.name = 'CloudDriveError';
   }
 }
@@ -27,6 +31,7 @@ export async function cloudRequest(pathname: string, init: RequestInit = {}) {
     ...init,
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      ...internalCloudHeaders(),
       ...init.headers,
     },
     redirect: 'manual',
