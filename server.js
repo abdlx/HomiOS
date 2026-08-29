@@ -54,6 +54,11 @@ app.prepare().then(async () => {
   const { getSession } = await import('./lib/auth.ts');
   const { hasAbility } = await import('./lib/api-auth.ts');
   const { isCodexPath, createCodexProxy, CODEX_UPSTREAM } = await import('./lib/codex-proxy.ts');
+  const {
+    isCodeServerPath,
+    createCodeServerProxy,
+    CODE_SERVER_UPSTREAM,
+  } = await import('./lib/code-server-proxy.ts');
 
   // req.ip is only trustworthy once Express knows which proxies to believe. Everything
   // downstream (rate limiting especially) keys off req.ip, never a raw X-Forwarded-For.
@@ -68,7 +73,7 @@ app.prepare().then(async () => {
     // Proxied Codex responses keep their own policies: HomiOS's CSP would break the
     // Vue bundle, and its Permissions-Policy would block Codex dictation (microphone).
     // The JSON cap is skipped too — codex-web-ui enforces its own body limits.
-    if (isCodexPath(req.path)) {
+    if (isCodexPath(req.path) || isCodeServerPath(req.path)) {
       return nextMiddleware();
     }
 
@@ -130,6 +135,16 @@ app.prepare().then(async () => {
     codexProxy = createCodexProxy({ originAllowed });
     server.use(codexProxy.handleRequest);
     console.log(`Codex Web UI proxy mounted at /codex → ${CODEX_UPSTREAM} (admin session required)`);
+  }
+
+  // code-server is a host service, not a Next or Coolify application. Mount it
+  // before Next so its assets, policies, and websocket traffic keep one owner.
+  const codeServerProxy = process.env.CODE_SERVER_ENABLED === 'false'
+    ? null
+    : createCodeServerProxy();
+  if (codeServerProxy) {
+    server.use(codeServerProxy.handleRequest);
+    console.log(`Code Server proxy mounted at /code -> ${CODE_SERVER_UPSTREAM}`);
   }
 
   try {
@@ -249,6 +264,18 @@ app.prepare().then(async () => {
     if (!isCodexPath(pathname)) return;
     if (codexProxy) {
       codexProxy.handleUpgrade(req, socket, head);
+    } else {
+      try { socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n'); } catch {}
+      socket.destroy();
+    }
+  });
+
+  httpServer.on('upgrade', (req, socket, head) => {
+    let pathname = '';
+    try { pathname = new URL(req.url || '', 'http://localhost').pathname; } catch {}
+    if (!isCodeServerPath(pathname)) return;
+    if (codeServerProxy) {
+      codeServerProxy.handleUpgrade(req, socket, head);
     } else {
       try { socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n'); } catch {}
       socket.destroy();

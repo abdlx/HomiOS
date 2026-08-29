@@ -84,18 +84,6 @@ const nextConfig = {
     }
     return config;
   },
-  async rewrites() {
-    return [
-      {
-        source: '/code',
-        destination: 'http://127.0.0.1:8080/',
-      },
-      {
-        source: '/code/:path*',
-        destination: 'http://127.0.0.1:8080/:path*',
-      },
-    ];
-  },
 };
 
 export default withPWA(nextConfig);

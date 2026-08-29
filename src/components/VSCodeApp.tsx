@@ -10,7 +10,7 @@ export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) 
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [checkKey, setCheckKey] = useState(0);
 
-  // Route through the Nginx reverse proxy on /code/
+  // Route through the HomiOS reverse proxy on /code/.
   const vscodeUrl = useMemo(() => {
     if (typeof window === 'undefined') return '/code/';
     return `${window.location.origin}/code/`;
