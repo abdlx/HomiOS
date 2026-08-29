@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import { getCloudDriveIntegration } from './cloud-drive-settings.ts';
 
 const CLOUD_ROOT = 'Cloud Drive';
 const MARKER = '.homios-cloud';
@@ -11,20 +12,21 @@ export class CloudDriveError extends Error {
 }
 
 export function cloudDriveConfigured() {
-  return Boolean(process.env.NINEDRIVE_API_URL && process.env.NINEDRIVE_API_KEY);
+  return getCloudDriveIntegration().configured;
 }
 
 function baseUrl() {
-  const value = process.env.NINEDRIVE_API_URL;
-  if (!value || !process.env.NINEDRIVE_API_KEY) throw new CloudDriveError(503, 'Cloud storage is not configured');
-  return value.replace(/\/+$/, '');
+  const { baseUrl, apiKey } = getCloudDriveIntegration();
+  if (!baseUrl || !apiKey) throw new CloudDriveError(503, 'Cloud storage is not configured. Add the service and Google OAuth credentials in Settings > Storage.');
+  return baseUrl;
 }
 
 export async function cloudRequest(pathname: string, init: RequestInit = {}) {
+  const { apiKey } = getCloudDriveIntegration();
   const response = await fetch(`${baseUrl()}/api/v1${pathname}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${process.env.NINEDRIVE_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       ...init.headers,
     },
     redirect: 'manual',

@@ -43,7 +43,7 @@ export default function Sidebar({
   }, []);
 
   useEffect(() => {
-    fetch('/api/drives/available')
+    const loadDrives = () => fetch('/api/drives/available')
       .then((res) => res.json())
       .then((data) => {
         if (data && data.length >= 0) {
@@ -53,15 +53,21 @@ export default function Sidebar({
             .map((d: any) => ({
               id: d.path || d.label,
               label: d.isMounted === false ? `${d.label} ⚠️ Unmounted` : d.label,
-              icon: 'HardDrive',
+              icon: d.cloud ? 'Cloud' : 'HardDrive',
               path: d.path,
               name: d.name, // raw device name e.g. "sda1"
-              isMounted: d.isMounted !== false
+              isMounted: d.isMounted !== false,
+              badge: d.cloud ? (d.cloudStatus === 'ready' ? `${d.accounts || 0}` : '!') : undefined,
+              cloud: Boolean(d.cloud),
+              configured: d.configured !== false,
             }));
           setRealFolders(drives);
         }
       })
       .catch((err) => console.error('Failed to load drives:', err));
+
+    loadDrives();
+    window.addEventListener('homios:cloud-drive-changed', loadDrives);
 
     fetch('/api/system/shortcuts')
       .then((res) => res.json())
@@ -71,6 +77,7 @@ export default function Sidebar({
         }
       })
       .catch((err) => console.error('Failed to load shortcuts:', err));
+    return () => window.removeEventListener('homios:cloud-drive-changed', loadDrives);
   }, []);
 
   // Custom helper to dynamically render Lucide icons Safely
@@ -270,6 +277,7 @@ export default function Sidebar({
                   >
                     {renderIcon(item.icon, isActive ? '#2563eb' : undefined, 14)}
                     <span className="truncate flex-1">{item.label}</span>
+                    {item.badge && <span className={`min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold ${(item as any).configured ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'}`}>{item.badge}</span>}
                   </button>
                 );
               })}

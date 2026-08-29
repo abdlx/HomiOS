@@ -9,23 +9,37 @@ import { CLOUD_ROOT, cloudDriveConfigured, cloudStorageSummary } from '../../../
 
 /** Overlay user-set nicknames and attach tri-state introspection metadata, then respond. */
 const sendDrives = async (res: any, drives: any[]) => {
+  let cloudDrive: any = {
+    label: CLOUD_ROOT,
+    path: CLOUD_ROOT,
+    name: 'cloud-drive',
+    uuid: 'homios-cloud-drive',
+    fstype: 'cloud',
+    isMounted: true,
+    isSystem: false,
+    isRemovable: false,
+    isReadOnly: false,
+    model: 'Pooled cloud storage',
+    totalBytesNumber: 0,
+    usedBytesNumber: 0,
+    freeBytesNumber: 0,
+    totalBytes: '0 B',
+    usedBytes: '0 B',
+    freeBytes: '0 B',
+    usagePercent: 0,
+    cloud: true,
+    accounts: 0,
+    configured: cloudDriveConfigured(),
+    cloudStatus: cloudDriveConfigured() ? 'unavailable' : 'setup-required',
+  };
   if (cloudDriveConfigured()) {
     try {
       const summary = await cloudStorageSummary();
       const total = Number(summary.totalBytes || 0);
       const used = Number(summary.usedBytes || 0);
       const free = Number(summary.availableBytes || Math.max(0, total - used));
-      drives.push({
-        label: CLOUD_ROOT,
-        path: CLOUD_ROOT,
-        name: 'cloud-drive',
-        uuid: 'homios-cloud-drive',
-        fstype: 'cloud',
-        isMounted: true,
-        isSystem: false,
-        isRemovable: false,
-        isReadOnly: false,
-        model: 'Pooled cloud storage',
+      cloudDrive = {
+        ...cloudDrive,
         totalBytesNumber: total,
         usedBytesNumber: used,
         freeBytesNumber: free,
@@ -35,11 +49,14 @@ const sendDrives = async (res: any, drives: any[]) => {
         usagePercent: total > 0 ? Math.round((used / total) * 100) : 0,
         cloud: true,
         accounts: summary.accounts?.length || 0,
-      });
+        configured: true,
+        cloudStatus: 'ready',
+      };
     } catch (error) {
       console.error('[drives] Cloud storage unavailable:', error);
     }
   }
+  drives.push(cloudDrive);
   const namedDrives = applyDriveNicknames(drives);
   const enriched = attachTriStateIntrospection(namedDrives);
   return res.json(enriched);

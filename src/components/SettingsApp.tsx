@@ -8,7 +8,7 @@ import {
   Settings, Monitor, Users, Wifi, Info, CheckCircle2,
   HardDrive, Shield, Globe, UserPlus, Database, ShieldCheck, Cpu, Server, Menu,
   Key, Bell, Smartphone, Copy, Trash2, Plus, RefreshCw, Eye, EyeOff, Send,
-  Sun, Moon, Image as ImageIcon, Folder, Share2
+  Sun, Moon, Image as ImageIcon, Folder, Share2, Cloud
 } from 'lucide-react';
 import SambaPanel from './SambaPanel';
 
@@ -45,6 +45,11 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   const [drives, setDrives] = useState<any[]>([]);
   const [shortcuts, setShortcuts] = useState<any[]>([]);
   const [photoSources, setPhotoSources] = useState<string[]>([]);
+  const [cloudSettings, setCloudSettings] = useState({
+    baseUrl: '', clientId: '', apiKey: '', clientSecret: '', redirectUri: '',
+    configured: false, hasApiKey: false, hasSecret: false, status: 'unconfigured', accounts: 0,
+  });
+  const [cloudSaving, setCloudSaving] = useState(false);
 
   // Teams & Members
   const [teamInfo, setTeamInfo] = useState<any>(null);
@@ -91,6 +96,11 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
     setTwoFA(d);
   }, []);
 
+  const loadCloudSettings = useCallback(async () => {
+    const value = await fetch('/api/cloud-drive/settings').then(async (response) => response.ok ? response.json() : null).catch(() => null);
+    if (value) setCloudSettings((current) => ({ ...current, ...value, apiKey: '', clientSecret: '' }));
+  }, []);
+
   useEffect(() => {
     fetch('/api/system/stats').then(res => res.json()).then(setSysStats).catch(console.error);
     fetch('/api/users').then(res => res.json()).then(setUsers).catch(console.error);
@@ -99,7 +109,35 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
     loadTeam();
     loadTokens();
     loadTwoFA();
-  }, []);
+    loadCloudSettings();
+  }, [loadCloudSettings, loadTeam, loadTokens, loadTwoFA]);
+
+  const saveCloudSettings = async () => {
+    setCloudSaving(true);
+    try {
+      const response = await fetch('/api/cloud-drive/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: cloudSettings.baseUrl,
+          apiKey: cloudSettings.apiKey,
+          clientId: cloudSettings.clientId,
+          clientSecret: cloudSettings.clientSecret,
+        }),
+      });
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(value.error || 'Could not save cloud storage settings');
+      setCloudSettings((current) => ({ ...current, ...value, apiKey: '', clientSecret: '', accounts: current.accounts }));
+      await loadCloudSettings();
+      const driveData = await fetch('/api/drives/available').then((result) => result.json());
+      if (Array.isArray(driveData)) setDrives(driveData);
+      window.dispatchEvent(new Event('homios:cloud-drive-changed'));
+      toast({ message: 'Cloud storage configured', description: 'You can now add Google accounts.', tone: 'success' });
+    } catch (error) {
+      toast({ message: 'Cloud storage setup failed', description: error instanceof Error ? error.message : 'Check the credentials and service URL.', tone: 'danger' });
+    } finally {
+      setCloudSaving(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -600,6 +638,57 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                       <div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{ width: sysStats ? `${(sysStats.disk.used / sysStats.disk.total) * 100}%` : '0%' }} />
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500">Mount: /</p>
+                  </div>
+
+                  <div className="border-t border-slate-100 dark:border-white/10 pt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                          <Cloud size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-slate-800 dark:text-white">Cloud Account Pool</h4>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Connect the internal cloud service and Google OAuth application.</p>
+                        </div>
+                      </div>
+                      <span className={`self-start px-2.5 py-1 rounded-full text-xs font-semibold ${cloudSettings.status === 'ready' ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300' : cloudSettings.status === 'unavailable' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>
+                        {cloudSettings.status === 'ready' ? `${cloudSettings.accounts} account${cloudSettings.accounts === 1 ? '' : 's'} pooled` : cloudSettings.status === 'unavailable' ? 'Service unavailable' : 'Setup required'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Internal service URL</span>
+                        <input value={cloudSettings.baseUrl} onChange={(event) => setCloudSettings({ ...cloudSettings, baseUrl: event.target.value })} placeholder="http://127.0.0.1:9400" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Service API key</span>
+                        <input type="password" value={cloudSettings.apiKey} onChange={(event) => setCloudSettings({ ...cloudSettings, apiKey: event.target.value })} placeholder={cloudSettings.hasApiKey ? 'Saved — leave blank to keep' : 'HomiOS service API key'} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Google OAuth Client ID</span>
+                        <input value={cloudSettings.clientId} onChange={(event) => setCloudSettings({ ...cloudSettings, clientId: event.target.value })} placeholder="…apps.googleusercontent.com" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Google OAuth Client Secret</span>
+                        <input type="password" value={cloudSettings.clientSecret} onChange={(event) => setCloudSettings({ ...cloudSettings, clientSecret: event.target.value })} placeholder={cloudSettings.hasSecret ? 'Saved — leave blank to keep' : 'Google OAuth client secret'} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </label>
+                    </div>
+
+                    <div className="mt-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 px-4 py-3">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Authorized redirect URI</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-mono break-all">{cloudSettings.redirectUri || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/cloud-drive/oauth-callback`}</p>
+                      <p className="mt-1 text-xs text-slate-400">Add this exact URI to the Google Cloud OAuth client.</p>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button onClick={saveCloudSettings} disabled={cloudSaving} className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        {cloudSaving ? 'Saving…' : 'Save & Validate'}
+                      </button>
+                      <button onClick={() => { window.location.href = '/api/cloud-drive/connect'; }} disabled={cloudSettings.status !== 'ready'} className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/20 disabled:opacity-50 transition-colors">
+                        Add Google Account
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border-t border-slate-100 dark:border-white/10 pt-6">
