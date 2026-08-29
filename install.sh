@@ -57,9 +57,7 @@ COOLIFY_OWNED_BY_HOMIOS="${COOLIFY_OWNED_BY_HOMIOS:-}"
 COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-}"
 COOLIFY_APP_PORT="${COOLIFY_APP_PORT:-8000}"
 COOLIFY_DATA_DIR="${COOLIFY_DATA_DIR:-/data/coolify}"
-CODEX_UI_ENABLED="${CODEX_UI_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-}"
-IMMICH_ENABLED="${IMMICH_ENABLED:-}"
 # Preserve any HOMIOS_PORT explicitly passed in the calling environment before defaults/files
 _USER_SUPPLIED_PORT="${HOMIOS_PORT:-}"
 HOMIOS_PORT=""
@@ -84,16 +82,10 @@ Coolify options (mutually exclusive — pick at most one):
   --without-coolify     No Coolify integration. HomiOS does not start, stop, or
                         configure Coolify. Does NOT shut down an existing instance.
 
-Optional components:
-  --with-codex-ui       Install the Codex Web UI sidecar (default: skipped).
-                        Codex Web UI is no longer installed by default.
-  --with-immich         Enable optional Immich photo library service.
-  --without-immich      Disable optional Immich service.
-
 General:
   --migrate-homios-port Force migration of legacy port (3000) to 8740.
-  --non-interactive     Skip all interactive prompts. Unset optional services
-                        default to disabled.
+  --non-interactive     Skip all interactive prompts. Unset Coolify mode
+                        defaults to disabled.
   -h, --help            Show this help message and exit.
 
 Examples:
@@ -105,9 +97,6 @@ Examples:
 
   # Migrate existing external installation from legacy port 3000 to 8740:
   sudo bash install.sh --existing-coolify --migrate-homios-port --non-interactive
-
-  # Existing external Coolify + optional Codex UI:
-  sudo bash install.sh --existing-coolify --with-codex-ui --non-interactive
 
   # No Coolify integration:
   sudo bash install.sh --without-coolify --non-interactive
@@ -130,9 +119,6 @@ while [ "$#" -gt 0 ]; do
       COOLIFY_MODE=disabled
       _FLAG_WITHOUT_COOLIFY=true
       ;;
-    --with-immich)     IMMICH_ENABLED=true ;;
-    --without-immich)  IMMICH_ENABLED=false ;;
-    --with-codex-ui)   CODEX_UI_ENABLED=true ;;
     --migrate-homios-port) MIGRATE_HOMIOS_PORT=true ;;
     --non-interactive) NON_INTERACTIVE=true ;;
     -h|--help)         show_help; exit 0 ;;
@@ -151,21 +137,6 @@ fi
 if [ "$_FLAG_WITH_COOLIFY" = "true" ] && [ "$_FLAG_WITHOUT_COOLIFY" = "true" ]; then
   fail "--with-coolify and --without-coolify are mutually exclusive."
 fi
-
-normalize_bool() {
-  case "${1,,}" in
-    1|true|yes|y|on) echo true ;;
-    0|false|no|n|off|'') echo false ;;
-    *) fail "Expected a boolean value, got: $1" ;;
-  esac
-}
-
-ask_optional() {
-  local label="$1"
-  local answer
-  read -r -p "Install optional $label service? [y/N] " answer
-  normalize_bool "$answer"
-}
 
 echo -e "${BOLD}"
 echo " ██╗  ██╗ ██████╗ ███╗   ███╗██╗ ██████╗ ███████╗"
@@ -202,11 +173,6 @@ fi
 INSTALL_DIR="/opt/homios"
 LEGACY_INSTALL_DIR="/opt/openfinder"
 REPO_URL="https://github.com/abdlx/HomiOS.git"
-IMMICH_APP_PORT="${IMMICH_APP_PORT:-2283}"
-IMMICH_DATA_DIR="${IMMICH_DATA_DIR:-/data/immich}"
-IMMICH_VERSION="${IMMICH_VERSION:-v3}"
-IMMICH_COMPOSE_URL="${IMMICH_COMPOSE_URL:-https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml}"
-
 # Migrate legacy /opt/openfinder directory if present and /opt/homios does not exist
 if [ ! -d "$INSTALL_DIR" ] && [ -d "$LEGACY_INSTALL_DIR" ]; then
   log "Migrating existing installation from $LEGACY_INSTALL_DIR to $INSTALL_DIR..."
@@ -314,11 +280,6 @@ if [ -f "$PREVIOUS_ENV_FILE" ]; then
     COOLIFY_OWNED_BY_HOMIOS=$(sed -n 's/^COOLIFY_OWNED_BY_HOMIOS=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   [ -n "$HOMIOS_PROXY_MODE" ] || \
     HOMIOS_PROXY_MODE=$(sed -n 's/^HOMIOS_PROXY_MODE=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-  [ "$CODEX_UI_ENABLED" = "true" ] || \
-    CODEX_UI_ENABLED=$(sed -n 's/^CODEX_UI_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-  [ -n "$IMMICH_ENABLED" ] || \
-    IMMICH_ENABLED=$(sed -n 's/^IMMICH_ENABLED=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
-
   _saved_port=$(sed -n 's/^HOMIOS_PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   [ -n "$_saved_port" ] || _saved_port=$(sed -n 's/^PORT=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
   _saved_cfg_version=$(sed -n 's/^HOMIOS_CONFIG_VERSION=//p' "$PREVIOUS_ENV_FILE" | tail -n 1)
@@ -352,7 +313,6 @@ if [ "$NON_INTERACTIVE" = "false" ] && [ -t 0 ]; then
       *) COOLIFY_MODE=disabled ;;
     esac
   fi
-  [ -n "$IMMICH_ENABLED" ] || IMMICH_ENABLED=$(ask_optional "Immich")
 fi
 
 # Final defaults for anything still unset
@@ -360,8 +320,6 @@ COOLIFY_MODE="${COOLIFY_MODE:-disabled}"
 COOLIFY_OWNED_BY_HOMIOS="${COOLIFY_OWNED_BY_HOMIOS:-false}"
 COOLIFY_INTEGRATION_ENABLED="${COOLIFY_INTEGRATION_ENABLED:-false}"
 HOMIOS_PROXY_MODE="${HOMIOS_PROXY_MODE:-nginx}"
-CODEX_UI_ENABLED=$(normalize_bool "${CODEX_UI_ENABLED:-false}")
-IMMICH_ENABLED=$(normalize_bool "${IMMICH_ENABLED:-false}")
 
 # ── Port Resolution ───────────────────────────────────────────
 # Precedence:
@@ -413,7 +371,7 @@ else
   HOMIOS_PORT=8740
 fi
 
-log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_HOMIOS) | Proxy: $HOMIOS_PROXY_MODE | Codex UI: $CODEX_UI_ENABLED | Immich: $IMMICH_ENABLED"
+log "Coolify mode: $COOLIFY_MODE (owned=$COOLIFY_OWNED_BY_HOMIOS) | Proxy: $HOMIOS_PROXY_MODE"
 
 # ── 4. Install npm dependencies & build ───────────────────────
 log "Installing Node.js packages..."
@@ -425,8 +383,7 @@ node -e "import('sharp').then(() => console.log('sharp ok')).catch((err) => { co
 log "Building production Next.js bundle..."
 npm run build
 
-chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down.sh" \
-  "$INSTALL_DIR/scripts/immich-up.sh" "$INSTALL_DIR/scripts/immich-down.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/scripts/coolify-up.sh" "$INSTALL_DIR/scripts/coolify-down.sh" 2>/dev/null || true
 
 # ── Coolify dispatch ──────────────────────────────────────────
 # The lifecycle invariant enforced here and in the helper scripts:
@@ -484,18 +441,6 @@ Set HOMIOS_PORT to another available port before installation."
       echo -e "  HOMIOS_PORT=<port> bash install.sh${NC}"
       fail "Installation aborted: port conflict on ${HOMIOS_PORT}."
     fi
-  fi
-fi
-
-if [ "$IMMICH_ENABLED" = "true" ]; then
-  log "Starting optional Immich service..."
-  IMMICH_APP_PORT="$IMMICH_APP_PORT" IMMICH_DATA_DIR="$IMMICH_DATA_DIR" \
-    IMMICH_VERSION="$IMMICH_VERSION" IMMICH_COMPOSE_URL="$IMMICH_COMPOSE_URL" \
-    bash "$INSTALL_DIR/scripts/immich-up.sh"
-else
-  warn "Immich disabled (IMMICH_ENABLED=false)."
-  if [ -f "$IMMICH_DATA_DIR/docker-compose.yml" ]; then
-    IMMICH_DATA_DIR="$IMMICH_DATA_DIR" bash "$INSTALL_DIR/scripts/immich-down.sh" || true
   fi
 fi
 
@@ -570,12 +515,8 @@ COOLIFY_ENABLED=$COOLIFY_ENABLED
 COOLIFY_APP_PORT=$COOLIFY_APP_PORT
 COOLIFY_DATA_DIR=$COOLIFY_DATA_DIR
 HOMIOS_PROXY_MODE=$HOMIOS_PROXY_MODE
-CODEX_UI_ENABLED=$CODEX_UI_ENABLED
-IMMICH_ENABLED=$IMMICH_ENABLED
-IMMICH_APP_PORT=$IMMICH_APP_PORT
-IMMICH_DATA_DIR=$IMMICH_DATA_DIR
-IMMICH_VERSION=$IMMICH_VERSION
-IMMICH_COMPOSE_URL=$IMMICH_COMPOSE_URL
+CODE_SERVER_ENABLED=true
+CODE_SERVER_PORT=8080
 HOMIOS_BIND_HOST=$HOMIOS_BIND_HOST
 EOF
 chmod 600 "$ENV_FILE"
@@ -678,14 +619,14 @@ systemctl restart smbd
 log "Samba configured — no guest shares were created."
 
 # ── 8. Install & configure code-server ───────────────────────
-log "Installing code-server..."
+log "Installing required Code Server component..."
 if ! command -v code-server &>/dev/null; then
   curl -fsSL https://code-server.dev/install.sh | sh > /dev/null 2>&1
 fi
 
 cat > /etc/systemd/system/code-server.service <<EOF
 [Unit]
-Description=code-server
+Description=Code Server
 After=network.target
 
 [Service]
@@ -702,70 +643,7 @@ EOF
 systemctl daemon-reload
 systemctl enable code-server --quiet
 systemctl restart code-server
-log "code-server configured on port 8080."
-
-# ── 8.5 Codex Web UI (optional — requires --with-codex-ui) ───
-# Codex Web UI is NOT installed by default. Pass --with-codex-ui to enable it.
-# Existing Codex UI installations are NOT removed if the flag is absent — this
-# only governs new/default installation behavior.
-if [ "$CODEX_UI_ENABLED" = "true" ]; then
-  log "Installing Codex Web UI..."
-  CODEX_WEB_DIR="/opt/codex-web-ui"
-  CODEX_WEB_REPO="https://github.com/abdlx/codex-web-ui"
-
-  if [ ! -d "$CODEX_WEB_DIR/.git" ]; then
-    git clone --depth 1 "$CODEX_WEB_REPO" "$CODEX_WEB_DIR" > /dev/null 2>&1
-  else
-    git -C "$CODEX_WEB_DIR" reset --hard HEAD --quiet
-    git -C "$CODEX_WEB_DIR" clean -fd --quiet
-    git -C "$CODEX_WEB_DIR" pull --quiet
-  fi
-
-  cd "$CODEX_WEB_DIR"
-  # The upstream CLI hard-binds 0.0.0.0; patch in an env override so the service
-  # stays loopback-only behind the HomiOS session proxy.
-  if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
-    sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
-  elif grep -q "CODEXUI_HOST" src/cli/index.ts; then
-    log "codex-web-ui already honors CODEXUI_HOST."
-  else
-    warn "codex-web-ui bind patch anchor not found — the passwordless app may listen on ALL interfaces."
-    warn "Block external access to port 5900 (ufw deny 5900) or update the patch in install.sh."
-  fi
-  npm install --no-audit --no-fund --silent > /dev/null 2>&1
-  # Frontend assets must resolve under the /codex/ subpath (vue-tsc typecheck skipped).
-  npx vite build --base=/codex/ > /dev/null 2>&1
-  npm run build:cli > /dev/null 2>&1
-  cd "$INSTALL_DIR"
-
-  cat > /etc/systemd/system/codex-web.service <<EOF
-[Unit]
-Description=Codex Web UI (HomiOS internal app)
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=$CODEX_WEB_DIR
-Environment=CODEXUI_HOST=127.0.0.1
-ExecStart=/usr/bin/node $CODEX_WEB_DIR/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
-Restart=always
-# No IPAddressDeny lockdown here: it filters outbound traffic too, and Codex
-# must reach the OpenAI API (and npm, to bootstrap the Codex CLI). Loopback-only
-# exposure comes from the CODEXUI_HOST bind patch applied above.
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  systemctl enable codex-web --quiet
-  systemctl restart codex-web
-  log "Codex Web UI configured on 127.0.0.1:5900 → /codex (HomiOS admin session required)."
-else
-  warn "Codex Web UI installation skipped (pass --with-codex-ui to enable it)."
-  warn "Existing Codex Web UI installations are not affected."
-fi
+log "Code Server configured on port 8080."
 
 # ── 9. Nginx reverse proxy ───────────────────────────────────
 # NOTE: This app uses Next.js SSR (getServerSideProps), so we CANNOT
@@ -922,8 +800,6 @@ _FLAG_WITHOUT_COOLIFY=false
 MIGRATE_HOMIOS_PORT=false
 COOLIFY_MODE_CLI=""
 HOMIOS_PROXY_MODE_CLI=""
-IMMICH_ENABLED_CLI=""
-CODEX_UI_ENABLED_CLI=""
 
 while [ "\$#" -gt 0 ]; do
   case "\$1" in
@@ -940,13 +816,10 @@ while [ "\$#" -gt 0 ]; do
       COOLIFY_MODE_CLI=disabled
       _FLAG_WITHOUT_COOLIFY=true
       ;;
-    --with-immich)    IMMICH_ENABLED_CLI=true ;;
-    --without-immich) IMMICH_ENABLED_CLI=false ;;
-    --with-codex-ui)  CODEX_UI_ENABLED_CLI=true ;;
     --migrate-homios-port) MIGRATE_HOMIOS_PORT=true ;;
     -h|--help)
       echo "Usage: sudo homios-update [--with-coolify|--existing-coolify|--without-coolify]"
-      echo "                              [--with-immich|--without-immich] [--with-codex-ui] [--migrate-homios-port]"
+      echo "                              [--migrate-homios-port]"
       exit 0
       ;;
     *) echo "Unknown option: \$1" >&2; exit 2 ;;
@@ -971,12 +844,6 @@ COOLIFY_INTEGRATION_ENABLED=\$(read_setting COOLIFY_INTEGRATION_ENABLED "false")
 COOLIFY_APP_PORT=\$(read_setting COOLIFY_APP_PORT "$COOLIFY_APP_PORT")
 COOLIFY_DATA_DIR=\$(read_setting COOLIFY_DATA_DIR "$COOLIFY_DATA_DIR")
 HOMIOS_PROXY_MODE="\${HOMIOS_PROXY_MODE_CLI:-\$(read_setting HOMIOS_PROXY_MODE "nginx")}"
-CODEX_UI_ENABLED="\${CODEX_UI_ENABLED_CLI:-\$(read_setting CODEX_UI_ENABLED "false")}"
-IMMICH_ENABLED="\${IMMICH_ENABLED_CLI:-\$(read_setting IMMICH_ENABLED "false")}"
-IMMICH_APP_PORT=\$(read_setting IMMICH_APP_PORT "$IMMICH_APP_PORT")
-IMMICH_DATA_DIR=\$(read_setting IMMICH_DATA_DIR "$IMMICH_DATA_DIR")
-IMMICH_VERSION=\$(read_setting IMMICH_VERSION "$IMMICH_VERSION")
-IMMICH_COMPOSE_URL=\$(read_setting IMMICH_COMPOSE_URL "$IMMICH_COMPOSE_URL")
 HOMIOS_BIND_HOST=\$(read_setting HOMIOS_BIND_HOST "")
 
 # Legacy fallback for installs that only have COOLIFY_ENABLED
@@ -1066,8 +933,7 @@ npm install --legacy-peer-deps --silent
 node -e "import('sharp').catch((err) => { console.error('sharp failed:', err.message); process.exit(1); })"
 npm run build
 
-chmod +x "\$INSTALL_DIR/scripts/coolify-up.sh" "\$INSTALL_DIR/scripts/coolify-down.sh" \
-  "\$INSTALL_DIR/scripts/immich-up.sh" "\$INSTALL_DIR/scripts/immich-down.sh" 2>/dev/null || true
+chmod +x "\$INSTALL_DIR/scripts/coolify-up.sh" "\$INSTALL_DIR/scripts/coolify-down.sh" 2>/dev/null || true
 
 # ── Coolify dispatch (update) ──────────────────────────────────
 # Lifecycle invariant: no Coolify up/down unless MODE=managed AND OWNED=true.
@@ -1102,63 +968,27 @@ case "\$COOLIFY_MODE" in
     ;;
 esac
 
-if [ "\$IMMICH_ENABLED" = "true" ]; then
-  IMMICH_APP_PORT="\$IMMICH_APP_PORT" IMMICH_DATA_DIR="\$IMMICH_DATA_DIR" \
-    IMMICH_VERSION="\$IMMICH_VERSION" IMMICH_COMPOSE_URL="\$IMMICH_COMPOSE_URL" \
-    bash "\$INSTALL_DIR/scripts/immich-up.sh"
-elif [ -f "\$IMMICH_DATA_DIR/docker-compose.yml" ]; then
-  IMMICH_DATA_DIR="\$IMMICH_DATA_DIR" bash "\$INSTALL_DIR/scripts/immich-down.sh" || true
-fi
-
-if command -v code-server &>/dev/null; then
+if ! command -v code-server &>/dev/null; then
   curl -fsSL https://code-server.dev/install.sh | sh > /dev/null 2>&1
-  systemctl restart code-server
 fi
-
-# ── Codex Web UI update (only if enabled) ─────────────────────
-# Existing Codex UI installations are NOT removed when CODEX_UI_ENABLED=false.
-if [ "\$CODEX_UI_ENABLED" = "true" ]; then
-  CODEX_WEB_DIR="/opt/codex-web-ui"
-  CODEX_WEB_REPO="https://github.com/abdlx/codex-web-ui"
-  if [ ! -d "\$CODEX_WEB_DIR/.git" ]; then
-    git clone --depth 1 "\$CODEX_WEB_REPO" "\$CODEX_WEB_DIR"
-  fi
-  cd "\$CODEX_WEB_DIR"
-  git reset --hard HEAD --quiet
-  git clean -fd --quiet
-  git pull
-  if grep -q "server.listen(port, '0.0.0.0')" src/cli/index.ts; then
-    sed -i "s/server\.listen(port, '0\.0\.0\.0')/server.listen(port, process.env.CODEXUI_HOST || '0.0.0.0')/" src/cli/index.ts
-  elif ! grep -q "CODEXUI_HOST" src/cli/index.ts; then
-    echo "WARNING: codex-web-ui bind patch anchor not found — port 5900 may listen on all interfaces."
-  fi
-  npm install --no-audit --no-fund --silent
-  npx vite build --base=/codex/
-  npm run build:cli
-  cd "\$INSTALL_DIR"
-
-  if [ ! -f /etc/systemd/system/codex-web.service ]; then
-    cat > /etc/systemd/system/codex-web.service <<'CODEXUNIT'
+cat > /etc/systemd/system/code-server.service <<'CODESERVERUNIT'
 [Unit]
-Description=Codex Web UI (HomiOS internal app)
+Description=Code Server
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/codex-web-ui
-Environment=CODEXUI_HOST=127.0.0.1
-ExecStart=/usr/bin/node /opt/codex-web-ui/dist-cli/index.js --port 5900 --no-password --no-tunnel --no-open --no-login
+Environment=PASSWORD=
+ExecStart=/usr/bin/code-server --bind-addr 127.0.0.1:8080 --auth none
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
-CODEXUNIT
-    systemctl daemon-reload
-    systemctl enable codex-web --quiet
-  fi
-  systemctl restart codex-web
-fi
+CODESERVERUNIT
+systemctl daemon-reload
+systemctl enable code-server --quiet
+systemctl restart code-server
 
 # Re-sync APP_KEY and persist configuration into EnvironmentFile.
 # It must never be written into the unit itself — unit files are world-readable
@@ -1185,11 +1015,10 @@ else
 fi
 
 umask 077
-printf 'APP_KEY=%s\nHOMIOS_SAMBA_ALLOWED_ROOTS=%s\nHOMIOS_PORT=%s\nHOMIOS_CONFIG_VERSION=2\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_HOMIOS=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nHOMIOS_PROXY_MODE=%s\nCODEX_UI_ENABLED=%s\nIMMICH_ENABLED=%s\nIMMICH_APP_PORT=%s\nIMMICH_DATA_DIR=%s\nIMMICH_VERSION=%s\nIMMICH_COMPOSE_URL=%s\nHOMIOS_BIND_HOST=%s\n' \
+printf 'APP_KEY=%s\nHOMIOS_SAMBA_ALLOWED_ROOTS=%s\nHOMIOS_PORT=%s\nHOMIOS_CONFIG_VERSION=2\nCOOLIFY_MODE=%s\nCOOLIFY_OWNED_BY_HOMIOS=%s\nCOOLIFY_INTEGRATION_ENABLED=%s\nCOOLIFY_ENABLED=%s\nCOOLIFY_APP_PORT=%s\nCOOLIFY_DATA_DIR=%s\nHOMIOS_PROXY_MODE=%s\nCODE_SERVER_ENABLED=true\nCODE_SERVER_PORT=8080\nHOMIOS_BIND_HOST=%s\n' \
   "\$CURRENT_KEY" "\$CURRENT_SAMBA_ALLOWED_ROOTS" "\$HOMIOS_PORT" \
   "\$COOLIFY_MODE" "\$COOLIFY_OWNED_BY_HOMIOS" "\$COOLIFY_INTEGRATION_ENABLED" "\$COOLIFY_ENABLED_DERIVED" \
-  "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$HOMIOS_PROXY_MODE" "\$CODEX_UI_ENABLED" \
-  "\$IMMICH_ENABLED" "\$IMMICH_APP_PORT" "\$IMMICH_DATA_DIR" "\$IMMICH_VERSION" "\$IMMICH_COMPOSE_URL" "\$HOMIOS_BIND_HOST" \
+  "\$COOLIFY_APP_PORT" "\$COOLIFY_DATA_DIR" "\$HOMIOS_PROXY_MODE" "\$HOMIOS_BIND_HOST" \
   > "\$ENV_FILE"
 chmod 600 "\$ENV_FILE"
 umask 022
@@ -1247,13 +1076,7 @@ if [ "$COOLIFY_MODE" = "managed" ] && [ "$COOLIFY_OWNED_BY_HOMIOS" = "true" ]; t
 elif [ "$COOLIFY_MODE" = "external" ]; then
   echo -e "${GREEN}${BOLD}║${NC}  Coolify:    (external — route HomiOS through your existing proxy)"
 fi
-if [ "$IMMICH_ENABLED" = "true" ]; then
-  echo -e "${GREEN}${BOLD}║${NC}  Immich:     ${BOLD}http://$LOCAL_IP:$IMMICH_APP_PORT${NC}"
-fi
-echo -e "${GREEN}${BOLD}║${NC}  VS Code:     ${BOLD}http://$LOCAL_IP/code/${NC}"
-if [ "$CODEX_UI_ENABLED" = "true" ]; then
-  echo -e "${GREEN}${BOLD}║${NC}  Codex:      ${BOLD}http://$LOCAL_IP/codex/${NC}"
-fi
+echo -e "${GREEN}${BOLD}║${NC}  Code Server: ${BOLD}http://$LOCAL_IP/code/${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Samba:      ${BOLD}No shares by default — configure access in HomiOS${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Logs:        ${BOLD}journalctl -u homios -f${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Update:      ${BOLD}sudo homios-update${NC}"
@@ -1261,5 +1084,4 @@ echo -e "${GREEN}${BOLD}╚═════════════════�
 echo ""
 echo -e "  ${YELLOW}First boot: Open the dashboard URL to create your admin account.${NC}"
 echo -e "  ${YELLOW}Coolify:  --with-coolify (managed) | --existing-coolify (external) | --without-coolify (disabled)${NC}"
-echo -e "  ${YELLOW}Codex UI: add --with-codex-ui to enable the optional Codex Web UI sidecar.${NC}"
 echo ""

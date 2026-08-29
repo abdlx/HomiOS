@@ -59,7 +59,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
     ];
 
     if (isEnabled('codeServer')) {
-      list.push({ id: 'app-vscode', category: 'Applications', label: 'VS Code', subtitle: 'code-server web IDE', icon: Code, action: () => onOpenView('vscode'), keywords: ['editor', 'ide', 'develop'] });
+      list.push({ id: 'app-vscode', category: 'Applications', label: 'Code Server', subtitle: 'Browser-based development environment', icon: Code, action: () => onOpenView('vscode'), keywords: ['editor', 'ide', 'develop', 'code-server'] });
     }
     if (isEnabled('codex')) {
       list.push({ id: 'app-codex', category: 'Applications', label: 'Codex', subtitle: 'AI assistant workspace', icon: Sparkles, action: () => onOpenView('codex'), keywords: ['ai', 'chat', 'llm'] });

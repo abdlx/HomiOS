@@ -15,7 +15,7 @@ const ALL_APPS = [
   { id: 'activity', label: 'Activity',  color: 'from-[#32ADE6] to-[#12648A]' },
   { id: 'coolify',  label: 'Coolify',   color: 'from-[#8C52FF] to-[#5B13D5]' },
   { id: 'immich',   label: 'Immich',    color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  { id: 'vscode',   label: 'VS Code',   color: 'from-[#0066b8] to-[#007acc]' },
+  { id: 'vscode',   label: 'Code Server', color: 'from-[#0066b8] to-[#007acc]' },
   { id: 'codex',    label: 'Codex',     color: 'from-[#17BE92] to-[#0A6F55]' },
 ];
 

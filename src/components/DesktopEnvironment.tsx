@@ -50,7 +50,7 @@ const BASE_APPS: Record<string, DesktopAppConfig> = {
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
   coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#8C52FF] to-[#5B13D5]' },
   immich: { id: 'immich', label: 'Immich', icon: Images, color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  vscode: { id: 'vscode', label: 'VS Code', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
+  vscode: { id: 'vscode', label: 'Code Server', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
   codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
 };
 
@@ -615,7 +615,7 @@ export default function DesktopEnvironment({
       </div>
 
       {/* Dock and Spotlight Search Pill */}
-      <div className="relative pb-6 flex flex-col items-center w-full mt-auto">
+      <div className="relative pb-3 flex flex-col items-center w-full mt-auto">
         <motion.button
           layoutId="homios-search-pill"
           onClick={onOpenSearch}

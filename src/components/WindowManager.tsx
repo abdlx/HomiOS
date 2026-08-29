@@ -347,7 +347,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         </div>
       </motion.div>
 
-      {/* VS Code App overlay */}
+      {/* Code Server app overlay */}
       <motion.div
         initial={false}
         animate={view === 'vscode' ? "visible" : "hidden"}

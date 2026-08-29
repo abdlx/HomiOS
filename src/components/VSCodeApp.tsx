@@ -50,7 +50,7 @@ export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) 
             <Code2 size={17} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold leading-tight truncate">VS Code (code-server)</h2>
+            <h2 className="text-sm font-semibold leading-tight truncate">Code Server</h2>
             <p className="text-[11px] text-white/50 leading-tight truncate">{vscodeUrl}</p>
           </div>
         </div>
@@ -88,9 +88,9 @@ export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) 
               <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-blue-400">
                 <Code2 size={28} strokeWidth={1.7} />
               </div>
-              <h3 className="text-lg font-semibold mb-2">VS Code is starting or not installed.</h3>
+              <h3 className="text-lg font-semibold mb-2">Code Server is starting.</h3>
               <p className="text-sm text-white/55 mb-5">
-                HomiOS will load VS Code here once `code-server` is running locally.
+                HomiOS will load Code Server here once the required service is running locally.
                 To install it on your server, run:<br />
                 <code className="bg-black/30 p-1 rounded mt-2 block text-xs">curl -fsSL https://code-server.dev/install.sh | sh</code>
               </p>
@@ -116,7 +116,7 @@ export default function VSCodeApp({ onClose, isActive = true }: VSCodeAppProps) 
           <iframe
             key={checkKey}
             src={vscodeUrl}
-            title="VS Code"
+            title="Code Server"
             className="absolute inset-0 w-full h-full border-0 bg-[#1e1e1e]"
             allow="clipboard-read; clipboard-write; fullscreen"
           />

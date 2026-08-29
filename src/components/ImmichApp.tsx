@@ -61,7 +61,7 @@ export default function ImmichApp({ onClose, isActive = true }: ImmichAppProps) 
               <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-fuchsia-300"><Images size={28} strokeWidth={1.7} /></div>
               <h3 className="text-lg font-semibold mb-2">{status.enabled ? 'Immich is starting.' : 'Immich is not installed.'}</h3>
               <p className="text-sm text-white/55 mb-5">
-                {status.enabled ? 'The optional Immich service is configured but has not become reachable yet.' : 'Re-run the installer with --with-immich, or run homios-update --with-immich.'}
+                {status.enabled ? 'The Immich integration is configured but has not become reachable yet.' : 'Install and manage Immich separately, then configure its HomiOS integration environment.'}
               </p>
               <button onClick={() => setCheckKey((key) => key + 1)} className="px-4 py-2 rounded-xl bg-fuchsia-500 hover:bg-fuchsia-400 text-white text-sm font-semibold transition">Check Again</button>
             </div>

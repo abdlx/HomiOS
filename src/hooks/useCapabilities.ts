@@ -37,7 +37,7 @@ const DEFAULT_CAPABILITIES: CapabilitiesMap = {
   coolify: { id: 'coolify', name: 'Coolify', configured: false, installed: false, running: false, state: 'disabled' },
   immich: { id: 'immich', name: 'Immich', configured: false, installed: false, running: false, state: 'disabled' },
   codex: { id: 'codex', name: 'Codex', configured: false, installed: false, running: false, state: 'disabled' },
-  codeServer: { id: 'codeServer', name: 'VS Code', configured: false, installed: false, running: false, state: 'disabled' },
+  codeServer: { id: 'codeServer', name: 'Code Server', configured: true, installed: true, running: false, state: 'degraded' },
 };
 
 export function useCapabilities() {

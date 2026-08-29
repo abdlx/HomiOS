@@ -96,7 +96,7 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
   const coolifyIntegration = getCoolifyIntegration();
   const immichConfigured = asEnabled(process.env.IMMICH_ENABLED);
   const codexConfigured = asEnabled(process.env.CODEX_UI_ENABLED);
-  const codeServerConfigured = asEnabled(process.env.CODE_SERVER_ENABLED);
+  const codeServerConfigured = true;
 
   // Probe services concurrently
   const [coolifyOnline, immichOnline, codexOnline, codeServerOnline] = await Promise.all([
@@ -211,22 +211,14 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
     },
     codeServer: {
       id: 'codeServer',
-      name: 'VS Code',
+      name: 'Code Server',
       configured: codeServerConfigured,
       installed: codeServerConfigured,
       running: codeServerOnline,
       port: codeServerPort,
       url: `/vscode`,
-      state: !codeServerConfigured
-        ? 'disabled'
-        : codeServerOnline
-          ? 'running'
-          : 'degraded',
-      reason: !codeServerConfigured
-        ? 'Code Server is disabled'
-        : codeServerOnline
-          ? undefined
-          : `Code Server is not responding on port ${codeServerPort}`,
+      state: codeServerOnline ? 'running' : 'degraded',
+      reason: codeServerOnline ? undefined : `Code Server is not responding on port ${codeServerPort}`,
     },
     };
 

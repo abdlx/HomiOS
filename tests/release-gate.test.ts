@@ -191,6 +191,9 @@ describe('Release Gate Validation', () => {
       const caps = await getCapabilities();
       expect(caps.codex.state).toBe('disabled');
       expect(caps.immich.state).toBe('disabled');
+      expect(caps.codeServer.configured).toBe(true);
+      expect(caps.codeServer.installed).toBe(true);
+      expect(caps.codeServer.name).toBe('Code Server');
     });
 
     it('Coolify external regression: remains unmanaged when COOLIFY_MODE=external', async () => {
@@ -415,4 +418,3 @@ describe('Release Gate Validation', () => {
     });
   });
 });
-
