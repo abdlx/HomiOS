@@ -132,6 +132,7 @@ app.prepare().then(async () => {
   // database and private API identity are derived automatically from HomiOS's
   // own APP_KEY; administrators never configure a URL or service API key.
   let cloudStoragePrisma = null;
+  let restoreCloudStorageEnvironment = () => {};
   try {
     const {
       CLOUD_ENGINE_MOUNT,
@@ -140,6 +141,7 @@ app.prepare().then(async () => {
       validInternalCloudRequest,
     } = await import('./lib/cloud-storage-runtime.ts');
     const cloudRuntime = applyCloudStorageEnvironment();
+    restoreCloudStorageEnvironment = cloudRuntime.restore;
     migrateCloudStorageDatabase();
     const [{ app: cloudStorageApp }, { bootstrapHomiCloudStorage }, { prisma }] = await Promise.all([
       import('./internal/cloud-storage-engine/dist/app.js'),
@@ -147,6 +149,8 @@ app.prepare().then(async () => {
       import('./internal/cloud-storage-engine/dist/config/prisma.js'),
     ]);
     await bootstrapHomiCloudStorage(cloudRuntime.internalKey);
+    cloudRuntime.restore();
+    restoreCloudStorageEnvironment = () => {};
     cloudStoragePrisma = prisma;
     server.use(CLOUD_ENGINE_MOUNT, (req, res, nextMiddleware) => {
       if (!validInternalCloudRequest(req.headers['x-homios-internal'])) return res.status(404).end();
@@ -154,6 +158,7 @@ app.prepare().then(async () => {
     }, cloudStorageApp);
     console.log('HomiOS cloud storage subsystem mounted');
   } catch (error) {
+    restoreCloudStorageEnvironment();
     console.warn('HomiOS cloud storage subsystem unavailable:', error?.message || error);
   }
 

@@ -31,8 +31,18 @@ export function getCloudStorageRuntime() {
 
 export function applyCloudStorageEnvironment() {
   const runtime = getCloudStorageRuntime();
+  const previous = new Map<string, string | undefined>();
+  for (const key of Object.keys(runtime.environment)) previous.set(key, process.env[key]);
   Object.assign(process.env, runtime.environment);
-  return runtime;
+  return {
+    ...runtime,
+    restore() {
+      for (const [key, value] of previous) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    },
+  };
 }
 
 export function migrateCloudStorageDatabase() {
