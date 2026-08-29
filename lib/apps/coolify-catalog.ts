@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { AppTemplate } from './types.ts';
+import { warmCoolifyIconCache } from './icon-cache.ts';
 
 const SOURCE_URL = 'https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/templates/service-templates-latest.json';
 const CACHE_PATH = path.join(process.cwd(), 'data', 'coolify-service-catalog.json');
@@ -64,7 +65,11 @@ export function mapCoolifyCatalog(raw: Record<string, any>): AppTemplate[] {
 export async function refreshCoolifyCatalog(force = false): Promise<AppTemplate[]> {
   try {
     const stat = fs.statSync(CACHE_PATH);
-    if (!force && Date.now() - stat.mtimeMs < MAX_AGE_MS) return readDiskCache();
+    if (!force && Date.now() - stat.mtimeMs < MAX_AGE_MS) {
+      const cached = readDiskCache();
+      await warmCoolifyIconCache(cached);
+      return cached;
+    }
   } catch {}
 
   try {
@@ -79,6 +84,7 @@ export async function refreshCoolifyCatalog(force = false): Promise<AppTemplate[
     fs.writeFileSync(temp, JSON.stringify(apps), { mode: 0o600 });
     fs.renameSync(temp, CACHE_PATH);
     memoryCache = apps;
+    await warmCoolifyIconCache(apps);
     return apps;
   } catch (error) {
     const cached = readDiskCache();

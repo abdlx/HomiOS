@@ -411,6 +411,9 @@ app.prepare().then(async () => {
     startJobWorker();
     console.log('HomiOS job worker started');
 
+    const { refreshCoolifyCatalog } = await import('./lib/apps/coolify-catalog.ts');
+    void refreshCoolifyCatalog().catch((e) => console.warn('[apps] catalog cache refresh deferred:', e?.message || e));
+
     const { getCoolifyIntegration } = await import('./lib/apps/integration-storage.ts');
     const { reconcileManagedApps } = await import('./lib/apps/reconciliation.ts');
     const reconcileApps = async () => {

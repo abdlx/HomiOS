@@ -50,7 +50,7 @@ const BASE_APPS: Record<string, DesktopAppConfig> = {
   notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
   coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#8C52FF] to-[#5B13D5]' },
   immich: { id: 'immich', label: 'Immich', icon: Images, color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  vscode: { id: 'vscode', label: 'Code Server', icon: Code, color: 'from-[#0066b8] to-[#007acc]' },
+  vscode: { id: 'vscode', label: 'Code Server', icon: Code, color: 'from-[#5B21B6] to-[#2563EB]', iconUrl: '/api/apps/code-server/icon' },
   codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
 };
 
@@ -143,7 +143,7 @@ const DesktopAppArtwork = React.memo(function DesktopAppArtwork({
   if (app.iconUrl && !imageFailed) {
     return (
       <span
-        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-[23%] border border-white/35 bg-white p-[6%] shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]`}
+        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-[23%] border border-white/35 ${app.id === 'vscode' ? 'bg-gradient-to-br from-violet-600 to-blue-600 p-[14%]' : 'bg-white p-[6%]'} shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]`}
         aria-hidden="true"
       >
         <img

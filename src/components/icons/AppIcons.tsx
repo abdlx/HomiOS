@@ -196,20 +196,8 @@ function Notes({ u }: { u: string }) {
 
 function CodeEditor({ u }: { u: string }) {
   return (
-    <Squircle u={u} from="#3AA0FF" to="#1E5FCF">
-      <defs>
-        <linearGradient id={`${u}-editor`} x1="15" y1="18" x2="49" y2="48" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#173A6A" />
-          <stop offset="1" stopColor="#08162D" />
-        </linearGradient>
-      </defs>
-      <rect x="10.5" y="15" width="43" height="34" rx="7" fill={`url(#${u}-editor)`} stroke="#8CC9FF" strokeOpacity="0.35" />
-      <path d="M36 16v32" stroke="#ffffff" strokeOpacity="0.09" />
-      <rect x="16" y="22" width="11" height="2.6" rx="1.3" fill="#FF9F0A" />
-      <rect x="16" y="28" width="16" height="2.6" rx="1.3" fill="#30D158" />
-      <rect x="20" y="34" width="12" height="2.6" rx="1.3" fill="#64D2FF" />
-      <rect x="16" y="40" width="8" height="2.6" rx="1.3" fill="#BF5AF2" />
-      <path d="M41 25l5.5 6-5.5 6" stroke="#ffffff" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <Squircle u={u} from="#7C3AED" to="#2563EB">
+      <image href="/api/apps/code-server/icon" x="10" y="16" width="44" height="31" preserveAspectRatio="xMidYMid meet" />
     </Squircle>
   );
 }

@@ -43,4 +43,13 @@ export async function getCoolifyIntegrationStatus(force = false) {
   return value;
 }
 
+export function getCoolifyIntegrationStatusSnapshot() {
+  if (cache) return cache.value;
+  const integration = getCoolifyIntegration();
+  const previouslyValidated = integration?.connected && !!integration.lastValidatedAt;
+  return build(integration, previouslyValidated
+    ? { connected: true, reachable: true, authenticated: true }
+    : null);
+}
+
 export function clearIntegrationStatusCache() { cache = null; }

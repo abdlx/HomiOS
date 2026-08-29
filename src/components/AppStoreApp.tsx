@@ -42,13 +42,13 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
   const refreshInFlight = useRef<Promise<void> | null>(null);
   const lastReconcileAt = useRef(0);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((refreshRemote = false) => {
     if (refreshInFlight.current) return refreshInFlight.current;
     const request = (async () => {
       try {
         const [catalogResponse, statusResponse, mountsResponse] = await Promise.all([
-          fetch('/api/apps/catalog'),
-          fetch('/api/integrations/coolify/status'),
+          fetch(refreshRemote ? '/api/apps/catalog?refresh=1' : '/api/apps/catalog'),
+          fetch(refreshRemote ? '/api/integrations/coolify/status?refresh=1' : '/api/integrations/coolify/status'),
           fetch('/api/apps/storage-mounts'),
         ]);
         if (catalogResponse.ok) {
@@ -60,7 +60,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
         if (statusResponse.ok) {
           const status = await statusResponse.json(); setIntegration(status);
           const now = Date.now();
-          if (status.appStoreState === 'available' && now - lastReconcileAt.current >= 30_000) {
+          if (refreshRemote && status.appStoreState === 'available' && now - lastReconcileAt.current >= 30_000) {
             lastReconcileAt.current = now;
             await fetch('/api/apps/reconcile', { method:'POST' }).catch(() => {});
           }
@@ -80,7 +80,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
     void request.finally(() => { if (refreshInFlight.current === request) refreshInFlight.current = null; });
     return request;
   }, [refreshInstalled]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { void refresh(false); }, [refresh]);
 
   const categories = useMemo(() => {
     const counts = new Map<string,number>();
@@ -180,7 +180,7 @@ export default function AppStoreApp({ onClose }: { onClose: () => void }) {
 
     <main className="min-w-0 flex-1 overflow-y-auto px-5 pb-24 pt-6 md:px-10 md:pt-10">
       <div className="mx-auto max-w-[1320px]">
-        <div className="mb-7 flex items-center gap-3"><button type="button" className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse Coolify one-click services from HomiOS.'}</p></div><button type="button" onClick={()=>void refresh()} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]"><RefreshCw size={17}/></button></div>
+        <div className="mb-7 flex items-center gap-3"><button type="button" className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse cached one-click services from HomiOS.'}</p></div><button type="button" onClick={()=>void refresh(true)} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]" title="Refresh catalog and Coolify status"><RefreshCw size={17}/></button></div>
         <div className="relative mb-7 max-w-2xl"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input type="search" value={query} onChange={(event)=>setQuery(event.currentTarget.value)} autoComplete="off" aria-label="Search apps" placeholder={category==='Installed Apps'?'Search installed apps':'Search apps, categories, and tags'} className="relative w-full select-text rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
         {!catalogAvailable&&<div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">Showing the cached HomiOS catalog. The latest Coolify catalog could not be refreshed.</div>}
         {error&&<div className="mb-5 flex items-center justify-between rounded-2xl bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-300">{error}<button onClick={()=>setError('')}><X size={15}/></button></div>}
