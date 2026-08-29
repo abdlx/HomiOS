@@ -7,6 +7,11 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Freeze HomiOS's database identity before any embedded subsystem is loaded.
+// Next evaluates API and SSR bundles lazily on different requests; they must not
+// discover a temporary DATABASE_URL that belongs to the cloud-storage engine.
+process.env.HOMIOS_DATABASE_PATH ||= process.env.DATABASE_URL || path.resolve(process.cwd(), 'data', 'filemanager.db');
+
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();

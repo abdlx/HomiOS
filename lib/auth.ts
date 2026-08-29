@@ -10,7 +10,12 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getDb, withTransaction } from './db.ts';
 import { sha256 } from './crypto.ts';
-import { parseCookies, validateCsrf } from './request-security.ts';
+import {
+  LEGACY_SESSION_COOKIE,
+  SESSION_COOKIE,
+  parseCookies,
+  validateCsrf,
+} from './request-security.ts';
 
 export type Session = {
   sessionId?: string;
@@ -88,7 +93,10 @@ export async function getSession(req: any): Promise<Session | null> {
     // 2. Session cookie
     const cookieHeader = req.headers?.cookie;
     if (!cookieHeader) return null;
-    const sessionId = parseCookies(cookieHeader).session;
+    const cookies = parseCookies(cookieHeader);
+    // Prefer HomiOS's namespaced cookie. The old generic `session` name can
+    // collide with another application or a stale parent-domain cookie.
+    const sessionId = cookies[SESSION_COOKIE] || cookies[LEGACY_SESSION_COOKIE];
     if (!sessionId) return null;
 
     const row = db.prepare(`

@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { hmacSha256, safeEqual } from './crypto.ts';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+export const SESSION_COOKIE = 'homios_session';
+export const LEGACY_SESSION_COOKIE = 'session';
 const CSRF_COOKIE = 'homios_csrf';
 const CSRF_HEADER = 'x-homios-csrf';
 
@@ -41,7 +43,12 @@ export function parseCookies(cookieHeader: string | undefined): Record<string, s
     if (idx < 0) continue;
     const key = part.slice(0, idx).trim();
     const value = part.slice(idx + 1).trim();
-    if (key) out[key] = decodeURIComponent(value);
+    if (key) {
+      // A malformed cookie owned by another application must not make HomiOS
+      // discard an otherwise valid session cookie.
+      try { out[key] = decodeURIComponent(value); }
+      catch { out[key] = value; }
+    }
   }
   return out;
 }

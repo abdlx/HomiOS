@@ -1,7 +1,8 @@
 /**
  * Give every test FILE its own SQLite database.
  *
- * lib/db.ts reads DATABASE_URL at module-import time and caches the connection, so
+ * lib/db.ts reads HOMIOS_DATABASE_PATH at module-import time and caches the
+ * connection, so
  * this must run before any test file imports it — which is exactly what setupFiles
  * guarantees. Vitest isolates the module registry per file, so each file gets a
  * fresh schema bootstrap against a fresh path.
@@ -15,7 +16,7 @@ import { afterAll } from 'vitest';
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'homios-test-'));
 const dbPath = path.join(dir, `${crypto.randomUUID()}.db`);
 
-process.env.DATABASE_URL = dbPath;
+process.env.HOMIOS_DATABASE_PATH = dbPath;
 
 afterAll(async () => {
   // Windows refuses to unlink a file while SQLite still holds the handle.

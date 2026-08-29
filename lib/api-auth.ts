@@ -7,7 +7,13 @@
  * - validateSessionCookie(header)  — raw Cookie header check (websocket path)
  */
 import { getSession, type Session } from './auth.ts';
-import { buildCsrfCookie, isMutatingMethod, shouldUseSecureCookies } from './request-security.ts';
+import {
+  LEGACY_SESSION_COOKIE,
+  SESSION_COOKIE,
+  buildCsrfCookie,
+  isMutatingMethod,
+  shouldUseSecureCookies,
+} from './request-security.ts';
 
 export type { Session };
 
@@ -99,7 +105,7 @@ export function withAuth(
 /** Build a hardened session cookie. Secure is enabled when the request is HTTPS. */
 export function buildSessionCookie(sessionId: string, req?: any): string {
   const secure = shouldUseSecureCookies(req) ? '; Secure' : '';
-  return `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
+  return `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
 }
 
 export function buildAuthCookies(sessionId: string, req?: any): string[] {
@@ -107,12 +113,13 @@ export function buildAuthCookies(sessionId: string, req?: any): string[] {
 }
 
 export function clearSessionCookie(): string {
-  return 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 export function clearAuthCookies(): string[] {
   return [
     clearSessionCookie(),
+    `${LEGACY_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
     'homios_csrf=; Path=/; SameSite=Lax; Max-Age=0',
   ];
 }

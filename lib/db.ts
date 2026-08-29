@@ -9,7 +9,9 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 
-const DB_PATH = process.env.DATABASE_URL || './data/filemanager.db';
+// HOMIOS_DATABASE_PATH is set once by server.js and is never shared with embedded
+// subsystems. DATABASE_URL remains a fallback for tests and older installations.
+const DB_PATH = process.env.HOMIOS_DATABASE_PATH || process.env.DATABASE_URL || './data/filemanager.db';
 
 let db: any = null;
 

@@ -57,7 +57,7 @@ export function mockReq(init: ReqInit = {}): any {
 
   if (init.sessionId) {
     const csrf = csrfTokenForSession(init.sessionId);
-    headers.cookie = `session=${init.sessionId}; homios_csrf=${csrf}`;
+    headers.cookie = `homios_session=${init.sessionId}; homios_csrf=${csrf}`;
     headers['x-homios-csrf'] = csrf;
   }
   if (init.bearer) headers.authorization = `Bearer ${init.bearer}`;

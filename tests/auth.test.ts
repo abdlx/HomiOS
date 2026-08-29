@@ -159,8 +159,15 @@ describe('login', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ok: true });
     const cookies = res.headers['set-cookie'] as string[];
-    expect(cookies.some((c) => c.startsWith('session=') && c.includes('HttpOnly'))).toBe(true);
+    expect(cookies.some((c) => c.startsWith('homios_session=') && c.includes('HttpOnly'))).toBe(true);
     expect(cookies.some((c) => c.startsWith('homios_csrf='))).toBe(true);
+  });
+
+  it('prefers the HomiOS session when a stale generic session cookie is also present', async () => {
+    const req = mockReq();
+    req.headers.cookie = `homios_session=${adminSession}; session=stale-parent-domain-session`;
+    const session = await getSession(req);
+    expect(session?.userId).toBe(adminId);
   });
 
   it('rejects a wrong password', async () => {
