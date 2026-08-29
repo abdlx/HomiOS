@@ -5,9 +5,41 @@ import { exec } from 'child_process';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { applyDriveNicknames } from '../../../lib/drive-labels.ts';
 import { getDb } from '../../../lib/db.ts';
+import { CLOUD_ROOT, cloudDriveConfigured, cloudStorageSummary } from '../../../lib/cloud-drive.ts';
 
 /** Overlay user-set nicknames and attach tri-state introspection metadata, then respond. */
-const sendDrives = (res: any, drives: any[]) => {
+const sendDrives = async (res: any, drives: any[]) => {
+  if (cloudDriveConfigured()) {
+    try {
+      const summary = await cloudStorageSummary();
+      const total = Number(summary.totalBytes || 0);
+      const used = Number(summary.usedBytes || 0);
+      const free = Number(summary.availableBytes || Math.max(0, total - used));
+      drives.push({
+        label: CLOUD_ROOT,
+        path: CLOUD_ROOT,
+        name: 'cloud-drive',
+        uuid: 'homios-cloud-drive',
+        fstype: 'cloud',
+        isMounted: true,
+        isSystem: false,
+        isRemovable: false,
+        isReadOnly: false,
+        model: 'Pooled cloud storage',
+        totalBytesNumber: total,
+        usedBytesNumber: used,
+        freeBytesNumber: free,
+        totalBytes: humanBytes(total),
+        usedBytes: humanBytes(used),
+        freeBytes: humanBytes(free),
+        usagePercent: total > 0 ? Math.round((used / total) * 100) : 0,
+        cloud: true,
+        accounts: summary.accounts?.length || 0,
+      });
+    } catch (error) {
+      console.error('[drives] Cloud storage unavailable:', error);
+    }
+  }
   const namedDrives = applyDriveNicknames(drives);
   const enriched = attachTriStateIntrospection(namedDrives);
   return res.json(enriched);
@@ -436,4 +468,3 @@ export default withAuth(async function handler(req: any, res: any) {
     return res.json([]);
   }
 }, { adminOnly: true });
-

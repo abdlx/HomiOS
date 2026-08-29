@@ -8,6 +8,10 @@ export type AuthRequest = Request & {
 
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   try {
+    // Internal service routes authenticate an API key first and deliberately set
+    // the same user context consumed by the regular routers. Do not try to parse
+    // that API key as an application JWT a second time.
+    if (req.user?.id && req.user.sessionId.startsWith('api-key:')) return next()
     const header = req.header('Authorization')
     if (!header?.startsWith('Bearer ')) return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'Bearer token required.' })
     const payload = verifyAccessToken(header.slice(7))

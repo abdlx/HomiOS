@@ -58,7 +58,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
     const where: any = {
       userId: req.user!.id,
       status: 'active',
-      ...(query.folderId ? { folderId: query.folderId } : {}),
+      ...(query.folderId ? { folderId: query.folderId === '__root__' ? null : query.folderId } : {}),
       ...(query.q ? { name: { contains: query.q } } : {}),
       ...(query.accountId ? { connectedAccountId: query.accountId } : {}),
       ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),

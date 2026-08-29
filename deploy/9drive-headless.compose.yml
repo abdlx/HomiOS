@@ -1,0 +1,40 @@
+services:
+  cloud-storage-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${NINEDRIVE_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: cloud_storage
+      MYSQL_USER: cloud_storage
+      MYSQL_PASSWORD: ${NINEDRIVE_MYSQL_PASSWORD}
+    volumes:
+      - homios_cloud_storage_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${NINEDRIVE_MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  cloud-storage-engine:
+    build:
+      context: ../9drive-main/backend
+    restart: unless-stopped
+    depends_on:
+      cloud-storage-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://cloud_storage:${NINEDRIVE_MYSQL_PASSWORD}@cloud-storage-db:3306/cloud_storage
+      APP_PORT: 4000
+      FRONTEND_URL: ${HOMIOS_PUBLIC_URL}
+      JWT_ACCESS_SECRET: ${NINEDRIVE_JWT_ACCESS_SECRET}
+      TOKEN_ENCRYPTION_KEY: ${NINEDRIVE_TOKEN_ENCRYPTION_KEY}
+      HOMIOS_API_KEY: ${NINEDRIVE_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${HOMIOS_PUBLIC_URL}/api/cloud-drive/oauth-callback
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26843545600}
+    ports:
+      - "127.0.0.1:9400:4000"
+
+volumes:
+  homios_cloud_storage_db:

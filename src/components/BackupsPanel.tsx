@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, CheckCircle2, Clock, HardDrive, Loader2, Pause, Play, Plus,
   RefreshCw, Trash2, TriangleAlert, X, Shield, Layers, Copy, AlertTriangle,
-  Info, AlertCircle, Calendar
+  Info, AlertCircle, Calendar, Cloud, LockKeyhole
 } from 'lucide-react';
 import { DriveItem, ProtectionMode, SyncSchedule } from '../types';
 import { confirmDialog, toast } from './SystemUI';
@@ -180,6 +180,9 @@ export default function BackupsPanel() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  const [cloudAvailable, setCloudAvailable] = useState(false);
+  const [cloudBackupSource, setCloudBackupSource] = useState('');
+  const [cloudBackupBusy, setCloudBackupBusy] = useState(false);
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -213,7 +216,11 @@ export default function BackupsPanel() {
       const driveRes = await fetch('/api/drives/available');
       if (driveRes.ok) {
         const data = await driveRes.json();
-        setDrives(data.filter((d: DriveItem) => d.isMounted && d.path));
+        const mounted = data.filter((d: DriveItem) => d.isMounted && d.path);
+        setCloudAvailable(mounted.some((d: DriveItem) => d.fstype === 'cloud'));
+        const local = mounted.filter((d: DriveItem) => d.fstype !== 'cloud');
+        setDrives(local);
+        setCloudBackupSource((current) => current || local[0]?.path || '');
       }
     } catch (e) {
       console.error('Failed to load drives:', e);
@@ -354,8 +361,56 @@ export default function BackupsPanel() {
   const labelFor = (drivePath: string) =>
     driveFor(drivePath)?.label || drivePath;
 
+  const runCloudBackup = async () => {
+    if (!cloudBackupSource) return;
+    setCloudBackupBusy(true);
+    try {
+      const response = await fetch('/api/backups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'run', sourcePath: cloudBackupSource, destinationType: 'cloud', destination: '/' }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not start off-site backup');
+      toast({ message: 'Encrypted off-site backup queued', description: 'The archive is encrypted before it leaves HomiOS.', tone: 'success' });
+    } catch (error) {
+      toast({ message: 'Could not start cloud backup', description: error instanceof Error ? error.message : undefined, tone: 'danger' });
+    } finally {
+      setCloudBackupBusy(false);
+    }
+  };
+
   return (
     <div className="flex-1 bg-transparent p-8 overflow-y-auto">
+      <section className="mb-6 rounded-2xl border border-blue-200/70 dark:border-blue-500/20 bg-blue-50/70 dark:bg-blue-500/5 p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white grid place-items-center shrink-0"><Cloud size={19} /></div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Encrypted off-site backup</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Send a local drive to your pooled cloud capacity. HomiOS encrypts the archive before upload.</p>
+              <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"><LockKeyhole size={12} /> AES-256-GCM client-side encryption</div>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 min-w-0 lg:min-w-[430px]">
+            <select
+              value={cloudBackupSource}
+              onChange={(event) => setCloudBackupSource(event.target.value)}
+              className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-700 dark:text-slate-200"
+            >
+              {drives.map((drive) => <option key={drive.path} value={drive.path}>{drive.label}</option>)}
+            </select>
+            <button
+              onClick={runCloudBackup}
+              disabled={!cloudAvailable || !cloudBackupSource || cloudBackupBusy}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold inline-flex items-center justify-center gap-2"
+            >
+              {cloudBackupBusy ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+              {cloudAvailable ? 'Back up now' : 'Connect cloud storage'}
+            </button>
+          </div>
+        </div>
+      </section>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">Scheduled Local Protection</h2>

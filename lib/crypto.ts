@@ -36,6 +36,11 @@ function getKey(): Buffer {
   return key;
 }
 
+/** Internal binary-encryption key for streaming artifacts such as off-site backups. */
+export function getAppEncryptionKey(): Buffer {
+  return Buffer.from(getKey());
+}
+
 export function encryptSecret(plain: string): string {
   if (plain == null || plain === '') return plain;
   const iv = crypto.randomBytes(12);

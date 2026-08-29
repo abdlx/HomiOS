@@ -8,7 +8,7 @@ export const apiKeyRouter = Router()
 apiKeyRouter.use(requireAuth)
 
 const createSchema = z.object({ name: z.string().trim().min(1).max(191), expiresAt: z.string().datetime().nullable().optional() })
-const scopes = ['files:upload']
+const scopes = ['files:read', 'files:write', 'files:upload', 'storage:read', 'accounts:manage']
 
 function serializeApiKey(apiKey: { id: string; name: string; keyPrefix: string; scopes: unknown; status: string; lastUsedAt: Date | null; expiresAt: Date | null; revokedAt: Date | null; createdAt: Date }) {
   return {

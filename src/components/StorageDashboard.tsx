@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   HardDrive, Usb, Server, Cpu, ToggleRight, AlertTriangle, RefreshCw,
-  CheckCircle2, DatabaseBackup, Pencil, Unplug, Shield, Share2, Info, ChevronDown, ChevronUp
+  CheckCircle2, DatabaseBackup, Pencil, Unplug, Shield, Share2, Info, ChevronDown, ChevronUp, Cloud
 } from 'lucide-react';
 import { DriveItem } from '../types';
 import BackupsPanel from './BackupsPanel';
@@ -159,13 +159,21 @@ function DrivesPanel({ onNavigateDrive, onOpenBackupsTab }: { onNavigateDrive: (
             </p>
           </div>
         </div>
-        <button
-          onClick={loadDrives}
-          className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all text-xs font-medium"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadDrives}
+            className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all text-xs font-medium"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button
+            onClick={() => { window.location.href = '/api/cloud-drive/connect'; }}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
+          >
+            <Cloud size={14} /> Add cloud account
+          </button>
+        </div>
       </div>
 
       {loading && drives.length === 0 ? (

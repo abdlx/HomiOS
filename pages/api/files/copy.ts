@@ -13,6 +13,11 @@ export default withAuth(async function handler(req: any, res: any, session: any)
     return res.status(400).json({ error: 'Missing sourcePath or destinationPath' });
   }
   try {
+    const sourceIsCloud = String(sourcePath).replace(/^\/+/, '').startsWith('Cloud Drive/');
+    const destinationIsCloud = String(destinationPath).replace(/^\/+/, '').startsWith('Cloud Drive/');
+    if (sourceIsCloud || destinationIsCloud) {
+      return res.status(400).json({ error: 'Use upload or download to transfer files between local and cloud storage' });
+    }
     const source = resolveTransferPath(sourcePath);
     resolveTransferPath(destinationPath);
     const id = enqueueJob({

@@ -6,6 +6,10 @@ import { randomUUID } from 'crypto';
 import { ZipArchive } from 'archiver';
 import { getDb, withTransaction } from './db.ts';
 import { uploadBackupToS3 } from './s3.ts';
+import crypto from 'crypto';
+import { pipeline } from 'stream/promises';
+import { getAppEncryptionKey } from './crypto.ts';
+import { uploadCloudStream } from './cloud-drive.ts';
 
 const BACKUP_ROOT = process.env.BACKUP_WORK_DIR || path.join(process.cwd(), 'data', '.cache', 'backups');
 
@@ -90,7 +94,7 @@ export function createBackupPlan(input: {
   userId: number;
   name: string;
   sourcePath: string;
-  destinationType: 'local' | 's3';
+  destinationType: 'local' | 's3' | 'cloud';
   destination: string;
   schedule?: string;
 }) {
@@ -108,14 +112,14 @@ export async function runBackup(input: {
   planId?: string;
   jobId?: string;
   sourcePath?: string;
-  destinationType?: 'local' | 's3';
+  destinationType?: 'local' | 's3' | 'cloud';
   destination?: string;
   onProgress?: (progress: number, message?: string) => void;
 }) {
   const db = getDb();
   const plan = input.planId ? db.prepare('SELECT * FROM backup_plans WHERE id = ?').get(input.planId) as any : null;
   const sourcePath = path.resolve(plan?.source_path || input.sourcePath);
-  const destinationType = (plan?.destination_type || input.destinationType || 'local') as 'local' | 's3';
+  const destinationType = (plan?.destination_type || input.destinationType || 'local') as 'local' | 's3' | 'cloud';
   const destination = String(plan?.destination || input.destination || '');
   if (!sourcePath || !destination) throw new Error('Backup source and destination are required');
 
@@ -143,7 +147,7 @@ export async function runBackup(input: {
         db.prepare('INSERT INTO backup_items (run_id, source_path, backup_path, size) VALUES (?, ?, ?, ?)')
           .run(runId, file.source, path.join(target, file.relative), file.size);
       }
-    } else {
+    } else if (destinationType === 's3') {
       await fsp.mkdir(BACKUP_ROOT, { recursive: true });
       const zipPath = path.join(BACKUP_ROOT, `${runId}.zip`);
       await zipDirectory(sourcePath, zipPath);
@@ -153,6 +157,34 @@ export async function runBackup(input: {
       await uploadBackupToS3(destination, zipPath, `${runId}.zip`);
       db.prepare('INSERT INTO backup_items (run_id, source_path, backup_path, size) VALUES (?, ?, ?, ?)')
         .run(runId, sourcePath, `s3:${destination}:homios-backups/${runId}.zip`, zipStat.size);
+    } else {
+      await fsp.mkdir(BACKUP_ROOT, { recursive: true });
+      const zipPath = path.join(BACKUP_ROOT, `${runId}.zip`);
+      const encryptedPath = path.join(BACKUP_ROOT, `${runId}.homios-backup`);
+      await zipDirectory(sourcePath, zipPath);
+
+      // Streaming AES-256-GCM container: magic + IV + ciphertext + auth tag.
+      // The key remains on the HomiOS appliance; the cloud provider only sees
+      // authenticated ciphertext.
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv('aes-256-gcm', getAppEncryptionKey(), iv);
+      const output = createWriteStream(encryptedPath);
+      output.write(Buffer.concat([Buffer.from('HOMIOS1'), iv]));
+      await pipeline(fs.createReadStream(zipPath), cipher, output, { end: false } as any);
+      await new Promise<void>((resolve, reject) => output.write(cipher.getAuthTag(), (error) => error ? reject(error) : output.end(resolve)));
+      const encryptedStat = await fsp.stat(encryptedPath);
+      copied = encryptedStat.size;
+      db.prepare('UPDATE backup_runs SET bytes_copied = ? WHERE id = ?').run(copied, runId);
+      const uploaded: any = await uploadCloudStream(
+        `${destination && destination !== '/' ? `${destination.replace(/\/$/, '')}/` : ''}HomiOS-${new Date().toISOString().slice(0, 10)}-${runId}.homios-backup`,
+        fs.createReadStream(encryptedPath),
+        encryptedStat.size,
+        'application/octet-stream',
+      );
+      const fileId = uploaded.file?.id || uploaded.files?.[0]?.id || runId;
+      db.prepare('INSERT INTO backup_items (run_id, source_path, backup_path, size) VALUES (?, ?, ?, ?)')
+        .run(runId, sourcePath, `cloud:${fileId}`, encryptedStat.size);
+      await Promise.all([fsp.unlink(zipPath).catch(() => undefined), fsp.unlink(encryptedPath).catch(() => undefined)]);
     }
 
     db.prepare("UPDATE backup_runs SET status = 'completed', finished_at = CURRENT_TIMESTAMP WHERE id = ?").run(runId);

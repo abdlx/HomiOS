@@ -583,6 +583,11 @@ export default function App({ onClose }: AppProps = {}) {
 
       if (!res.ok) throw new Error(`${options.action} failed with status ${res.status}`);
       const queued = await res.json();
+      if (queued.immediate) {
+        updateTransferThrottled(taskId, { status: 'completed', progress: 100, cancellable: false }, true);
+        toast({ message: `${options.action === 'copy' ? 'Copied' : 'Moved'} ${options.file.name}`, tone: 'success' });
+        return true;
+      }
       const jobId = queued.jobId || queued.id;
       updateTransferThrottled(taskId, {
         serverJobId: jobId,

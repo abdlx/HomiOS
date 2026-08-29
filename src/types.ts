@@ -219,7 +219,7 @@ export interface BackupPlan {
   id: string;
   name: string;
   sourcePath: string;
-  destinationType: 'local' | 's3';
+  destinationType: 'local' | 's3' | 'cloud';
   destination: string;
   schedule?: string;
   enabled: boolean;

@@ -3,12 +3,27 @@ import path from 'path';
 import { withAuth, requireAbility } from '../../../lib/api-auth.ts';
 import { logAudit } from '../../../lib/audit.ts';
 import { ZipArchive } from 'archiver';
+import { Readable } from 'node:stream';
+import {
+  CLOUD_ROOT,
+  CloudDriveError,
+  createCloudFolder,
+  downloadCloudFile,
+  listCloudFiles,
+  mutateCloudItem,
+  uploadCloudStream,
+} from '../../../lib/cloud-drive.ts';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const BASE_PATH = process.env.ROOT_DIR || (isDev ? path.join(process.cwd(), 'data_mock') : '/');
 const FILE_STAT_CONCURRENCY = Number(process.env.FILE_STAT_CONCURRENCY || 32);
 const DETAILED_STAT_LIMIT = Number(process.env.DETAILED_STAT_LIMIT || 500);
 const MAX_JSON_WRITE_BYTES = Number(process.env.MAX_JSON_WRITE_BYTES || 8 * 1024 * 1024);
+
+const isCloudPath = (value: unknown) => {
+  const normalized = String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  return normalized === CLOUD_ROOT || normalized.startsWith(`${CLOUD_ROOT}/`);
+};
 
 function securePath(p: string) {
   // Paths resolve relative to BASE_PATH, which is '/' in production: HomiOS is a
@@ -111,6 +126,64 @@ export default withAuth(async function handler(req: any, res: any, session: any)
     }
 
     const { path: filePath } = req.query;
+
+    // Cloud Drive is a virtual HomiOS mount. Keep its identifiers inside this
+    // server route so the Files UI can use the same operations without learning
+    // about 9Drive or receiving its service credential.
+    if (req.method === 'GET' && isCloudPath(filePath)) {
+      if (!requireAbility(res, session, 'read')) return;
+      if (req.query.raw === 'true') {
+        const upstream = await downloadCloudFile(String(filePath), req.headers.range);
+        for (const header of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition']) {
+          const value = upstream.headers.get(header);
+          if (value) res.setHeader(header, value);
+        }
+        res.status(upstream.status);
+        if (!upstream.body) return res.end();
+        Readable.fromWeb(upstream.body as any).pipe(res);
+        return;
+      }
+      return res.json(await listCloudFiles(String(filePath)));
+    }
+
+    if (req.method === 'POST') {
+      const uploadPath = req.body?.path || req.query.path;
+      if (isCloudPath(uploadPath)) {
+        if (!requireAbility(res, session, 'write')) return;
+        if (req.body?.isDir) {
+          const normalized = String(uploadPath).replace(/\\/g, '/');
+          const parts = normalized.split('/').filter(Boolean);
+          const name = parts.pop();
+          if (!name) return res.status(400).json({ error: 'Missing folder name' });
+          await createCloudFolder(parts.join('/'), name);
+          return res.json({ ok: true, path: uploadPath });
+        }
+        const contentLength = contentType.includes('application/json')
+          ? Buffer.byteLength(String(req.body?.content || ''))
+          : Number(req.headers['content-length'] || 0);
+        if (!Number.isSafeInteger(contentLength) || contentLength < 0) return res.status(411).json({ error: 'Content-Length is required' });
+        const source = contentType.includes('application/json')
+          ? (async function* () { yield Buffer.from(String(req.body?.content || '')); })()
+          : req;
+        await uploadCloudStream(String(uploadPath), source, contentLength, String(req.headers['content-type'] || 'application/octet-stream'));
+        return res.json({ ok: true, path: uploadPath });
+      }
+    }
+
+    if (req.method === 'DELETE' && isCloudPath(req.body?.path)) {
+      if (!requireAbility(res, session, 'write')) return;
+      await mutateCloudItem(String(req.body.path), 'DELETE');
+      return res.json({ ok: true });
+    }
+
+    if (req.method === 'PATCH' && isCloudPath(req.body?.path)) {
+      if (!requireAbility(res, session, 'write')) return;
+      const name = String(req.body?.newPath || '').replace(/\\/g, '/').split('/').filter(Boolean).pop();
+      if (!name) return res.status(400).json({ error: 'Missing new name' });
+      await mutateCloudItem(String(req.body.path), 'PATCH', { name });
+      return res.json({ ok: true });
+    }
+
     const fullPath = securePath((filePath as string) || '/');
 
     if (req.method === 'GET') {
@@ -302,6 +375,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
     // Never hand back err.message: fs errors embed absolute host paths
     // ("ENOENT: ... open '/etc/shadow'"), which map out the filesystem for free.
     console.error('[/api/files]', req.method, err);
+    if (err instanceof CloudDriveError) return res.status(err.status).json({ error: err.message });
     if (err?.code === 'ENOENT') return res.status(404).json({ error: 'Not found' });
     if (err?.code === 'EACCES' || err?.code === 'EPERM') return res.status(403).json({ error: 'Permission denied' });
     if (err?.code === 'EEXIST') return res.status(409).json({ error: 'Already exists' });
