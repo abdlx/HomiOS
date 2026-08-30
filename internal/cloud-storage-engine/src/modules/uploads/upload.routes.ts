@@ -13,7 +13,7 @@ import { createAuditLog } from '../../utils/audit.js'
 
 export const uploadRouter = Router()
 
-type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeBytes: bigint; folderId?: string }
+type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeBytes: bigint; folderId?: string; targetAccountId?: string }
 type RoutingMode = 'most_available' | 'round_robin' | 'priority'
 
 function logUpload(message: string, metadata?: Record<string, unknown>) {
@@ -111,7 +111,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
     if (!contentType?.includes('multipart/form-data')) return res.status(400).json({ code: 'UPLOAD_INVALID_CONTENT_TYPE', message: 'multipart/form-data required.' })
 
     const busboy = Busboy({ headers: req.headers, limits: { files: 25, fileSize: env.MAX_UPLOAD_BYTES } })
-    const fields: { sizeBytes?: bigint; fileName?: string; mimeType?: string; folderId?: string } = {}
+    const fields: { sizeBytes?: bigint; fileName?: string; mimeType?: string; folderId?: string; targetAccountId?: string } = {}
     let batchMeta: UploadMeta[] | null = null
     let responded = false
     let fileSeen = false
@@ -128,19 +128,20 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
       return res.status(status).json({ code, message })
     }
 
-    const parseBatchMeta = (value: string) => JSON.parse(value).map((item: { fieldName: string; fileName: string; mimeType: string; sizeBytes: string | number; folderId?: string }) => ({
+    const parseBatchMeta = (value: string) => JSON.parse(value).map((item: { fieldName: string; fileName: string; mimeType: string; sizeBytes: string | number; folderId?: string; targetAccountId?: string }) => ({
       fieldName: item.fieldName,
       fileName: item.fileName,
       mimeType: item.mimeType,
       sizeBytes: BigInt(item.sizeBytes),
       folderId: item.folderId,
+      targetAccountId: item.targetAccountId,
     })) as UploadMeta[]
 
     const metaForFile = (fieldName: string, info: { filename: string; mimeType: string }) => {
       if (batchMeta) return batchMeta.find((item) => item.fieldName === fieldName)
       const sizeBytes = fields.sizeBytes
       if (!sizeBytes) return null
-      return { fieldName, sizeBytes, fileName: fields.fileName || info.filename, mimeType: fields.mimeType || info.mimeType || 'application/octet-stream', folderId: fields.folderId }
+      return { fieldName, sizeBytes, fileName: fields.fileName || info.filename, mimeType: fields.mimeType || info.mimeType || 'application/octet-stream', folderId: fields.folderId, targetAccountId: fields.targetAccountId }
     }
 
     const uploadOne = async (fieldName: string, fileStream: NodeJS.ReadableStream, info: { filename: string; mimeType: string }) => {
@@ -160,7 +161,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
         }
 
         const folderId = meta.folderId || null
-        let targetAccountId: string | undefined = undefined
+        let targetAccountId: string | undefined = meta.targetAccountId
         if (folderId) {
           const folderRecord = await prisma.folder.findFirstOrThrow({ where: { id: folderId, userId: req.user!.id, deletedAt: null } })
           if (folderRecord.connectedAccountId) {
@@ -207,8 +208,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
         } else {
           const auth = await getAuthedGoogleClient(account)
           const drive = google.drive({ version: 'v3', auth })
-          const appFolderId = await ensureGoogleAppFolder(account)
-          let targetParentId = appFolderId
+          let targetParentId = meta.targetAccountId ? 'root' : await ensureGoogleAppFolder(account)
           if (folderId) {
             const folderRecord = await prisma.folder.findFirst({ where: { id: folderId, userId: req.user!.id } })
             if (folderRecord?.providerFolderId) {
@@ -267,6 +267,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
       if (name === 'fileName') fields.fileName = value
       if (name === 'mimeType') fields.mimeType = value
       if (name === 'folderId') fields.folderId = value
+      if (name === 'targetAccountId') fields.targetAccountId = value
       if (name === 'filesMeta') batchMeta = parseBatchMeta(value)
     })
 
@@ -348,8 +349,7 @@ uploadRouter.post('/resumable/init', requireAuth, async (req: AuthRequest, res, 
     }
 
     const auth = await getAuthedGoogleClient(account)
-    const appFolderId = await ensureGoogleAppFolder(account)
-    let targetParentId = appFolderId
+    let targetParentId = body.targetAccountId ? 'root' : await ensureGoogleAppFolder(account)
     if (folderId) {
       const folderRecord = await prisma.folder.findFirst({ where: { id: folderId, userId: req.user!.id } })
       if (folderRecord?.providerFolderId) {

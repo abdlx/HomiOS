@@ -5,7 +5,7 @@ import { prisma } from '../../config/prisma.js'
 import { env } from '../../config/env.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { hashToken, randomToken } from '../../utils/crypto.js'
-import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota } from '../google/google.service.js'
+import { getAuthedGoogleClient, syncGoogleDriveFiles, syncGoogleQuota } from '../google/google.service.js'
 import { deleteS3Object, syncS3Quota, createS3Client, getS3ConfigForAccount } from '../s3/s3.service.js'
 import { streamProviderFile } from './stream-file.js'
 import { googleDownloadExportMimeTypes, normalizeHeaders, withExtension } from './stream-google-file.js'
@@ -244,7 +244,7 @@ fileRouter.post('/sync-google', async (req: AuthRequest, res, next) => {
     })
 
     const results = []
-    for (const account of accounts) results.push(await syncGoogleAppFolderFiles(account.id, req.user!.id))
+    for (const account of accounts) results.push(await syncGoogleDriveFiles(account.id, req.user!.id))
 
     return res.json({
       status: 'ok',
@@ -271,8 +271,22 @@ fileRouter.patch('/:id', async (req: AuthRequest, res, next) => {
     const fileId = String(req.params.id)
     const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
     const drive = file.provider === 's3' ? null : google.drive({ version: 'v3', auth: await getAuthedGoogleClient(file.connectedAccount) })
-    if (body.folderId) await prisma.folder.findFirstOrThrow({ where: { id: body.folderId, userId: req.user!.id, deletedAt: null } })
+    const destinationFolder = body.folderId
+      ? await prisma.folder.findFirstOrThrow({ where: { id: body.folderId, userId: req.user!.id, deletedAt: null } })
+      : null
+    if (destinationFolder && destinationFolder.connectedAccountId !== file.connectedAccountId) {
+      return res.status(400).json({ code: 'FILE_ACCOUNT_MISMATCH', message: 'Files cannot be moved between storage accounts.' })
+    }
     if (body.name && drive) await drive.files.update({ fileId: file.providerFileId, requestBody: { name: body.name } })
+    if (body.folderId !== undefined && drive) {
+      const fileInfo = await drive.files.get({ fileId: file.providerFileId, fields: 'parents' })
+      await drive.files.update({
+        fileId: file.providerFileId,
+        addParents: destinationFolder?.providerFolderId ?? 'root',
+        removeParents: fileInfo.data.parents?.join(','),
+        fields: 'id,parents',
+      })
+    }
     const updated = await prisma.file.update({ where: { id: file.id }, data: { ...(body.name ? { name: body.name } : {}), ...(body.folderId !== undefined ? { folderId: body.folderId } : {}) }, include: { connectedAccount: { select: { id: true, email: true, provider: true } }, folder: { select: { id: true, name: true } } } })
     await createAuditLog(req.user!.id, 'UPDATE_FILE', 'file', updated.id, { name: updated.name, updates: body })
     return res.json({ file: { ...updated, sizeBytes: updated.sizeBytes.toString() } })
@@ -388,7 +402,12 @@ fileRouter.get('/:id/download', async (req: AuthRequest, res, next) => {
 fileRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
     const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' } })
+    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' }, include: { connectedAccount: true } })
+    if (file.provider === 'google_drive') {
+      const drive = google.drive({ version: 'v3', auth: await getAuthedGoogleClient(file.connectedAccount) })
+      await drive.files.update({ fileId: file.providerFileId, requestBody: { trashed: true } })
+      await syncGoogleQuota(file.connectedAccountId).catch(() => undefined)
+    }
     await prisma.file.update({ where: { id: file.id }, data: { status: 'deleted', deletedAt: new Date() } })
     await createAuditLog(req.user!.id, 'TRASH_FILE', 'file', file.id, { name: file.name })
     return res.json({ status: 'ok' })

@@ -400,6 +400,125 @@ Authentication, network isolation, firewalling and HTTPS should still be configu
 
 ---
 
+## Google Drive OAuth setup
+
+HomiOS uses its internal cloud-storage subsystem to connect Google accounts and
+pool their Drive capacity. Create the OAuth credentials in the
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials); no
+separate 9Drive UI or API key is required.
+
+1. Enable the **Google Drive API** for the Google Cloud project.
+2. Configure the OAuth consent screen. While the app is in **Testing** mode, add
+   every Google account that will connect to HomiOS under **Test users**.
+3. Create an **OAuth client ID** with application type **Web application**.
+4. Add the public HTTPS origin of the HomiOS server under **Authorized
+   JavaScript origins**. Use only the scheme and hostname, with no path or
+   trailing slash.
+5. Add the following exact callback under **Authorized redirect URIs**:
+
+   ```text
+   https://YOUR_HOMIOS_DOMAIN/api/cloud-drive/oauth-callback
+   ```
+
+For example, a HomiOS instance hosted at `https://dash.idkwihl.site` uses:
+
+```text
+Authorized JavaScript origin:
+https://dash.idkwihl.site
+
+Authorized redirect URI:
+https://dash.idkwihl.site/api/cloud-drive/oauth-callback
+```
+
+The redirect URI must match exactly, including the `https` scheme, hostname,
+path, capitalization, and absence of a trailing slash. Copy the generated
+**Client ID** and **Client secret** into the Google OAuth fields in the HomiOS
+Settings app, save them, and then connect accounts from **Add Cloud Account**.
+
+### Cloud Drive account layout
+
+Cloud Drive keeps each connected provider account as a separate virtual root:
+
+```text
+Cloud Drive
+\-- user@example.com
+    +-- Existing My Drive folders
+    +-- Existing My Drive files
+    \-- New HomiOS uploads
+```
+
+Opening a Google account root synchronizes its complete **My Drive** hierarchy
+into HomiOS metadata. Items that only appear under **Shared with me** are excluded
+unless they have been added to My Drive. Uploads and new folders created at an
+account root are written directly to that account's My Drive root; operations in
+nested folders retain the same account ownership. Rename, move, download, and
+delete operations are applied to Google Drive as well. Direct moves between two
+different connected accounts are rejected; use a copy/download-and-upload flow
+for cross-account transfers.
+
+### Troubleshooting OAuth token-exchange timeouts
+
+If Google authorization succeeds but HomiOS displays **Could not connect cloud
+account**, inspect the service log:
+
+```bash
+sudo journalctl -u homios --since "10 minutes ago" --no-pager \
+  | grep -A12 -B2 "Google OAuth callback failed"
+```
+
+An `ETIMEDOUT` error for `https://oauth2.googleapis.com/token` means the HomiOS
+server could not complete the outbound token exchange. On hosts with DNS records
+for both address families but no working IPv6 route, Node's network-family
+auto-selection can time out even when direct IPv4 connectivity works.
+
+Compare IPv4 and IPv6 connectivity:
+
+```bash
+curl -4 -sS -o /dev/null \
+  -w 'IPv4: HTTP %{http_code}, connect %{time_connect}s\n' \
+  --connect-timeout 10 https://oauth2.googleapis.com/token
+
+curl -6 -sS -o /dev/null \
+  -w 'IPv6: HTTP %{http_code}, connect %{time_connect}s\n' \
+  --connect-timeout 10 https://oauth2.googleapis.com/token
+```
+
+The token endpoint may return HTTP 404 for these GET requests; any HTTP response
+proves that the connection succeeded. If IPv4 succeeds while IPv6 fails, verify
+the Node-specific workaround before changing the service:
+
+```bash
+NODE_OPTIONS="--dns-result-order=ipv4first --no-network-family-autoselection" \
+node -e "require('https').get('https://oauth2.googleapis.com/token',r=>{console.log('HTTP',r.statusCode);r.resume()}).on('error',console.error)"
+```
+
+If that command returns an HTTP status, apply the workaround only to HomiOS:
+
+```bash
+sudo mkdir -p /etc/systemd/system/homios.service.d
+
+printf '%s\n' \
+  '[Service]' \
+  'Environment="NODE_OPTIONS=--dns-result-order=ipv4first --no-network-family-autoselection"' \
+  | sudo tee /etc/systemd/system/homios.service.d/override.conf
+
+sudo systemctl daemon-reload
+sudo systemctl restart homios
+```
+
+Confirm that the running service received the setting:
+
+```bash
+sudo systemctl show homios -p Environment --value --no-pager \
+  | grep -- '--no-network-family-autoselection'
+```
+
+Start a new Google connection after correcting connectivity. OAuth authorization
+codes are short-lived and single-use, so a code from a timed-out attempt cannot
+be retried.
+
+---
+
 ## Installation
 
 ### Requirements
