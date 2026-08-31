@@ -135,7 +135,8 @@ export type JobType =
   | 'ocr.run'
   | 'zip.create'
   | 'file.move'
-  | 'file.copy';
+  | 'file.copy'
+  | 'app.install';
 
 export type JobStatus = 'queued' | 'running' | 'paused' | 'cancelled' | 'failed' | 'completed';
 export type JobResourceClass = 'cpu' | 'io' | 'media' | 'backup';
@@ -143,6 +144,8 @@ export type ResourceProfile = 'beautiful' | 'balanced' | 'server_saver';
 export type ThumbnailVariant = 'grid' | 'preview';
 
 export interface JobProgressData {
+  stage?: string;
+  appId?: string;
   phase?: JobLifecyclePhase;
   phaseMessage?: string;
   bytesTransferred?: number;

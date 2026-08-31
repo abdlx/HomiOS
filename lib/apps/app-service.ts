@@ -71,8 +71,8 @@ export async function runAppInstall(input: {
   let appId: string | undefined;
   let createdResourceUuid: string | undefined;
   try {
-    updateInstall(input.jobId, 'creating');
-    input.onProgress(15, 'Creating Coolify service', { stage: 'creating', appId: template.id });
+    updateInstall(input.jobId, 'downloading');
+    input.onProgress(15, 'Downloading app package', { stage: 'downloading', appId: template.id });
     const runtime = await provider.installApp(template, { storage, serverUuid: input.serverUuid });
     createdResourceUuid = runtime.id;
     if (mounts.length) {
@@ -127,11 +127,20 @@ export async function runAppInstall(input: {
 export async function performAppAction(appId: string, action: 'start' | 'stop' | 'restart' | 'deploy', actor: { teamId?: string; userId?: number }) {
   const row = assertManagedOwnership(appId);
   const provider = getCoolifyProvider();
-  await ({ start: provider.startApp.bind(provider), stop: provider.stopApp.bind(provider), restart: provider.restartApp.bind(provider), deploy: provider.deployApp.bind(provider) }[action])(row.provider_resource_uuid);
-  const status = action === 'stop' ? 'stopped' : action === 'deploy' ? 'deploying' : 'running';
-  getDb().prepare('UPDATE managed_apps SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status, appId);
-  logAudit({ ...actor, action: `app.${action === 'deploy' ? 'deployed' : action + 'ed'}`, resourceType: 'managed_app', resourceId: appId });
-  return getManagedApp(appId);
+  if (action === 'deploy') {
+    getDb().prepare("UPDATE managed_apps SET status='redeploying', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(appId);
+  }
+  try {
+    await ({ start: provider.startApp.bind(provider), stop: provider.stopApp.bind(provider), restart: provider.restartApp.bind(provider), deploy: provider.deployApp.bind(provider) }[action])(row.provider_resource_uuid);
+    const status = action === 'stop' ? 'stopped' : action === 'deploy' ? 'redeploying' : 'running';
+    getDb().prepare('UPDATE managed_apps SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status, appId);
+    logAudit({ ...actor, action: `app.${action === 'deploy' ? 'deployed' : action + 'ed'}`, resourceType: 'managed_app', resourceId: appId });
+    return getManagedApp(appId);
+  } catch (error: any) {
+    getDb().prepare("UPDATE managed_apps SET status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(appId);
+    logAudit({ ...actor, action: `app.${action}.failed`, resourceType: 'managed_app', resourceId: appId, meta: { error: error?.message } });
+    throw error;
+  }
 }
 
 export async function getAppLogs(appId: string) {

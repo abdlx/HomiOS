@@ -136,7 +136,7 @@ export class CoolifyProvider implements AppRuntimeProvider {
     const created = await this.client.createService({
       type: template.providerType,
       name: `homios-${template.id}`,
-      description: `${template.name} — managed by HomiOS`,
+      description: `${template.name} - managed by HomiOS`,
       project_uuid: this.config.projectUuid,
       environment_uuid: this.config.environmentUuid,
       server_uuid: options.serverUuid || this.config.serverUuid,
