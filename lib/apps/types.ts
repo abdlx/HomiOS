@@ -62,7 +62,14 @@ export interface RuntimeApp {
   name: string;
   status: AppStatus;
   primaryUrl: string | null;
+  resourceType?: 'service' | 'application';
+  catalogId?: string;
   raw?: unknown;
+}
+
+export interface DesktopApp extends RuntimeApp {
+  catalogId: string;
+  managedByHomiOS: boolean;
 }
 
 export interface AppLog { timestamp?: string; message: string }

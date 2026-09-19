@@ -7,7 +7,7 @@ import { getCoolifyIntegration, getCoolifyProvider } from './integration-storage
 import { assertManagedOwnership } from './ownership.ts';
 import { validateStorageSelection } from './storage.ts';
 import { listAppStorageMounts, resolveAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
-import type { AppDomainRoute, ManagedApp } from './types.ts';
+import type { AppDomainRoute, DesktopApp, ManagedApp } from './types.ts';
 
 function parse(value: string | null | undefined) {
   try { return value ? JSON.parse(value) : {}; } catch { return {}; }
@@ -29,6 +29,32 @@ export function mapManagedApp(row: any): ManagedApp {
 
 export function listManagedApps() {
   return (getDb().prepare('SELECT * FROM managed_apps WHERE removed_at IS NULL ORDER BY display_name').all() as any[]).map(mapManagedApp);
+}
+
+export async function listDesktopApps(): Promise<DesktopApp[]> {
+  const managed = listManagedApps();
+  let discovered;
+  try {
+    discovered = await getCoolifyProvider().listInstalledApps();
+  } catch {
+    return managed.map((app) => ({ ...app, resourceType: 'service' }));
+  }
+  const managedResourceIds = new Set(managed.map((app) => app.providerResourceUuid));
+  const external = discovered
+    .filter((app) => !managedResourceIds.has(app.id))
+    .map((app): DesktopApp => ({
+      id: `${app.resourceType || 'service'}:${app.id}`,
+      catalogId: app.catalogId || `coolify-${app.resourceType || 'service'}`,
+      name: app.name,
+      status: app.status,
+      primaryUrl: app.primaryUrl,
+      resourceType: app.resourceType || 'service',
+      managedByHomiOS: false,
+    }));
+  return [
+    ...managed.map((app) => ({ ...app, resourceType: 'service' as const })),
+    ...external,
+  ].sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export function getManagedApp(id: string) {

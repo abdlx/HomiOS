@@ -49,6 +49,34 @@ describe('CoolifyClient', () => {
     expect(app).toMatchObject({ id: 'service-1', primaryUrl: 'https://kuma.test', status: 'installing' });
   });
 
+  it('discovers applications and services only in the configured HomiOS environment', async () => {
+    const requests: string[] = [];
+    const fetcher = vi.fn(async (url: string) => {
+      requests.push(url);
+      if (url.endsWith('/projects/project-1/env-1')) return response(200, { id: 42, uuid: 'env-1' });
+      if (url.endsWith('/applications')) return response(200, [
+        { uuid: 'application-1', environment_id: 42, name: 'Standalone App', status: 'running', fqdn: 'https://app.test' },
+        { uuid: 'other-application', environment_id: 99, name: 'Other App', status: 'running', fqdn: 'https://other.test' },
+      ]);
+      if (url.endsWith('/services')) return response(200, [
+        { uuid: 'service-1', environment_id: 42, name: 'Media Service', status: 'running', service_type: 'jellyfin' },
+        { uuid: 'other-service', environment_id: 99, name: 'Other Service', status: 'running' },
+      ]);
+      if (url.endsWith('/services/service-1')) return response(200, {
+        uuid: 'service-1', environment_id: 42, name: 'Media Service', status: 'running', service_type: 'jellyfin',
+        applications: [{ name: 'jellyfin', fqdn: 'https://media.test' }],
+      });
+      return response(404, { message: 'Not found' });
+    });
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+
+    await expect(provider.listInstalledApps()).resolves.toEqual([
+      expect.objectContaining({ id: 'service-1', name: 'Media Service', resourceType: 'service', catalogId: 'jellyfin', primaryUrl: 'https://media.test' }),
+      expect.objectContaining({ id: 'application-1', name: 'Standalone App', resourceType: 'application', primaryUrl: 'https://app.test' }),
+    ]);
+    expect(requests).not.toContain('https://coolify.test/api/v1/services/other-service');
+  });
+
   it('reads and updates named service domains', async () => {
     const fetcher = vi.fn(async (url: string, init: RequestInit) => {
       if (init?.method === 'PATCH') {

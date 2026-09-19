@@ -225,7 +225,7 @@ export default function DesktopEnvironment({
   const { username } = useUsername();
   const { settings: performanceSettings } = usePerformanceSettings();
   const { isEnabled } = useCapabilities();
-  const { apps: installedApps } = useInstalledApps();
+  const { apps: installedApps } = useInstalledApps({ includeCoolifyResources: true });
   const [now, setNow] = useState<Date | null>(null);
   const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(FACTORY_DOCK_APPS);
@@ -256,22 +256,24 @@ export default function DesktopEnvironment({
   const availableApps = useMemo(() => {
     const apps: Record<string, DesktopAppConfig> = { ...BASE_APPS };
     for (const app of installedApps) {
-      if (!app.primaryUrl || app.status === 'missing') continue;
-      apps[`managed:${app.id}`] = {
-        id: `managed:${app.id}`,
+      if (app.status === 'missing') continue;
+      const id = `${app.managedByHomiOS ? 'managed' : 'coolify'}:${app.id}`;
+      const kind = app.resourceType === 'application' ? 'App' : 'Service';
+      apps[id] = {
+        id,
         label: app.name,
         icon: Globe,
         color: 'from-[#2563EB] to-[#7C3AED]',
         iconUrl: `/api/apps/${encodeURIComponent(app.catalogId)}/icon`,
-        subtitle: app.status,
-        url: app.primaryUrl,
+        subtitle: `${kind} · ${app.status}`,
+        url: app.primaryUrl || undefined,
       };
     }
     const filtered: Record<string, DesktopAppConfig> = {};
 
     for (const [id, app] of Object.entries(apps)) {
       // Core apps are always valid
-      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id) || id.startsWith('managed:')) {
+      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id) || id.startsWith('managed:') || id.startsWith('coolify:')) {
         filtered[id] = app;
       } else if (id === 'coolify' && isEnabled('coolify')) {
         filtered[id] = app;

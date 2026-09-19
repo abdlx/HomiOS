@@ -71,6 +71,7 @@ export class CoolifyClient {
   createEnvironment = (projectUuid: string, name: string) => this.request<any>(`/projects/${encodeURIComponent(projectUuid)}/environments`, { method: 'POST', body: JSON.stringify({ name }) });
   listServers = () => this.request<any[]>('/servers');
   listServices = () => this.request<any[]>('/services');
+  listApplications = () => this.request<any[]>('/applications');
   createService = (input: Record<string, any>) => this.request<{ uuid: string; domains?: string[] }>('/services', { method: 'POST', body: JSON.stringify(input) });
   getService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}`);
   listServiceStorages = (uuid: string) => this.request<{ persistent_storages?: any[]; file_storages?: any[] }>(`/services/${encodeURIComponent(uuid)}/storages`);
@@ -114,8 +115,23 @@ function normalizedStatus(raw: any): AppRuntimeStatus {
 }
 
 function domainsOf(service: any): string[] {
-  const values = [service?.domains, service?.fqdn, ...(service?.applications || []).flatMap((app: any) => [app?.fqdn, app?.domains])].flat(Infinity);
+  const composeDomains = Array.isArray(service?.docker_compose_domains)
+    ? service.docker_compose_domains.flatMap((item: any) => [item?.domain, item?.url])
+    : [];
+  const values = [service?.domains, service?.fqdn, ...composeDomains, ...(service?.applications || []).flatMap((app: any) => [app?.fqdn, app?.domains])].flat(Infinity);
   return values.flatMap((value: any) => String(value || '').split(',')).map((value: string) => value.trim()).filter((value: string) => /^https?:\/\//.test(value));
+}
+
+function belongsToEnvironment(item: any, environmentId: string) {
+  const itemEnvironmentId = item?.environment_id ?? item?.environment?.id;
+  return itemEnvironmentId != null && String(itemEnvironmentId) === environmentId;
+}
+
+function catalogIdOf(item: any, resourceType: 'service' | 'application') {
+  const value = resourceType === 'service' ? item?.service_type || item?.type : null;
+  return typeof value === 'string' && /^[a-z0-9][a-z0-9._-]*$/i.test(value)
+    ? value
+    : `coolify-${resourceType}`;
 }
 
 export interface CoolifyProviderConfig {
@@ -149,7 +165,27 @@ export class CoolifyProvider implements AppRuntimeProvider {
     await this.client.getProject(this.config.projectUuid);
     await this.client.getEnvironment(this.config.projectUuid, this.config.environmentUuid);
   }
-  async listInstalledApps() { return (await this.client.listServices()).map((item) => this.toRuntime(item)); }
+  async listInstalledApps() {
+    const [environment, services, applications] = await Promise.all([
+      this.client.getEnvironment(this.config.projectUuid, this.config.environmentUuid),
+      this.client.listServices(),
+      this.client.listApplications(),
+    ]);
+    const environmentId = environment?.id;
+    if (environmentId == null) throw new Error('Coolify did not return the HomiOS environment ID');
+    const normalizedEnvironmentId = String(environmentId);
+    const projectServices = services.filter((item) => belongsToEnvironment(item, normalizedEnvironmentId));
+    const detailedServices = await Promise.all(projectServices.map(async (item) => {
+      if (domainsOf(item).length || !item?.uuid) return item;
+      try { return await this.client.getService(item.uuid); } catch { return item; }
+    }));
+    return [
+      ...applications
+        .filter((item) => belongsToEnvironment(item, normalizedEnvironmentId))
+        .map((item) => this.toRuntime(item, 'application')),
+      ...detailedServices.map((item) => this.toRuntime(item, 'service')),
+    ].sort((left, right) => left.name.localeCompare(right.name));
+  }
   async getApp(id: string) { return this.toRuntime(await this.client.getService(id)); }
   async installApp(template: AppTemplate, options: InstallOptions): Promise<RuntimeApp> {
     const created = await this.client.createService({
@@ -231,7 +267,15 @@ export class CoolifyProvider implements AppRuntimeProvider {
     await this.client.updateService(id, { urls: routes.map(({ name, url }) => ({ name, url })), force_domain_override: force });
     return this.getApp(id);
   }
-  private toRuntime(item: any): RuntimeApp {
-    return { id: item.uuid || item.id, name: item.name || item.uuid, status: normalizedStatus(item), primaryUrl: domainsOf(item)[0] || null, raw: item };
+  private toRuntime(item: any, resourceType: 'service' | 'application' = 'service'): RuntimeApp {
+    return {
+      id: item.uuid || item.id,
+      name: item.name || item.uuid,
+      status: normalizedStatus(item),
+      primaryUrl: domainsOf(item)[0] || null,
+      resourceType,
+      catalogId: catalogIdOf(item, resourceType),
+      raw: item,
+    };
   }
 }
