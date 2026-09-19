@@ -5,7 +5,14 @@ import type {
 } from '../types.ts';
 
 export class CoolifyApiError extends Error {
-  constructor(message: string, public status: number, public body?: unknown) { super(message); }
+  public status: number;
+  public body?: unknown;
+
+  constructor(message: string, status: number, body?: unknown) {
+    super(message);
+    this.status = status;
+    this.body = body;
+  }
 }
 
 export function normalizeCoolifyBaseUrl(input: string) {
@@ -20,9 +27,14 @@ export function normalizeCoolifyBaseUrl(input: string) {
 
 export class CoolifyClient {
   readonly baseUrl: string;
-  constructor(baseUrl: string, private token: string, private fetchImpl: typeof fetch = fetch) {
+  private token: string;
+  private fetchImpl: typeof fetch;
+
+  constructor(baseUrl: string, token: string, fetchImpl: typeof fetch = fetch) {
     this.baseUrl = normalizeCoolifyBaseUrl(baseUrl);
     if (!token?.trim()) throw new Error('Coolify API token is required');
+    this.token = token;
+    this.fetchImpl = fetchImpl;
   }
 
   async request<T = any>(endpoint: string, init: RequestInit = {}): Promise<T> {
@@ -114,7 +126,13 @@ export interface CoolifyProviderConfig {
 
 export class CoolifyProvider implements AppRuntimeProvider {
   readonly capabilities: ProviderCapabilities = { serviceInstall: true, serviceDelete: true, logs: true, envManagement: true, deployment: true };
-  constructor(readonly client: CoolifyClient, readonly config: CoolifyProviderConfig) {}
+  readonly client: CoolifyClient;
+  readonly config: CoolifyProviderConfig;
+
+  constructor(client: CoolifyClient, config: CoolifyProviderConfig) {
+    this.client = client;
+    this.config = config;
+  }
 
   async getConnectionStatus(): Promise<ProviderConnectionStatus> {
     try {

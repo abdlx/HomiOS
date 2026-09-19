@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
 import { CoolifyClient, CoolifyProvider, normalizeCoolifyBaseUrl } from '../../lib/apps/providers/coolify.ts';
 
@@ -6,6 +7,15 @@ function response(status: number, body: any) {
 }
 
 describe('CoolifyClient', () => {
+  it('loads through the native Node TypeScript strip-only runtime', () => {
+    const moduleUrl = new URL('../../lib/apps/providers/coolify.ts', import.meta.url).href;
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', `await import(${JSON.stringify(moduleUrl)})`], {
+      encoding: 'utf8',
+    });
+    expect(result.stderr).not.toContain('ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX');
+    expect(result.status, result.stderr).toBe(0);
+  });
+
   it('normalizes only http(s) base URLs', () => {
     expect(normalizeCoolifyBaseUrl('http://coolify.test/api/v1/')).toBe('http://coolify.test');
     expect(() => normalizeCoolifyBaseUrl('file:///etc/passwd')).toThrow(/http or https/);
