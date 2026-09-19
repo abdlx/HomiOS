@@ -18,7 +18,7 @@ if [[ -n "$VERSION" && ! "$VERSION" =~ ^v?${MIN_MAJOR}([.-]|$) ]]; then
 fi
 
 if [[ -z "${COOLIFY_BOOTSTRAP_TOKEN:-}" ]]; then
-  echo "Coolify's documented flow requires an API token. Create one with read, write, deploy permissions and connect it in HomiOS." >&2
+  echo "Coolify's documented flow requires an API token. Create one with read:sensitive, write, deploy permissions and connect it in HomiOS." >&2
   exit 2
 fi
 

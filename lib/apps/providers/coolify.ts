@@ -3,6 +3,7 @@ import type {
   AppDomainRoute, AppHostMount, AppLog, AppRuntimeStatus, AppTemplate, InstallOptions, ProviderCapabilities,
   ProviderConnectionStatus, RuntimeApp,
 } from '../types.ts';
+import { configureHomiOSStorageInCompose } from '../coolify-compose.ts';
 
 export class CoolifyApiError extends Error {
   public status: number;
@@ -74,9 +75,6 @@ export class CoolifyClient {
   listApplications = () => this.request<any[]>('/applications');
   createService = (input: Record<string, any>) => this.request<{ uuid: string; domains?: string[] }>('/services', { method: 'POST', body: JSON.stringify(input) });
   getService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}`);
-  listServiceStorages = (uuid: string) => this.request<{ persistent_storages?: any[]; file_storages?: any[] }>(`/services/${encodeURIComponent(uuid)}/storages`);
-  createServiceStorage = (uuid: string, input: Record<string, any>) => this.request<any>(`/services/${encodeURIComponent(uuid)}/storages`, { method: 'POST', body: JSON.stringify(input) });
-  deleteServiceStorage = (uuid: string, storageUuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}/storages/${encodeURIComponent(storageUuid)}`, { method: 'DELETE' });
   updateService = (uuid: string, input: Record<string, any>) => this.request<any>(`/services/${encodeURIComponent(uuid)}`, { method: 'PATCH', body: JSON.stringify(input) });
   deploy = (uuid: string) => this.request<any>('/deploy', { method: 'POST', body: JSON.stringify({ uuid }) });
   deleteService = (uuid: string) => this.request<any>(`/services/${encodeURIComponent(uuid)}?delete_configurations=true&delete_volumes=false&docker_cleanup=false&delete_connected_networks=true`, { method: 'DELETE' });
@@ -204,43 +202,18 @@ export class CoolifyProvider implements AppRuntimeProvider {
     const service = await this.client.getService(id);
     const resource = (Array.isArray(service?.applications) ? service.applications[0] : null)
       || (Array.isArray(service?.databases) ? service.databases[0] : null);
-    if (!resource?.uuid) throw new Error('Coolify did not expose an application resource for HomiOS storage');
-
-    let existing: any[] = [];
-    try {
-      const response = await this.client.listServiceStorages(id);
-      existing = Array.isArray(response?.persistent_storages) ? response.persistent_storages : [];
-    } catch (error) {
-      if (error instanceof CoolifyApiError && error.status === 404) {
-        throw new Error('This Coolify version does not support host storage for services');
-      }
-      throw error;
+    if (!resource?.name) throw new Error('Coolify did not expose an application resource for HomiOS storage');
+    if (typeof service?.docker_compose_raw !== 'string' || !service.docker_compose_raw.trim()) {
+      throw new Error('Coolify did not expose the service Compose file. Give the HomiOS API token permission to read sensitive service configuration.');
     }
 
-    let added = 0;
-    let removed = 0;
-    const desired = new Set(mounts.map((mount) => `${mount.path}\0${mount.path}`));
-    for (const mount of mounts) {
-      const alreadyConfigured = existing.some((storage) => storage?.host_path === mount.path && storage?.mount_path === mount.path);
-      if (alreadyConfigured) continue;
-      await this.client.createServiceStorage(id, {
-        type: 'persistent',
-        resource_uuid: resource.uuid,
-        name: `homios-${mount.id.slice(0, 16)}`,
-        mount_path: mount.path,
-        host_path: mount.path,
+    const result = configureHomiOSStorageInCompose(service.docker_compose_raw, resource.name, mounts);
+    if (result.changed) {
+      await this.client.updateService(id, {
+        docker_compose_raw: Buffer.from(result.compose, 'utf8').toString('base64'),
       });
-      added += 1;
     }
-    for (const storage of existing) {
-      const storageUuid = String(storage?.uuid || '');
-      const managedByHomiOS = /^homios-[A-Za-z0-9_-]{1,16}$/.test(String(storage?.name || ''))
-        && storage?.host_path === storage?.mount_path;
-      if (!storageUuid || !managedByHomiOS || desired.has(`${storage.host_path}\0${storage.mount_path}`)) continue;
-      await this.client.deleteServiceStorage(id, storageUuid);
-      removed += 1;
-    }
-    return { added, removed };
+    return { added: result.added, removed: result.removed };
   }
   async startApp(id: string) { await this.client.startService(id); }
   async stopApp(id: string) { await this.client.stopService(id); }

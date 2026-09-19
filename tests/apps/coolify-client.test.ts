@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { load } from 'js-yaml';
 import { describe, expect, it, vi } from 'vitest';
 import { CoolifyClient, CoolifyProvider, normalizeCoolifyBaseUrl } from '../../lib/apps/providers/coolify.ts';
 
@@ -90,18 +91,17 @@ describe('CoolifyClient', () => {
     await expect(provider.updateDomains('service-1', [{ name: 'web', url: 'https://status.example.com' }])).resolves.toMatchObject({ primaryUrl: 'https://status.example.com' });
   });
 
-  it('attaches each HomiOS host mount to the primary service application', async () => {
+  it('adds HomiOS host mounts to the service Compose source', async () => {
     const requests: Array<{ url:string; method:string; body?:any }> = [];
     const fetcher = vi.fn(async (url: string, init: RequestInit = {}) => {
       const method = init.method || 'GET';
       requests.push({ url, method, body: init.body ? JSON.parse(String(init.body)) : undefined });
-      if (url.endsWith('/services/service-1')) {
-        return response(200, { uuid: 'service-1', applications: [{ uuid: 'application-1', name: 'immich' }] });
-      }
-      if (url.endsWith('/services/service-1/storages') && method === 'GET') {
-        return response(200, { persistent_storages: [] });
-      }
-      if (url.endsWith('/services/service-1/storages') && method === 'POST') return response(201, { uuid: 'storage-1' });
+      if (url.endsWith('/services/service-1') && method === 'GET') return response(200, {
+        uuid: 'service-1',
+        applications: [{ uuid: 'application-1', name: 'jellyfin' }],
+        docker_compose_raw: 'services:\n  jellyfin:\n    image: jellyfin/jellyfin\n    volumes:\n      - jellyfin-config:/config\nvolumes:\n  jellyfin-config: {}\n',
+      });
+      if (url.endsWith('/services/service-1') && method === 'PATCH') return response(200, {});
       return response(404, { message: 'Not found' });
     });
     const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
@@ -111,42 +111,59 @@ describe('CoolifyClient', () => {
       { id: 'mount-2', name: 'sdb1', path: '/mnt/homios-storage/sdb1', source: '/dev/sdb1', filesystem: 'ext4', readOnly: false },
     ]);
 
-    const creates = requests.filter((request) => request.method === 'POST');
-    expect(creates).toHaveLength(2);
-    expect(creates[0]?.body).toMatchObject({
-      type: 'persistent',
-      resource_uuid: 'application-1',
-      host_path: '/mnt/homios-storage/sda1',
-      mount_path: '/mnt/homios-storage/sda1',
-    });
+    const updates = requests.filter((request) => request.method === 'PATCH');
+    expect(updates).toHaveLength(1);
+    const compose = load(Buffer.from(updates[0]?.body?.docker_compose_raw, 'base64').toString('utf8')) as any;
+    expect(compose.services.jellyfin.volumes).toEqual(expect.arrayContaining([
+      'jellyfin-config:/config',
+      expect.objectContaining({ type: 'bind', source: '/mnt/homios-storage/sda1', target: '/mnt/homios-storage/sda1' }),
+      expect.objectContaining({ type: 'bind', source: '/mnt/homios-storage/sdb1', target: '/mnt/homios-storage/sdb1' }),
+    ]));
+    expect(compose['x-homios-managed-storage'].services.jellyfin).toEqual([
+      '/mnt/homios-storage/sda1',
+      '/mnt/homios-storage/sdb1',
+    ]);
   });
 
-  it('removes stale HomiOS-managed binds without touching app-owned storage', async () => {
-    const requests: Array<{ url:string; method:string }> = [];
+  it('removes only Compose binds explicitly marked as HomiOS-managed', async () => {
+    const requests: Array<{ url:string; method:string; body?:any }> = [];
     const fetcher = vi.fn(async (url: string, init: RequestInit = {}) => {
       const method = init.method || 'GET';
-      requests.push({ url, method });
-      if (url.endsWith('/services/service-1')) {
-        return response(200, { uuid: 'service-1', applications: [{ uuid: 'application-1', name: 'jellyfin' }] });
-      }
-      if (url.endsWith('/services/service-1/storages') && method === 'GET') {
-        return response(200, { persistent_storages: [
-          { uuid: 'keep', name: 'homios-mount-1', host_path: '/mnt/homios-storage/sda1', mount_path: '/mnt/homios-storage/sda1' },
-          { uuid: 'remove', name: 'homios-homios-storage-r', host_path: '/mnt/homios-storage', mount_path: '/mnt/homios-storage' },
-          { uuid: 'user-storage', name: 'jellyfin-config', host_path: '/srv/jellyfin', mount_path: '/config' },
-        ] });
-      }
-      if (url.endsWith('/services/service-1/storages/remove') && method === 'DELETE') return response(200, {});
+      requests.push({ url, method, body: init.body ? JSON.parse(String(init.body)) : undefined });
+      if (url.endsWith('/services/service-1') && method === 'GET') return response(200, {
+        uuid: 'service-1',
+        applications: [{ uuid: 'application-1', name: 'jellyfin' }],
+        docker_compose_raw: [
+          'services:',
+          '  jellyfin:',
+          '    image: jellyfin/jellyfin',
+          '    volumes:',
+          '      - jellyfin-config:/config',
+          '      - type: bind',
+          '        source: /mnt/homios-storage',
+          '        target: /mnt/homios-storage',
+          '      - /srv/user-media:/media',
+          'volumes:',
+          '  jellyfin-config: {}',
+          'x-homios-managed-storage:',
+          '  version: 1',
+          '  services:',
+          '    jellyfin:',
+          '      - /mnt/homios-storage',
+          '',
+        ].join('\n'),
+      });
+      if (url.endsWith('/services/service-1') && method === 'PATCH') return response(200, {});
       return response(404, { message: 'Not found' });
     });
     const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
 
-    await expect(provider.configureStorage('service-1', [
-      { id: 'mount-1', name: 'sda1', path: '/mnt/homios-storage/sda1', readOnly: false },
-    ])).resolves.toEqual({ added: 0, removed: 1 });
+    await expect(provider.configureStorage('service-1', [])).resolves.toEqual({ added: 0, removed: 1 });
 
-    expect(requests.filter((request) => request.method === 'DELETE')).toEqual([
-      { url: 'https://coolify.test/api/v1/services/service-1/storages/remove', method: 'DELETE' },
-    ]);
+    const update = requests.find((request) => request.method === 'PATCH');
+    const compose = load(Buffer.from(update?.body?.docker_compose_raw, 'base64').toString('utf8')) as any;
+    expect(compose.services.jellyfin.volumes).toEqual(['jellyfin-config:/config', '/srv/user-media:/media']);
+    expect(compose['x-homios-managed-storage']).toBeUndefined();
+    expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
   });
 });
