@@ -28,5 +28,6 @@ describe('managed Coolify deployment', () => {
     expect(up).toContain('sed -i "s|/data/coolify|$COOLIFY_DATA_DIR|g"');
     expect(override).toContain('${HOMIOS_STORAGE_ROOT:-/mnt/homios-storage}');
     expect(override).toContain('target: /mnt/homios-storage');
+    expect(override).toContain('propagation: rslave');
   });
 });

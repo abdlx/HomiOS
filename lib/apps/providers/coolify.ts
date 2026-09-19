@@ -213,7 +213,7 @@ export class CoolifyProvider implements AppRuntimeProvider {
         docker_compose_raw: Buffer.from(result.compose, 'utf8').toString('base64'),
       });
     }
-    return { added: result.added, removed: result.removed };
+    return { added: result.added, removed: result.removed, updated: result.updated };
   }
   async startApp(id: string) { await this.client.startService(id); }
   async stopApp(id: string) { await this.client.stopService(id); }

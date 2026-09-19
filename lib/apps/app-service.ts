@@ -210,9 +210,10 @@ export async function setAppAllStorageAccess(appId: string, enabled: boolean, ac
   const provider = getCoolifyProvider();
   const changes = await provider.configureStorage(row.provider_resource_uuid, mounts);
   const requirements = currentStorage.requirements || currentStorage;
+  const storageChanged = Boolean(changes.added || changes.removed || changes.updated);
   getDb().prepare('UPDATE managed_apps SET storage_json=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-    .run(JSON.stringify({ requirements, mounts, accessAllMounts: enabled, selectedMountIds: savedSelectedIds }), changes.added || changes.removed ? 'redeploying' : row.status, appId);
-  if (changes.added || changes.removed) await provider.deployApp(row.provider_resource_uuid);
+    .run(JSON.stringify({ requirements, mounts, accessAllMounts: enabled, selectedMountIds: savedSelectedIds }), storageChanged ? 'redeploying' : row.status, appId);
+  if (storageChanged) await provider.deployApp(row.provider_resource_uuid);
   logAudit({
     ...actor,
     action: enabled ? 'app.storage.all_access_granted' : 'app.storage.all_access_revoked',

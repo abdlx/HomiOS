@@ -107,6 +107,7 @@ describe('CoolifyClient', () => {
     const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
 
     await provider.configureStorage('service-1', [
+      { id: 'homios-storage-root', name: 'All HomiOS storage', path: '/mnt/homios-storage', source: '/mnt/homios-storage', readOnly: false },
       { id: 'mount-1', name: 'sda1', path: '/mnt/homios-storage/sda1', source: '/dev/sda1', filesystem: 'ext4', readOnly: false },
       { id: 'mount-2', name: 'sdb1', path: '/mnt/homios-storage/sdb1', source: '/dev/sdb1', filesystem: 'ext4', readOnly: false },
     ]);
@@ -116,10 +117,15 @@ describe('CoolifyClient', () => {
     const compose = load(Buffer.from(updates[0]?.body?.docker_compose_raw, 'base64').toString('utf8')) as any;
     expect(compose.services.jellyfin.volumes).toEqual(expect.arrayContaining([
       'jellyfin-config:/config',
+      expect.objectContaining({
+        type: 'bind', source: '/mnt/homios-storage', target: '/mnt/homios-storage',
+        bind: { propagation: 'rslave' },
+      }),
       expect.objectContaining({ type: 'bind', source: '/mnt/homios-storage/sda1', target: '/mnt/homios-storage/sda1' }),
       expect.objectContaining({ type: 'bind', source: '/mnt/homios-storage/sdb1', target: '/mnt/homios-storage/sdb1' }),
     ]));
     expect(compose['x-homios-managed-storage'].services.jellyfin).toEqual([
+      '/mnt/homios-storage',
       '/mnt/homios-storage/sda1',
       '/mnt/homios-storage/sdb1',
     ]);
@@ -158,7 +164,7 @@ describe('CoolifyClient', () => {
     });
     const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
 
-    await expect(provider.configureStorage('service-1', [])).resolves.toEqual({ added: 0, removed: 1 });
+    await expect(provider.configureStorage('service-1', [])).resolves.toEqual({ added: 0, removed: 1, updated: 0 });
 
     const update = requests.find((request) => request.method === 'PATCH');
     const compose = load(Buffer.from(update?.body?.docker_compose_raw, 'base64').toString('utf8')) as any;

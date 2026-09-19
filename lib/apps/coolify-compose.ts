@@ -15,6 +15,7 @@ export interface ComposeStorageResult {
   serviceName: string;
   added: number;
   removed: number;
+  updated: number;
   changed: boolean;
 }
 
@@ -124,16 +125,33 @@ export function configureHomiOSStorageInCompose(
       source: mount.path,
       target: mount.path,
       read_only: mount.readOnly,
+      ...(mount.path === '/mnt/homios-storage' ? { bind: { propagation: 'rslave' } } : {}),
     });
     retainedManaged.add(mount.path);
     added += 1;
   }
 
+  let updated = 0;
+  if (desiredSet.has('/mnt/homios-storage') && previouslyManaged.includes('/mnt/homios-storage')) {
+    const rootIndex = nextVolumes.findIndex((volume) => exactBind(volume, '/mnt/homios-storage'));
+    const rootVolume = rootIndex >= 0 ? nextVolumes[rootIndex] : null;
+    if (isRecord(rootVolume) && rootVolume?.bind?.propagation !== 'rslave') {
+      nextVolumes[rootIndex] = {
+        ...rootVolume,
+        bind: {
+          ...(isRecord(rootVolume.bind) ? rootVolume.bind : {}),
+          propagation: 'rslave',
+        },
+      };
+      updated += 1;
+    }
+  }
+
   const nextManagedPaths = [...retainedManaged].sort();
   const previousMarkerPaths = [...previouslyManaged].sort();
   const markerChanged = !arraysEqual(previousMarkerPaths, nextManagedPaths);
-  const changed = added > 0 || removed > 0 || markerChanged;
-  if (!changed) return { compose: rawCompose, serviceName, added, removed, changed: false };
+  const changed = added > 0 || removed > 0 || updated > 0 || markerChanged;
+  if (!changed) return { compose: rawCompose, serviceName, added, removed, updated, changed: false };
 
   service.volumes = nextVolumes;
   if (nextManagedPaths.length) marker.services[serviceName] = nextManagedPaths;
@@ -146,6 +164,7 @@ export function configureHomiOSStorageInCompose(
     serviceName,
     added,
     removed,
+    updated,
     changed: true,
   };
 }

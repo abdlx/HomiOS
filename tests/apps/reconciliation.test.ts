@@ -74,4 +74,16 @@ describe('managed app reconciliation', () => {
       ],
     });
   });
+
+  it('redeploys when an existing storage bind needs a propagation update', async () => {
+    storageAware = true;
+    getDb().prepare("UPDATE managed_apps SET catalog_id='immich', display_name='Immich', storage_json=? WHERE id='app-1'")
+      .run(JSON.stringify({ requirements: {}, mounts: [], accessAllMounts: true }));
+    configureStorage.mockResolvedValue({ added: 0, removed: 0, updated: 1 });
+    getApp.mockResolvedValue({ id: 'resource-1', name: 'Immich', status: 'running', primaryUrl: null });
+
+    await reconcileManagedApps();
+
+    expect(deployApp).toHaveBeenCalledWith('resource-1');
+  });
 });

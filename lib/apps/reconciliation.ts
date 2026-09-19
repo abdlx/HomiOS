@@ -32,7 +32,7 @@ export async function reconcileManagedApps() {
           ? withAllHomiOSStorageAccess(selectedMounts)
           : selectedMounts;
         const changes = await provider.configureStorage(app.providerResourceUuid, mounts);
-        if (changes.added || changes.removed) {
+        if (changes.added || changes.removed || changes.updated) {
           await provider.deployApp(app.providerResourceUuid);
           const requirements = 'requirements' in app.storage ? app.storage.requirements : app.storage;
           getDb().prepare('UPDATE managed_apps SET storage_json=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')

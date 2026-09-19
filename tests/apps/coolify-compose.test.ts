@@ -13,6 +13,24 @@ describe('configureHomiOSStorageInCompose', () => {
     expect(second.compose).toBe(first.compose);
   });
 
+  it('uses recursive slave propagation for the root and upgrades existing managed binds', () => {
+    const added = configureHomiOSStorageInCompose(
+      'services:\n  jellyfin: {}\n',
+      'jellyfin',
+      [mount('/mnt/homios-storage')],
+    );
+    const withoutPropagation = added.compose.replace(/\n\s+bind:\n\s+propagation: rslave/, '');
+    const upgraded = configureHomiOSStorageInCompose(
+      withoutPropagation,
+      'jellyfin',
+      [mount('/mnt/homios-storage')],
+    );
+
+    expect(added.compose).toContain('propagation: rslave');
+    expect(upgraded).toMatchObject({ added: 0, removed: 0, updated: 1, changed: true });
+    expect(upgraded.compose).toContain('propagation: rslave');
+  });
+
   it('does not claim or later remove an identical user-owned bind', () => {
     const raw = 'services:\n  jellyfin:\n    volumes:\n      - /mnt/homios-storage/sdc1:/mnt/homios-storage/sdc1\n';
     const enabled = configureHomiOSStorageInCompose(raw, 'jellyfin', [mount('/mnt/homios-storage/sdc1')]);
