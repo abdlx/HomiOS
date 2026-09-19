@@ -369,6 +369,7 @@ async function executeJob(job: any) {
         catalogId: payload.appId,
         storage: payload.storage,
         mountIds: payload.mountIds,
+        accessAllMounts: payload.accessAllMounts,
         serverUuid: payload.serverUuid,
         teamId: job.teamId,
         userId: job.userId,

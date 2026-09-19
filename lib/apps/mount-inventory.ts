@@ -4,6 +4,8 @@ import path from 'path';
 import { getDriveMountRoot } from '../drive-mounts.ts';
 import type { AppHostMount, AppTemplate } from './types.ts';
 
+export const HOMIOS_STORAGE_ROOT_MOUNT_ID = 'homios-storage-root';
+
 function decodeMountInfoPath(value: string) {
   return value.replace(/\\([0-7]{3})/g, (_match, octal) => String.fromCharCode(parseInt(octal, 8)));
 }
@@ -62,6 +64,27 @@ export function listAppStorageMounts(root = getDriveMountRoot()): AppHostMount[]
   } catch {
     return [];
   }
+}
+
+/**
+ * Builds the bind-mount set used only after an administrator explicitly grants
+ * an app access to all HomiOS storage. The root exposes the stable directory,
+ * while the child binds ensure each currently mounted filesystem is visible.
+ */
+export function withAllHomiOSStorageAccess(
+  mounts: AppHostMount[],
+  root = getDriveMountRoot(),
+): AppHostMount[] {
+  const rootPath = path.posix.resolve(root);
+  let readOnly = false;
+  try { fs.accessSync(rootPath, fs.constants.W_OK); } catch { readOnly = true; }
+  return [{
+    id: HOMIOS_STORAGE_ROOT_MOUNT_ID,
+    name: 'All HomiOS storage',
+    path: rootPath,
+    source: rootPath,
+    readOnly,
+  }, ...mounts.filter((mount) => path.posix.resolve(mount.path) !== rootPath)];
 }
 
 export function resolveAppStorageMounts(

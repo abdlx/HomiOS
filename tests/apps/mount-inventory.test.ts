@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { parseMountInfo, resolveAppStorageMounts } from '../../lib/apps/mount-inventory.ts';
+import { HOMIOS_STORAGE_ROOT_MOUNT_ID, parseMountInfo, resolveAppStorageMounts, withAllHomiOSStorageAccess } from '../../lib/apps/mount-inventory.ts';
 import type { AppTemplate } from '../../lib/apps/types.ts';
 
 const directories: string[] = [];
@@ -55,5 +55,16 @@ describe('HomiOS app mount inventory', () => {
     expect(resolveAppStorageMounts(storageTemplate(), undefined, available)).toEqual(available);
     expect(() => resolveAppStorageMounts(storageTemplate(), ['gone'], available)).toThrow(/no longer mounted/);
     expect(() => resolveAppStorageMounts(storageTemplate(), [], available)).toThrow(/at least one/);
+  });
+
+  it('adds the storage root only when all-storage access is explicitly requested', () => {
+    const available = [
+      { id: 'one', name: 'sda1', path: '/mnt/homios-storage/sda1', readOnly: false },
+      { id: 'two', name: 'sdb1', path: '/mnt/homios-storage/sdb1', readOnly: true },
+    ];
+    const mounts = withAllHomiOSStorageAccess(available, '/mnt/homios-storage');
+
+    expect(mounts.map((mount) => mount.id)).toEqual([HOMIOS_STORAGE_ROOT_MOUNT_ID, 'one', 'two']);
+    expect(mounts[0]).toMatchObject({ path: '/mnt/homios-storage', source: '/mnt/homios-storage' });
   });
 });

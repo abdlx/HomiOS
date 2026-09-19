@@ -7,6 +7,7 @@ export interface InstalledApp {
   status: string;
   primaryUrl: string | null;
   managedByHomiOS: boolean;
+  storage?: { accessAllMounts?: boolean };
 }
 
 export function useInstalledApps() {

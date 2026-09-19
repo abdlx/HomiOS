@@ -6,7 +6,7 @@ import { getCatalogApp } from './registry.ts';
 import { getCoolifyIntegration, getCoolifyProvider } from './integration-storage.ts';
 import { assertManagedOwnership } from './ownership.ts';
 import { validateStorageSelection } from './storage.ts';
-import { resolveAppStorageMounts } from './mount-inventory.ts';
+import { listAppStorageMounts, resolveAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
 import type { AppDomainRoute, ManagedApp } from './types.ts';
 
 function parse(value: string | null | undefined) {
@@ -53,7 +53,7 @@ function updateInstall(jobId: string, stage: string, appId?: string, error?: str
 }
 
 export async function runAppInstall(input: {
-  jobId: string; catalogId: string; storage?: Record<string, string>; mountIds?: string[]; serverUuid?: string;
+  jobId: string; catalogId: string; storage?: Record<string, string>; mountIds?: string[]; accessAllMounts?: boolean; serverUuid?: string;
   teamId?: string; userId?: number; onProgress: (progress: number, message?: string, data?: any) => void;
 }) {
   const template = getCatalogApp(input.catalogId);
@@ -65,8 +65,15 @@ export async function runAppInstall(input: {
   if (template.storage.some((requirement) => requirement.required) && !integration?.storageAware) {
     throw new Error(`${template.name} storage requires the local HomiOS Coolify server`);
   }
-  const mounts = resolveAppStorageMounts(template, integration?.storageAware ? input.mountIds : []);
-  const storage = validateStorageSelection(template, input.storage || {}, mounts[0]?.path);
+  if (input.accessAllMounts && !integration?.storageAware) {
+    throw new Error(`${template.name} can access all HomiOS storage only on the local HomiOS Coolify server`);
+  }
+  const availableMounts = integration?.storageAware ? listAppStorageMounts() : [];
+  const selectedMounts = resolveAppStorageMounts(template, input.mountIds, availableMounts);
+  const mounts = input.accessAllMounts
+    ? withAllHomiOSStorageAccess(availableMounts)
+    : selectedMounts;
+  const storage = validateStorageSelection(template, input.storage || {}, selectedMounts[0]?.path);
   const provider = getCoolifyProvider();
   let appId: string | undefined;
   let createdResourceUuid: string | undefined;
@@ -89,7 +96,12 @@ export async function runAppInstall(input: {
       ) VALUES (?, ?, 'coolify', ?, ?, ?, ?, ?, ?, 'installing', ?, 1, ?)`)
         .run(managedId, template.id, runtime.id, provider.config.projectUuid,
           provider.config.environmentUuid, input.serverUuid || provider.config.serverUuid,
-          template.name, runtime.primaryUrl, JSON.stringify({ requirements: storage, mounts }), template.schemaVersion);
+          template.name, runtime.primaryUrl, JSON.stringify({
+            requirements: storage,
+            mounts,
+            accessAllMounts: input.accessAllMounts === true,
+            selectedMountIds: selectedMounts.map((mount) => mount.id),
+          }), template.schemaVersion);
       db.prepare('UPDATE app_install_jobs SET app_id=?, stage=?, updated_at=CURRENT_TIMESTAMP WHERE job_id=?')
         .run(managedId, 'configuring', input.jobId);
     });
@@ -110,7 +122,7 @@ export async function runAppInstall(input: {
     getDb().prepare('UPDATE managed_apps SET status=?, primary_url=COALESCE(?, primary_url), updated_at=CURRENT_TIMESTAMP WHERE id=?')
       .run(finalStatus, latest.primaryUrl, managedId);
     updateInstall(input.jobId, finalStatus === 'running' ? 'running' : 'deploying', managedId);
-    logAudit({ teamId: input.teamId, userId: input.userId, action: 'app.install.completed', resourceType: 'managed_app', resourceId: managedId, meta: { catalogId: template.id, resourceUuid: runtime.id } });
+    logAudit({ teamId: input.teamId, userId: input.userId, action: 'app.install.completed', resourceType: 'managed_app', resourceId: managedId, meta: { catalogId: template.id, resourceUuid: runtime.id, accessAllMounts: input.accessAllMounts === true } });
     createNotification({ teamId: input.teamId, userId: input.userId, title: `${template.name} installed`, message: finalStatus === 'running' ? 'The app is ready to open.' : 'Coolify is finishing the deployment.', tone: 'success', sourceType: 'app', sourceId: managedId });
     return { appId: managedId, resourceUuid: runtime.id, status: finalStatus };
   } catch (error: any) {
@@ -146,6 +158,43 @@ export async function performAppAction(appId: string, action: 'start' | 'stop' |
 export async function getAppLogs(appId: string) {
   const row = assertManagedOwnership(appId);
   return getCoolifyProvider().getLogs(row.provider_resource_uuid);
+}
+
+export async function setAppAllStorageAccess(appId: string, enabled: boolean, actor: { teamId?: string; userId?: number }) {
+  const row = assertManagedOwnership(appId);
+  const template = getCatalogApp(row.catalog_id);
+  if (!template?.storage.length) throw new Error('This app does not declare storage support');
+  if (!getCoolifyIntegration()?.storageAware) {
+    throw new Error('All-storage access requires the local HomiOS Coolify server');
+  }
+
+  const availableMounts = listAppStorageMounts();
+  const currentStorage = parse(row.storage_json);
+  const savedSelectedIds = Array.isArray(currentStorage.selectedMountIds)
+    ? currentStorage.selectedMountIds.map(String)
+    : (Array.isArray(currentStorage.mounts) ? currentStorage.mounts : [])
+      .filter((mount: any) => mount?.id !== 'homios-storage-root')
+      .map((mount: any) => String(mount.id));
+  const selectedIds = new Set(savedSelectedIds);
+  const selectedMounts = availableMounts.filter((mount) => selectedIds.has(mount.id));
+  if (!enabled && template.storage.some((requirement) => requirement.required) && !selectedMounts.length) {
+    throw new Error(`${template.name} requires at least one selected HomiOS storage mount`);
+  }
+  const mounts = enabled ? withAllHomiOSStorageAccess(availableMounts) : selectedMounts;
+  const provider = getCoolifyProvider();
+  const changes = await provider.configureStorage(row.provider_resource_uuid, mounts);
+  const requirements = currentStorage.requirements || currentStorage;
+  getDb().prepare('UPDATE managed_apps SET storage_json=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
+    .run(JSON.stringify({ requirements, mounts, accessAllMounts: enabled, selectedMountIds: savedSelectedIds }), changes.added || changes.removed ? 'redeploying' : row.status, appId);
+  if (changes.added || changes.removed) await provider.deployApp(row.provider_resource_uuid);
+  logAudit({
+    ...actor,
+    action: enabled ? 'app.storage.all_access_granted' : 'app.storage.all_access_revoked',
+    resourceType: 'managed_app',
+    resourceId: appId,
+    meta: { catalogId: template.id, mountCount: mounts.length },
+  });
+  return getManagedApp(appId);
 }
 
 function normalizeDomainRoute(route: AppDomainRoute): AppDomainRoute {

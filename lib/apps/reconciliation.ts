@@ -3,7 +3,8 @@ import { CoolifyApiError } from './providers/coolify.ts';
 import { getCoolifyIntegration, getCoolifyProvider } from './integration-storage.ts';
 import { listManagedApps } from './app-service.ts';
 import { getCatalogApp } from './registry.ts';
-import { listAppStorageMounts } from './mount-inventory.ts';
+import { listAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
+import type { AppStorageConfiguration } from './types.ts';
 
 export async function reconcileManagedApps() {
   const provider = getCoolifyProvider();
@@ -15,13 +16,27 @@ export async function reconcileManagedApps() {
     try {
       const template = getCatalogApp(app.catalogId);
       if (integration?.storageAware && template?.storage.length) {
-        const mounts = listAppStorageMounts();
+        const availableMounts = listAppStorageMounts();
+        const configuredStorage = Array.isArray((app.storage as AppStorageConfiguration).mounts)
+          ? app.storage as AppStorageConfiguration
+          : null;
+        const accessAllMounts = configuredStorage?.accessAllMounts === true;
+        const selectedIds = new Set(
+          configuredStorage?.selectedMountIds
+          || (configuredStorage?.mounts || []).map((mount) => mount.id).filter((id) => id !== 'homios-storage-root'),
+        );
+        const selectedMounts = accessAllMounts
+          ? availableMounts
+          : availableMounts.filter((mount) => selectedIds.has(mount.id));
+        const mounts = accessAllMounts
+          ? withAllHomiOSStorageAccess(selectedMounts)
+          : selectedMounts;
         const changes = await provider.configureStorage(app.providerResourceUuid, mounts);
         if (changes.added || changes.removed) {
           await provider.deployApp(app.providerResourceUuid);
           const requirements = 'requirements' in app.storage ? app.storage.requirements : app.storage;
           getDb().prepare('UPDATE managed_apps SET storage_json=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-            .run(JSON.stringify({ requirements, mounts }), app.id);
+            .run(JSON.stringify({ requirements, mounts, accessAllMounts, selectedMountIds: [...selectedIds] }), app.id);
         }
       }
       const runtime = await provider.getApp(app.providerResourceUuid);

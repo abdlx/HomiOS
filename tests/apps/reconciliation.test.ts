@@ -12,6 +12,10 @@ vi.mock('../../lib/apps/integration-storage.ts', () => ({
 }));
 vi.mock('../../lib/apps/mount-inventory.ts', () => ({
   listAppStorageMounts: () => [{ id: 'mount-1', name: 'sda1', path: '/mnt/homios-storage/sda1', readOnly: false }],
+  withAllHomiOSStorageAccess: (mounts: any[]) => [
+    { id: 'homios-storage-root', name: 'All HomiOS storage', path: '/mnt/homios-storage', source: '/mnt/homios-storage', readOnly: false },
+    ...mounts,
+  ],
 }));
 import { reconcileManagedApps } from '../../lib/apps/reconciliation.ts';
 
@@ -34,17 +38,40 @@ describe('managed app reconciliation', () => {
     expect(getDb().prepare("SELECT status FROM managed_apps WHERE id='app-1'").get()).toMatchObject({ status: 'missing' });
   });
 
-  it('adds newly mounted HomiOS drives to existing storage-aware apps and redeploys once', async () => {
+  it('does not widen storage access for apps without the explicit permission', async () => {
     storageAware = true;
-    getDb().prepare("UPDATE managed_apps SET catalog_id='immich', display_name='Immich' WHERE id='app-1'").run();
+    getDb().prepare("UPDATE managed_apps SET catalog_id='immich', display_name='Immich', storage_json=? WHERE id='app-1'")
+      .run(JSON.stringify({ requirements: {}, mounts: [] }));
+    configureStorage.mockResolvedValue({ added: 0, removed: 0 });
+    getApp.mockResolvedValue({ id: 'resource-1', name: 'Immich', status: 'running', primaryUrl: null });
+
+    await reconcileManagedApps();
+
+    expect(configureStorage).toHaveBeenCalledWith('resource-1', []);
+    expect(deployApp).not.toHaveBeenCalled();
+  });
+
+  it('adds the storage root and newly mounted drives after all-storage access is granted', async () => {
+    storageAware = true;
+    getDb().prepare("UPDATE managed_apps SET catalog_id='immich', display_name='Immich', storage_json=? WHERE id='app-1'")
+      .run(JSON.stringify({ requirements: {}, mounts: [], accessAllMounts: true }));
     configureStorage.mockResolvedValue({ added: 1, removed: 0 });
     getApp.mockResolvedValue({ id: 'resource-1', name: 'Immich', status: 'running', primaryUrl: null });
 
     await reconcileManagedApps();
 
-    expect(configureStorage).toHaveBeenCalledWith('resource-1', [expect.objectContaining({ id: 'mount-1' })]);
+    expect(configureStorage).toHaveBeenCalledWith('resource-1', [
+      expect.objectContaining({ id: 'homios-storage-root', path: '/mnt/homios-storage' }),
+      expect.objectContaining({ id: 'mount-1' }),
+    ]);
     expect(deployApp).toHaveBeenCalledWith('resource-1');
     const row = getDb().prepare("SELECT storage_json FROM managed_apps WHERE id='app-1'").get() as any;
-    expect(JSON.parse(row.storage_json).mounts).toEqual([expect.objectContaining({ path: '/mnt/homios-storage/sda1' })]);
+    expect(JSON.parse(row.storage_json)).toMatchObject({
+      accessAllMounts: true,
+      mounts: [
+        expect.objectContaining({ path: '/mnt/homios-storage' }),
+        expect.objectContaining({ path: '/mnt/homios-storage/sda1' }),
+      ],
+    });
   });
 });

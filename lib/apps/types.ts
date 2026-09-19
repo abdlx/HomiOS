@@ -25,6 +25,8 @@ export interface AppHostMount {
 export interface AppStorageConfiguration {
   requirements: Record<string, string>;
   mounts: AppHostMount[];
+  accessAllMounts?: boolean;
+  selectedMountIds?: string[];
 }
 
 export interface AppTemplate {
