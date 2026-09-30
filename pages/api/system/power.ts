@@ -35,10 +35,10 @@ export default withAuth(async (req: any, res: any, session: any) => {
   }
 
   try {
-    scheduleHostPower(action as HostPowerAction);
+    await scheduleHostPower(action as HostPowerAction);
   } catch (error) {
-    console.error('[system-power] unavailable:', error);
-    return res.status(503).json({ error: 'Host power controls are unavailable on this installation' });
+    console.error('[system-power] scheduling failed:', error);
+    return res.status(503).json({ error: 'The machine rejected the power command. HomiOS must run as root on a Linux systemd host.' });
   }
 
   logAudit({ userId: session.userId, action: `system.${action}`, meta: { ip: clientIp(req) } });

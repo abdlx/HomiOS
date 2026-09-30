@@ -4,7 +4,7 @@ import { createSession, createUserWithPasswordHash, hashPassword } from '../lib/
 import { withTransaction } from '../lib/db.ts';
 import { resetRateLimits } from '../lib/request-security.ts';
 
-vi.mock('../lib/system-power.ts', () => ({ scheduleHostPower: vi.fn() }));
+vi.mock('../lib/system-power.ts', () => ({ scheduleHostPower: vi.fn(async () => {}) }));
 
 import powerHandler from '../pages/api/system/power.ts';
 import { scheduleHostPower } from '../lib/system-power.ts';
@@ -66,7 +66,7 @@ describe('host power API', () => {
   });
 
   it('reports when host controls are unavailable', async () => {
-    vi.mocked(scheduleHostPower).mockImplementationOnce(() => { throw new Error('unsupported'); });
+    vi.mocked(scheduleHostPower).mockRejectedValueOnce(new Error('unsupported'));
     const res = mockRes();
     await powerHandler(mockReq({ method: 'POST', sessionId: adminSession, body: { action: 'reboot', password: 'correct-password' } }), res);
     expect(res.statusCode).toBe(503);

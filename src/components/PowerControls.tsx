@@ -13,20 +13,25 @@ export default function PowerControls() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+      if (!menuRef.current?.contains(event.target as Node) && !popupRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMenuOpen(false);
     };
+    const onResize = () => setMenuOpen(false);
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onResize);
     };
   }, [menuOpen]);
 
@@ -73,7 +78,11 @@ export default function PowerControls() {
     <div ref={menuRef} className="relative">
       <button
         type="button"
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => {
+          const rect = menuRef.current?.getBoundingClientRect();
+          if (rect) setMenuPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+          setMenuOpen((open) => !open);
+        }}
         className="flex items-center text-white/80 hover:text-white transition"
         title="Machine power controls"
         aria-label="Machine power controls"
@@ -82,8 +91,8 @@ export default function PowerControls() {
       >
         <Power size={15} strokeWidth={2} />
       </button>
-      {menuOpen && (
-        <div role="menu" className="absolute right-0 top-7 z-[200] w-44 rounded-xl border border-white/15 bg-[#26262a] p-1.5 text-sm text-white shadow-xl">
+      {menuOpen && createPortal((
+        <div ref={popupRef} role="menu" style={menuPosition} className="fixed z-[9999] w-44 rounded-xl border border-white/15 bg-[#26262a] p-1.5 text-sm text-white shadow-xl">
           <button type="button" role="menuitem" onClick={() => chooseAction('reboot')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
             <RotateCw size={15} /> Reboot machine
           </button>
@@ -91,7 +100,7 @@ export default function PowerControls() {
             <Power size={15} /> Shut down machine
           </button>
         </div>
-      )}
+      ), document.body)}
       {action && createPortal((
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
           <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="power-dialog-title" className="w-full max-w-sm rounded-2xl border border-black/5 bg-white p-6 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#1c1c1e] dark:text-white">
