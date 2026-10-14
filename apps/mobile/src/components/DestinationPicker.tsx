@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { HomiOSClient } from '@/api/HomiOSClient';
 import { EmptyState } from '@/components/EmptyState';
@@ -28,38 +30,59 @@ export function DestinationPicker({
   const folders = (query.data || []).filter((item: RemoteFile) => item.isDir);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onCancel}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={onCancel} style={styles.headerButton}><Text style={styles.buttonText}>Cancel</Text></Pressable>
+          <Pressable onPress={onCancel} style={styles.headerButton}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
           <Text style={styles.title} numberOfLines={1}>{basename(path)}</Text>
-          <Pressable onPress={() => onSelect(path)} style={styles.headerButton}><Text style={styles.primaryText}>Choose</Text></Pressable>
+          <Pressable onPress={() => onSelect(path)} style={styles.headerButton}>
+            <Text style={styles.primaryText}>Choose</Text>
+          </Pressable>
         </View>
+
         <View style={styles.pathBar}>
-          <Pressable disabled={path === '/'} onPress={() => setPath(parentRemotePath(path))} style={styles.upButton}>
-            <Text style={[styles.buttonText, path === '/' && styles.disabled]}>Up</Text>
+          <Pressable
+            disabled={path === '/'}
+            onPress={() => setPath(parentRemotePath(path))}
+            style={[styles.upButton, path === '/' && styles.disabledButton]}
+          >
+            <Feather name="arrow-left" size={16} color={path === '/' ? '#475569' : '#38bdf8'} />
+            <Text style={[styles.upText, path === '/' && styles.disabledText]}>Back</Text>
           </Pressable>
           <Text style={styles.pathText} numberOfLines={1}>{path}</Text>
         </View>
+
         {query.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 48 }} color="#60a5fa" />
+          <ActivityIndicator style={{ marginTop: 48 }} color="#38bdf8" />
         ) : query.isError ? (
           <EmptyState title="Could not load folders" message={(query.error as Error).message} />
         ) : folders.length === 0 ? (
-          <EmptyState title="No folders here" message="Choose this folder or go up." />
+          <View style={styles.emptyContainer}>
+            <Ionicons name="folder-open-outline" size={48} color="#475569" />
+            <Text style={styles.emptyTitle}>No subfolders here</Text>
+            <Text style={styles.emptySubtitle}>Tap 'Choose' to select this directory.</Text>
+          </View>
         ) : (
           <FlatList
             data={folders}
             keyExtractor={(item) => item.path}
             renderItem={({ item }) => (
-              <Pressable style={styles.folderRow} onPress={() => setPath(joinRemotePath(path, item.name))}>
-                <Text style={styles.folderIcon}>F</Text>
+              <Pressable
+                style={styles.folderRow}
+                onPress={() => setPath(item.path || joinRemotePath(path, item.name))}
+              >
+                <View style={styles.folderIconBadge}>
+                  <Ionicons name="folder" size={22} color="#38bdf8" />
+                </View>
                 <Text style={styles.folderName} numberOfLines={1}>{item.name}</Text>
+                <Feather name="chevron-right" size={18} color="#64748b" />
               </Pressable>
             )}
           />
         )}
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -67,43 +90,39 @@ export function DestinationPicker({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: '#0a0a0c',
   },
   header: {
-    minHeight: 64,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    borderBottomColor: 'rgba(148, 163, 184, 0.18)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#1e2230',
+    borderBottomWidth: 1,
   },
   headerButton: {
-    minWidth: 72,
-    minHeight: 44,
+    minWidth: 70,
+    minHeight: 40,
     justifyContent: 'center',
   },
   title: {
-    color: '#f8fafc',
+    color: '#ffffff',
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '700',
     flex: 1,
     textAlign: 'center',
   },
-  buttonText: {
-    color: '#cbd5e1',
+  cancelText: {
+    color: '#94a3b8',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   primaryText: {
-    color: '#60a5fa',
+    color: '#38bdf8',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     textAlign: 'right',
-  },
-  disabled: {
-    color: '#475569',
   },
   pathBar: {
     flexDirection: 'row',
@@ -111,12 +130,32 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#12151e',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e2230',
   },
   upButton: {
-    minWidth: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#1b1f2b',
+  },
+  disabledButton: {
+    opacity: 0.4,
+  },
+  upText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  disabledText: {
+    color: '#475569',
   },
   pathText: {
-    color: '#94a3b8',
+    color: '#8e95a5',
     flex: 1,
     fontSize: 13,
   },
@@ -124,26 +163,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 58,
+    minHeight: 56,
     paddingHorizontal: 16,
-    borderBottomColor: 'rgba(148, 163, 184, 0.14)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#161924',
+    borderBottomWidth: 1,
   },
-  folderIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#2563eb',
-    color: '#fff',
-    textAlign: 'center',
-    lineHeight: 34,
-    fontWeight: '800',
+  folderIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#0f2942',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   folderName: {
-    color: '#f8fafc',
+    color: '#ffffff',
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    gap: 8,
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    color: '#8e95a5',
+    fontSize: 13,
   },
 });

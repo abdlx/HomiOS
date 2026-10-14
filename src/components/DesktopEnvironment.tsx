@@ -207,7 +207,7 @@ export default function DesktopEnvironment({
   const { username } = useUsername(initialUsername);
   const { settings: performanceSettings } = usePerformanceSettings();
   const { data: stats } = useSystemStats(isActive, performanceSettings.backgroundPolling);
-  const availableApps = useLauncherApps(isActive);
+  const availableApps = useLauncherApps();
   const { gridAppIds, dockAppIds, updateGrid, updateDock } = useLauncherLayout(availableApps);
   const { navigate } = useShellRoute();
   const [now, setNow] = useState<Date | null>(null);
@@ -231,7 +231,10 @@ export default function DesktopEnvironment({
   const getOnClick = (id: string) => {
     const app = availableApps[id];
     if (app?.installedId) return () => {
-      if (!openLauncherUrl(app)) navigate({ view: 'app-store', storeApp: app.installedId });
+      if (!openLauncherUrl(app)) {
+        if (app.id.startsWith('coolify:')) onOpenCoolify();
+        else navigate({ view: 'app-store', storeApp: app.installedId });
+      }
     };
     if (id === 'files') return onHomiOS;
     if (id === 'settings') return onOpenSettings;
@@ -494,7 +497,7 @@ export default function DesktopEnvironment({
       </div>
 
       {/* Dock and Spotlight Search Pill */}
-      <div inert={!isActive} className="relative pb-3 flex flex-col items-center w-full mt-auto">
+      <div className="relative pb-3 flex flex-col items-center w-full mt-auto" aria-label="Desktop dock">
         <motion.button
           layoutId="homios-search-pill"
           onClick={onOpenSearch}

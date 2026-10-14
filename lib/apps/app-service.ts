@@ -8,6 +8,8 @@ import { assertManagedOwnership } from './ownership.ts';
 import { validateStorageSelection } from './storage.ts';
 import { listAppStorageMounts, resolveAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
 import type { AppDomainRoute, DesktopApp, ManagedApp } from './types.ts';
+import { CoolifyApiError } from './providers/coolify.ts';
+import { reconciledAppStatus } from './runtime-state.ts';
 
 function parse(value: string | null | undefined) {
   try { return value ? JSON.parse(value) : {}; } catch { return {}; }
@@ -33,13 +35,42 @@ export function listManagedApps() {
 
 export async function listDesktopApps(): Promise<DesktopApp[]> {
   const managed = listManagedApps();
-  let discovered;
+  let provider: ReturnType<typeof getCoolifyProvider>;
   try {
-    discovered = await getCoolifyProvider().listInstalledApps();
+    provider = getCoolifyProvider();
   } catch {
-    return managed.map((app) => ({ ...app, resourceType: 'service' }));
+    return managed.filter((app) => app.status !== 'missing').map((app) => ({ ...app, resourceType: 'service' }));
   }
-  const managedResourceIds = new Set(managed.map((app) => app.providerResourceUuid));
+  // A failed inventory request must fail the refresh so clients keep their last
+  // successful inventory, including custom apps, instead of replacing it.
+  const discovered = await provider.listInstalledApps({ scope: 'team' });
+  const services = new Map(discovered.filter((app) => app.resourceType !== 'application').map((app) => [app.id, app]));
+  await Promise.all(managed.map(async (app) => {
+    if (app.providerProjectUuid !== provider.config.projectUuid || app.providerEnvironmentUuid !== provider.config.environmentUuid) return;
+    let runtime = services.get(app.providerResourceUuid);
+    let status = app.status;
+    try {
+      // Confirm absence directly: a service may be created during the inventory
+      // request or deleted between a list response and its detail response.
+      runtime ||= await provider.getApp(app.providerResourceUuid);
+      status = reconciledAppStatus(app, runtime);
+    } catch (error) {
+      if (!(error instanceof CoolifyApiError) || error.status !== 404) throw error;
+      status = 'missing';
+    }
+    const primaryUrl = runtime?.primaryUrl || app.primaryUrl;
+    getDb().prepare('UPDATE managed_apps SET updated_at=CASE WHEN status<>? THEN CURRENT_TIMESTAMP ELSE updated_at END, status=?, primary_url=? WHERE id=? AND removed_at IS NULL')
+      .run(status, status, primaryUrl, app.id);
+  }));
+  // Re-read after remote requests so a concurrent removal cannot resurrect a
+  // launcher icon and newly committed installs retain their managed identity.
+  const currentManaged = listManagedApps().filter((app) =>
+    app.providerProjectUuid === provider.config.projectUuid && app.providerEnvironmentUuid === provider.config.environmentUuid,
+  );
+  const managedResourceIds = new Set([
+    ...managed.filter((app) => app.providerProjectUuid === provider.config.projectUuid && app.providerEnvironmentUuid === provider.config.environmentUuid),
+    ...currentManaged,
+  ].map((app) => app.providerResourceUuid));
   const external = discovered
     .filter((app) => !managedResourceIds.has(app.id))
     .map((app): DesktopApp => ({
@@ -52,7 +83,7 @@ export async function listDesktopApps(): Promise<DesktopApp[]> {
       managedByHomiOS: false,
     }));
   return [
-    ...managed.map((app) => ({ ...app, resourceType: 'service' as const })),
+    ...currentManaged.filter((app) => app.status !== 'missing').map((app) => ({ ...app, resourceType: 'service' as const })),
     ...external,
   ].sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -254,7 +285,13 @@ export async function updateAppDomains(appId: string, routes: AppDomainRoute[], 
 
 export async function removeManagedApp(appId: string, actor: { teamId?: string; userId?: number }) {
   const row = assertManagedOwnership(appId);
-  await getCoolifyProvider().removeApp(row.provider_resource_uuid);
+  try {
+    await getCoolifyProvider().removeApp(row.provider_resource_uuid);
+  } catch (error) {
+    // A service removed directly in Coolify still has a local registry record.
+    // Only a definitive not-found response permits forgetting that record.
+    if (!(error instanceof CoolifyApiError) || error.status !== 404) throw error;
+  }
   getDb().prepare("UPDATE managed_apps SET removed_at=CURRENT_TIMESTAMP, status='stopped', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(appId);
   logAudit({ ...actor, action: 'app.removed', resourceType: 'managed_app', resourceId: appId, meta: { dataPreserved: true } });
 }

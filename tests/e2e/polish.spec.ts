@@ -459,3 +459,52 @@ test("home launcher reflects installed apps and opens App Store without simulate
     page.getByRole("button", { name: "Open App Store", exact: true }),
   ).toBeVisible();
 });
+
+test("desktop dock switches open windows and desktop removal survives refresh", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Mobile uses a full-screen launcher");
+  await page.goto("/dashboard");
+  const atlas = page.getByRole("button", { name: "Open Atlas", exact: true });
+  await expect(atlas).toBeVisible();
+  await atlas.click({ button: "right" });
+  await page.getByRole("button", { name: "Remove from Desktop", exact: true }).click();
+  await expect(atlas).toHaveCount(0);
+  await page.reload();
+  await expect(atlas).toHaveCount(0);
+  const dock = page.getByRole("navigation", { name: "Dock apps" });
+  await dock.getByRole("button", { name: "Open Files", exact: true }).click();
+  await expect(page.locator(".homios-files")).not.toHaveAttribute("inert");
+  await dock.getByRole("button", { name: "Open Settings", exact: true }).click();
+  await expect(page.locator(".homios-settings")).not.toHaveAttribute("inert");
+  await expect(page.locator(".homios-files")).toHaveAttribute("inert");
+  await dock.getByRole("button", { name: "Open Notes", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".homios-notes")).not.toHaveAttribute("inert");
+  await expect(page.locator(".homios-settings")).toHaveAttribute("inert");
+});
+
+test("launcher refresh discovers custom apps, drops deleted services, and keeps cached apps during outages", async ({ page }) => {
+  let offline = false;
+  let apps: any[] = [
+    { id: 'application:custom', catalogId: 'coolify-application', name: 'Custom app', status: 'running', primaryUrl: 'https://custom.test', managedByHomiOS: false, resourceType: 'application' },
+    { id: 'removed-service', catalogId: 'removed', name: 'Removed service', status: 'missing', primaryUrl: null, managedByHomiOS: true },
+  ];
+  await page.route('**/api/apps/installed*', (route) => route.fulfill(offline
+    ? { status: 502, json: { error: 'Coolify unavailable' } }
+    : { json: { apps } }));
+  await page.goto('/dashboard');
+  const custom = page.getByRole('button', { name: 'Open Custom app', exact: true });
+  await expect(custom).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Removed service', exact: true })).toHaveCount(0);
+  offline = true;
+  const failure = page.waitForResponse((response) => response.url().includes('/api/apps/installed') && response.status() === 502);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await failure;
+  await expect(custom).toBeVisible();
+  offline = false;
+  apps = [];
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(custom).toHaveCount(0);
+  apps = [{ id: 'service:new', catalogId: 'coolify-service', name: 'New service', status: 'running', primaryUrl: 'https://new.test', managedByHomiOS: false, resourceType: 'service' }];
+  await page.evaluate(() => window.dispatchEvent(new Event('homios:apps-changed')));
+  await expect(page.getByRole('button', { name: 'Open New service', exact: true })).toBeVisible();
+});

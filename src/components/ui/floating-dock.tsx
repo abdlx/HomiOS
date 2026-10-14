@@ -56,6 +56,8 @@ const FloatingDockDesktop = ({
   let mouseX = useMotionValue(Infinity);
   return (
     <motion.div
+      role="navigation"
+      aria-label="Dock apps"
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={`mx-auto flex h-20 gap-4 items-end rounded-[32px] px-4 pb-3 relative ${className || ""}`}
@@ -142,7 +144,7 @@ function IconContainer({
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div onClick={onClick} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+    <button type="button" aria-label={`Open ${title}`} onClick={onClick} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} className="rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-4 focus-visible:ring-offset-black/40">
       <motion.div
         ref={ref}
         style={{ width, height }}
@@ -171,6 +173,6 @@ function IconContainer({
           {icon}
         </motion.div>
       </motion.div>
-    </div>
+    </button>
   );
 }

@@ -17,10 +17,10 @@ export function useInstalledApps({ includeCoolifyResources = false, isActive = t
   const { refresh } = resource;
   useEffect(() => {
     if (!isActive) return;
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, includeCoolifyResources ? 60000 : 5000);
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, includeCoolifyResources ? 15000 : 5000);
     const wake = () => { if (!document.hidden) void refresh(); };
-    window.addEventListener('homios:apps-changed', wake); document.addEventListener('visibilitychange', wake);
-    return () => { window.clearInterval(timer); window.removeEventListener('homios:apps-changed', wake); document.removeEventListener('visibilitychange', wake); };
+    window.addEventListener('homios:apps-changed', wake); window.addEventListener('focus', wake); document.addEventListener('visibilitychange', wake);
+    return () => { window.clearInterval(timer); window.removeEventListener('homios:apps-changed', wake); window.removeEventListener('focus', wake); document.removeEventListener('visibilitychange', wake); };
   }, [refresh, isActive, includeCoolifyResources]);
   return { apps: resource.data?.apps || [], loading: resource.loading, refreshing: resource.refreshing, error: resource.error || resource.data?.refreshError, refresh };
 }

@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { DriveItem, HomiOSMe, RemoteFile, SearchResult } from '@/types';
-import { basename, normalizeRemotePath } from '@/lib/path';
+import { DriveItem, HomiOSMe, RemoteFile, SearchResult, SharedItem } from '@/types';
+import { basename, dirname, normalizeRemotePath } from '@/lib/path';
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -17,13 +17,150 @@ export class HomiOSError extends Error {
   constructor(message: string, status: number) {
     super(message);
     this.status = status;
+    this.name = 'HomiOSError';
   }
 }
 
-export function normalizeBaseUrl(value: string) {
-  const trimmed = value.trim().replace(/\/+$/, '');
-  if (!/^https?:\/\//i.test(trimmed)) return `http://${trimmed}`;
+export function normalizeBaseUrl(value: string): string {
+  let trimmed = value.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    // If user provided IP or hostname without port, default to 8740
+    if (!url.port && (
+      url.hostname === 'localhost' ||
+      url.hostname.startsWith('192.168.') ||
+      url.hostname.startsWith('10.') ||
+      url.hostname.startsWith('172.') ||
+      /^\d+\.\d+\.\d+\.\d+$/.test(url.hostname)
+    )) {
+      url.port = '8740';
+      return url.toString().replace(/\/+$/, '');
+    }
+  } catch {
+    // Keep trimmed fallback if URL parsing fails
+  }
+
   return trimmed;
+}
+
+export async function probeInstance(rawUrl: string): Promise<{ ok: boolean; normalizedUrl: string; status: string }> {
+  const normalizedUrl = normalizeBaseUrl(rawUrl);
+  if (!normalizedUrl) {
+    throw new HomiOSError('Please enter a server URL', 400);
+  }
+
+  const candidateUrls = [normalizedUrl];
+  // If no port was specified, also try appending default 8740
+  try {
+    const parsed = new URL(normalizedUrl);
+    if (!parsed.port) {
+      parsed.port = '8740';
+      candidateUrls.push(parsed.toString().replace(/\/+$/, ''));
+    }
+  } catch {}
+
+  let lastError: any = null;
+
+  for (const url of candidateUrls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${url}/api/health`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data?.status === 'ok' || data?.status === 'running') {
+          return { ok: true, normalizedUrl: url, status: data.status || 'ok' };
+        }
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  throw new HomiOSError(
+    `No active HomiOS instance found at ${normalizedUrl}. Make sure HomiOS is running (default port 8740) and reachable from this network.`,
+    503
+  );
+}
+
+export type LoginResult =
+  | { ok: true; token: string; sessionId?: string }
+  | { ok: false; totpRequired: true }
+  | { ok: false; error: string };
+
+export async function loginToInstance(
+  rawUrl: string,
+  email: string,
+  password: string,
+  totp?: string
+): Promise<LoginResult> {
+  const baseUrl = normalizeBaseUrl(rawUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        totp: totp ? totp.trim() : undefined,
+        createToken: true,
+        tokenName: 'HomiFiles Mobile',
+      }),
+      signal: controller.signal,
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429) {
+      return { ok: false, error: 'Too many login attempts. Please wait a few minutes and try again.' };
+    }
+
+    if (res.status === 401) {
+      if (data?.error?.includes('two-factor') || data?.error?.includes('code')) {
+        return { ok: false, error: 'Invalid two-factor code. Try again.' };
+      }
+      return { ok: false, error: 'Invalid email or password.' };
+    }
+
+    if (data?.totpRequired) {
+      return { ok: false, totpRequired: true };
+    }
+
+    if (!res.ok) {
+      return { ok: false, error: data?.error || `Login failed with status ${res.status}` };
+    }
+
+    const token = data?.token || data?.sessionId;
+    if (!token) {
+      return { ok: false, error: 'Server did not return a session token.' };
+    }
+
+    return { ok: true, token, sessionId: data?.sessionId };
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return { ok: false, error: 'Connection timed out. Check your network connection.' };
+    }
+    return { ok: false, error: err?.message || 'Could not connect to HomiOS instance.' };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export class HomiOSClient {
@@ -72,6 +209,10 @@ export class HomiOSClient {
     return this.request<DriveItem[]>('/api/drives/available');
   }
 
+  async shares() {
+    return this.request<SharedItem[]>('/api/shares');
+  }
+
   async search(query: string) {
     return this.request<SearchResult[]>(`/api/search?q=${encodeURIComponent(query)}&limit=50`);
   }
@@ -107,6 +248,19 @@ export class HomiOSClient {
 
   async move(sourcePath: string, destinationPath: string) {
     return this.ndjsonOperation('/api/files/move', sourcePath, destinationPath);
+  }
+
+  async compress(sourcePath: string, archiveName?: string, destinationDir?: string) {
+    const finalName = archiveName || `${basename(sourcePath)}.zip`;
+    const targetDir = destinationDir || dirname(sourcePath) || '/';
+    return this.request('/api/files/zip', {
+      method: 'POST',
+      body: {
+        sourcePaths: [normalizeRemotePath(sourcePath)],
+        destinationDir: normalizeRemotePath(targetDir),
+        archiveName: finalName,
+      },
+    });
   }
 
   async upload(uri: string, targetPath: string, onProgress?: (progress: number) => void) {
@@ -205,7 +359,7 @@ export class HomiOSClient {
       try {
         message = await response.text();
       } catch {
-        // keep fallback
+        // fallback
       }
     }
     return new HomiOSError(message, response.status);

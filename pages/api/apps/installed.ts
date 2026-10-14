@@ -14,6 +14,11 @@ export default withAuth(async (req: any, res: any) => {
     }
     try { await refreshInFlight; } catch { refreshError = 'Runtime status could not be refreshed. Showing saved status.'; }
   }
-  const apps = req.query?.view === 'desktop' ? await listDesktopApps() : listManagedApps();
-  return res.json({ apps, refreshError });
+  res.setHeader('Cache-Control', 'private, no-store');
+  try {
+    const apps = req.query?.view === 'desktop' ? await listDesktopApps() : listManagedApps();
+    return res.json({ apps, refreshError });
+  } catch {
+    return res.status(502).json({ error: 'Coolify apps could not be refreshed. Showing the last successful app list.' });
+  }
 });

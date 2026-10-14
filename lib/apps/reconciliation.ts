@@ -5,6 +5,7 @@ import { listManagedApps } from './app-service.ts';
 import { getCatalogApp } from './registry.ts';
 import { listAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
 import type { AppStorageConfiguration } from './types.ts';
+import { reconciledAppStatus } from './runtime-state.ts';
 
 export async function reconcileManagedApps({ configureStorage = true }: { configureStorage?: boolean } = {}) {
   const provider = getCoolifyProvider();
@@ -40,10 +41,7 @@ export async function reconcileManagedApps({ configureStorage = true }: { config
         }
       }
       const runtime = await provider.getApp(app.providerResourceUuid);
-      status = runtime.status;
-      const expected = ({ starting: 'running', restarting: 'running', stopping: 'stopped', redeploying: 'running' } as Record<string, string>)[app.status];
-      const updatedAt = Date.parse(app.updatedAt?.includes('T') ? app.updatedAt : `${app.updatedAt?.replace(' ', 'T')}Z`);
-      if (expected && runtime.status !== expected && !['error', 'unhealthy', 'missing'].includes(runtime.status) && Date.now() - updatedAt < 120_000) status = app.status;
+      status = reconciledAppStatus(app, runtime);
       primaryUrl = runtime.primaryUrl || primaryUrl;
     } catch (error) {
       if (error instanceof CoolifyApiError && error.status === 404) status = 'missing';

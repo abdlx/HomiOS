@@ -91,6 +91,73 @@ describe('CoolifyClient', () => {
     await expect(provider.updateDomains('service-1', [{ name: 'web', url: 'https://status.example.com' }])).resolves.toMatchObject({ primaryUrl: 'https://status.example.com' });
   });
 
+  it('discovers custom environment resources when Coolify hides numeric IDs and global lists are unavailable', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith('/projects/project-1/env-1')) return response(200, {
+        uuid: 'env-1',
+        applications: [{ uuid: 'custom-app', name: 'Custom app', status: 'running', fqdn: 'https://custom.test' }],
+        services: [
+          { uuid: 'custom-service', name: 'Custom service', status: 'running' },
+          { uuid: 'deleted-service', name: 'Deleted', deleted_at: '2026-10-14' },
+          { uuid: 'race-service', name: 'Deleted during listing' },
+        ],
+      });
+      if (url.endsWith('/services/custom-service')) return response(200, {
+        applications: [{ name: 'web', fqdn: 'https://service.test' }],
+      });
+      return response(404, { message: 'Not found' });
+    });
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+    await expect(provider.listInstalledApps()).resolves.toEqual([
+      expect.objectContaining({ id: 'custom-app', resourceType: 'application', primaryUrl: 'https://custom.test' }),
+      expect.objectContaining({ id: 'custom-service', name: 'Custom service', status: 'running', primaryUrl: 'https://service.test' }),
+    ]);
+    expect(fetcher.mock.calls.every(([url]) => !url.endsWith('/applications') && !url.endsWith('/services'))).toBe(true);
+  });
+
+  it('does not publish an incomplete inventory on a service permission failure', async () => {
+    const fetcher = vi.fn(async (url: string) => url.endsWith('/projects/project-1/env-1')
+      ? response(200, { services: [{ uuid: 'private' }], applications: [] })
+      : response(403, { message: 'Forbidden' }));
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+    await expect(provider.listInstalledApps()).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('reads Compose application addresses and service child health', async () => {
+    const fetcher = vi.fn(async (url: string) => url.endsWith('/projects/project-1/env-1')
+      ? response(200, {
+        applications: [{ uuid: 'compose-app', name: 'Compose', status: 'running', docker_compose_domains: JSON.stringify({ web: { domain: 'https://compose.test' } }) }],
+        services: [{ uuid: 'healthy-service', name: 'Service', applications: [{ fqdn: 'https://service.test', status: 'running (healthy)' }] }],
+      })
+      : response(404, { message: 'Not found' }));
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+    await expect(provider.listInstalledApps()).resolves.toEqual([
+      expect.objectContaining({ id: 'compose-app', primaryUrl: 'https://compose.test' }),
+      expect.objectContaining({ id: 'healthy-service', status: 'running', primaryUrl: 'https://service.test' }),
+    ]);
+  });
+
+  it('includes custom apps from other projects for read-only team launcher discovery', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith('/applications')) return response(200, [
+        { uuid: 'custom-other-project', environment_id: 99, name: 'Custom app', status: 'running', fqdn: 'https://custom.test' },
+        { uuid: 'deleted-app', environment_id: 99, name: 'Deleted', deleted_at: '2026-10-14' },
+      ]);
+      if (url.endsWith('/services')) return response(200, [
+        { uuid: 'custom-service', environment_id: 99, name: 'Custom service', status: 'running' },
+      ]);
+      if (url.endsWith('/services/custom-service')) return response(200, {
+        applications: [{ fqdn: 'https://service.test' }],
+      });
+      return response(404, { message: 'Not found' });
+    });
+    const provider = new CoolifyProvider(new CoolifyClient('https://coolify.test', 'secret', fetcher as any), { projectUuid: 'project-1', environmentUuid: 'env-1', serverUuid: 'server-1' });
+    await expect(provider.listInstalledApps({ scope: 'team' })).resolves.toEqual([
+      expect.objectContaining({ id: 'custom-other-project', resourceType: 'application', primaryUrl: 'https://custom.test' }),
+      expect.objectContaining({ id: 'custom-service', resourceType: 'service', primaryUrl: 'https://service.test' }),
+    ]);
+  });
+
   it('adds HomiOS host mounts to the service Compose source', async () => {
     const requests: Array<{ url:string; method:string; body?:any }> = [];
     const fetcher = vi.fn(async (url: string, init: RequestInit = {}) => {

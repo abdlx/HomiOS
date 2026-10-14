@@ -13,6 +13,7 @@
  */
 import * as otplib from 'otplib';
 const authenticator = (otplib as any).authenticator ?? (otplib as any).default?.authenticator ?? otplib;
+import crypto from 'node:crypto';
 import { getDb, withTransaction } from '../../../lib/db.ts';
 import { findUserByEmail, verifyPassword, createSession, ensurePersonalTeam } from '../../../lib/auth.ts';
 import { buildAuthCookies } from '../../../lib/api-auth.ts';
@@ -121,10 +122,27 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    ensurePersonalTeam(user.id, user.email);
+    const teamId = ensurePersonalTeam(user.id, user.email);
     const sessionId = createSession(user.id);
+    let token: string | undefined;
+    if (req.body?.createToken) {
+      const raw = `of_${crypto.randomBytes(32).toString('hex')}`;
+      const tokenId = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 365 * 86_400_000).toISOString();
+      const tokenName = String(req.body.tokenName || 'HomiFiles Mobile');
+      withTransaction((tx) => {
+        tx.prepare(`
+          INSERT INTO api_tokens (id, user_id, team_id, name, token_hash, abilities, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(tokenId, user.id, teamId, tokenName, sha256(raw), 'read,write', expiresAt);
+      });
+      token = raw;
+    }
     logAudit({ userId: user.id, action: 'auth.login', meta: { ip } });
     res.setHeader('Set-Cookie', buildAuthCookies(sessionId, req));
+    if (token) {
+      return res.json({ ok: true, sessionId, token });
+    }
     return res.json({ ok: true });
   } catch (err: any) {
     console.error('[/api/auth/login]', err);

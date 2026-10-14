@@ -122,4 +122,21 @@ describe("shared launcher", () => {
     ]);
     expect(result.current.dockAppIds).toEqual(["notes", "files"]);
   });
+
+  it("keeps manually removed desktop apps hidden across refreshes and reloads", () => {
+    const apps = buildLauncherApps([{
+      id: "custom-1", catalogId: "custom", name: "Custom", status: "running",
+      primaryUrl: "https://custom.test", managedByHomiOS: false,
+    }], () => false);
+    const { result, rerender, unmount } = renderHook(() => useLauncherLayout(apps));
+    expect(result.current.gridAppIds).toContain("coolify:custom-1");
+    act(() => result.current.updateGrid(result.current.gridAppIds.filter((id) => id !== "coolify:custom-1")));
+    rerender();
+    expect(result.current.gridAppIds).not.toContain("coolify:custom-1");
+    unmount();
+    const restored = renderHook(() => useLauncherLayout(apps));
+    expect(restored.result.current.gridAppIds).not.toContain("coolify:custom-1");
+    act(() => restored.result.current.updateGrid([...restored.result.current.gridAppIds, "coolify:custom-1"]));
+    expect(restored.result.current.gridAppIds).toContain("coolify:custom-1");
+  });
 });

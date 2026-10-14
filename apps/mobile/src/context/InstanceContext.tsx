@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { HomiOSClient, normalizeBaseUrl } from '@/api/HomiOSClient';
+import { HomiOSClient, normalizeBaseUrl, probeInstance, loginToInstance, LoginResult } from '@/api/HomiOSClient';
 import { InstanceConfig, HomiOSMe } from '@/types';
 import {
   createInstance,
@@ -12,13 +12,26 @@ import {
   setToken,
 } from '@/storage/instances';
 
+type LoginParams = {
+  baseUrl: string;
+  email: string;
+  password: string;
+  totp?: string;
+  name?: string;
+};
+
 type InstanceContextValue = {
   instances: InstanceConfig[];
   activeInstance: InstanceConfig | null;
   activeToken: string | null;
   client: HomiOSClient | null;
   loading: boolean;
+  isAuthenticated: boolean;
+  probeServer(url: string): Promise<{ ok: boolean; normalizedUrl: string; status: string }>;
+  loginAndConnect(params: LoginParams): Promise<LoginResult & { me?: HomiOSMe }>;
+  addManualInstance(input: { name: string; baseUrl: string; token: string }): Promise<HomiOSMe>;
   addInstance(input: { name: string; baseUrl: string; token: string }): Promise<HomiOSMe>;
+  logout(): Promise<void>;
   removeInstance(id: string): Promise<void>;
   switchInstance(id: string): Promise<void>;
   updateLastPath(path: string): Promise<void>;
@@ -34,7 +47,7 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const activeInstance = useMemo(
-    () => instances.find((instance) => instance.id === activeId) || instances[0] || null,
+    () => instances.find((instance) => instance.id === activeId) || null,
     [activeId, instances]
   );
 
@@ -42,6 +55,8 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
     if (!activeInstance || !activeToken) return null;
     return new HomiOSClient(activeInstance.baseUrl, activeToken);
   }, [activeInstance, activeToken]);
+
+  const isAuthenticated = Boolean(activeInstance && activeToken && client);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -61,19 +76,53 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const switchInstance = useCallback(async (id: string) => {
-    setActiveId(id);
-    await setActiveInstanceId(id);
-    setActiveTokenState(await getToken(id));
+  const probeServer = useCallback(async (url: string) => {
+    return probeInstance(url);
   }, []);
 
-  const addInstance = useCallback(async (input: { name: string; baseUrl: string; token: string }) => {
+  const loginAndConnect = useCallback(async (params: LoginParams): Promise<LoginResult & { me?: HomiOSMe }> => {
+    const probe = await probeInstance(params.baseUrl);
+    const baseUrl = probe.normalizedUrl;
+
+    const loginRes = await loginToInstance(baseUrl, params.email, params.password, params.totp);
+    if (!loginRes.ok) {
+      return loginRes;
+    }
+
+    const { token } = loginRes;
+    const tempClient = new HomiOSClient(baseUrl, token);
+    const me = await tempClient.me().catch(() => ({
+      server: { name: 'HomiOS', version: '1.0' },
+      user: { id: 1, email: params.email, role: 'admin', teamId: 'default', abilities: ['read', 'write'], via: 'token' as const }
+    }));
+
+    const instanceName = params.name || me.server.name || 'HomiOS';
+    const instance = createInstance({
+      name: `${instanceName} (${params.email})`,
+      baseUrl,
+      userEmail: params.email,
+    });
+
+    const nextInstances = [instance, ...instances.filter((i) => i.baseUrl !== baseUrl)];
+    await setToken(instance.id, token);
+    await saveInstances(nextInstances);
+    await setActiveInstanceId(instance.id);
+
+    setInstances(nextInstances);
+    setActiveId(instance.id);
+    setActiveTokenState(token);
+
+    return { ok: true, token, me };
+  }, [instances]);
+
+  const addManualInstance = useCallback(async (input: { name: string; baseUrl: string; token: string }) => {
     const baseUrl = normalizeBaseUrl(input.baseUrl);
     const temporaryClient = new HomiOSClient(baseUrl, input.token);
     const me = await temporaryClient.validate();
     const instance = createInstance({
       name: input.name || `${me.server.name} (${me.user.email})`,
       baseUrl,
+      userEmail: me.user.email,
     });
     const nextInstances = [instance, ...instances];
     await setToken(instance.id, input.token);
@@ -84,6 +133,24 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
     setActiveTokenState(input.token);
     return me;
   }, [instances]);
+
+  const switchInstance = useCallback(async (id: string) => {
+    setActiveId(id);
+    await setActiveInstanceId(id);
+    setActiveTokenState(await getToken(id));
+  }, []);
+
+  const logout = useCallback(async () => {
+    if (activeId) {
+      await removeToken(activeId);
+    }
+    const nextInstances = instances.filter((i) => i.id !== activeId);
+    await saveInstances(nextInstances);
+    await setActiveInstanceId(null);
+    setInstances(nextInstances);
+    setActiveId(null);
+    setActiveTokenState(null);
+  }, [activeId, instances]);
 
   const removeInstance = useCallback(async (id: string) => {
     const nextInstances = instances.filter((instance) => instance.id !== id);
@@ -112,12 +179,32 @@ export function InstanceProvider({ children }: { children: React.ReactNode }) {
     activeToken,
     client,
     loading,
-    addInstance,
+    isAuthenticated,
+    probeServer,
+    loginAndConnect,
+    addManualInstance,
+    addInstance: addManualInstance,
+    logout,
     removeInstance,
     switchInstance,
     updateLastPath,
     refresh,
-  }), [activeInstance, activeToken, addInstance, client, instances, loading, refresh, removeInstance, switchInstance, updateLastPath]);
+  }), [
+    activeInstance,
+    activeToken,
+    client,
+    instances,
+    isAuthenticated,
+    loading,
+    loginAndConnect,
+    addManualInstance,
+    logout,
+    probeServer,
+    refresh,
+    removeInstance,
+    switchInstance,
+    updateLastPath,
+  ]);
 
   return <InstanceContext.Provider value={value}>{children}</InstanceContext.Provider>;
 }

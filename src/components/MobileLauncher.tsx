@@ -84,8 +84,10 @@ export default function MobileLauncher({
   const { canInstall, openChooser, isStandalone } = usePWAInstall();
   function open(app: LauncherApp) {
     if (app.installedId) {
-      if (!openLauncherUrl(app))
-        navigate({ view: "app-store", storeApp: app.installedId });
+      if (!openLauncherUrl(app)) {
+        if (app.id.startsWith("coolify:")) navigate({ view: "coolify" });
+        else navigate({ view: "app-store", storeApp: app.installedId });
+      }
     } else navigate({ view: app.id });
   }
   return (

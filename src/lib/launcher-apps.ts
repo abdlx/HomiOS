@@ -125,7 +125,7 @@ export function buildLauncherApps(
       color: "from-[#2563EB] to-[#7C3AED]",
       iconUrl: `/api/apps/${encodeURIComponent(app.catalogId)}/icon`,
       subtitle: `${app.resourceType === "application" ? "App" : "Service"} · ${app.status}`,
-      url: ["running", "unhealthy"].includes(app.status)
+      url: (["running", "unhealthy"].includes(app.status) || (!app.managedByHomiOS && app.status === "unknown"))
         ? app.primaryUrl || undefined
         : undefined,
     };

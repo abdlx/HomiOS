@@ -1,20 +1,78 @@
 {
   "expo": {
-    "name": "HomiOS Files",
-    "slug": "homios-files",
-    "version": "0.1.0",
+    "name": "HomiFiles",
+    "slug": "homifiles",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "homios-files",
-    "userInterfaceStyle": "automatic",
+    "scheme": "homifiles",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.homios.files"
+      "bundleIdentifier": "com.homios.homifiles",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "homifiles"
+            ]
+          }
+        ]
+      }
     },
     "android": {
-      "package": "com.homios.files",
+      "package": "com.homios.homifiles",
       "adaptiveIcon": {
-        "backgroundColor": "#0f172a"
-      }
+        "backgroundColor": "#000000"
+      },
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "image/*"
+            },
+            {
+              "mimeType": "video/*"
+            },
+            {
+              "mimeType": "audio/*"
+            },
+            {
+              "mimeType": "application/*"
+            },
+            {
+              "mimeType": "text/*"
+            }
+          ]
+        },
+        {
+          "action": "SEND_MULTIPLE",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "image/*"
+            },
+            {
+              "mimeType": "video/*"
+            },
+            {
+              "mimeType": "audio/*"
+            },
+            {
+              "mimeType": "application/*"
+            },
+            {
+              "mimeType": "text/*"
+            }
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-secure-store",

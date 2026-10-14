@@ -36,13 +36,14 @@ export async function removeToken(id: string) {
   await SecureStore.deleteItemAsync(tokenKey(id));
 }
 
-export function createInstance(input: { name: string; baseUrl: string }) {
+export function createInstance(input: { name: string; baseUrl: string; userEmail?: string }) {
   const now = new Date().toISOString();
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name: input.name.trim(),
     baseUrl: input.baseUrl,
     lastPath: '/',
+    userEmail: input.userEmail,
     createdAt: now,
     updatedAt: now,
   } satisfies InstanceConfig;

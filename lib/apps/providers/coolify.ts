@@ -108,22 +108,33 @@ function normalizedStatus(raw: any): AppRuntimeStatus {
   if (status.includes('running') || status.includes('healthy')) return 'running';
   if (status.includes('stop') || status.includes('exit')) return 'stopped';
   if (status.includes('deploy') || status.includes('progress')) return 'deploying';
-  if (status.includes('unhealthy')) return 'unhealthy';
   if (status.includes('error') || status.includes('fail')) return 'error';
+  // Compose services often expose health only on their child containers.
+  const children = [...(raw?.applications || []), ...(raw?.databases || [])].map(normalizedStatus);
+  if (children.includes('error')) return 'error';
+  if (children.includes('unhealthy')) return 'unhealthy';
+  if (children.includes('deploying')) return 'deploying';
+  if (children.includes('running')) return 'running';
+  if (children.length && children.every((child) => child === 'stopped')) return 'stopped';
   return 'unknown';
 }
 
 function domainsOf(service: any): string[] {
-  const composeDomains = Array.isArray(service?.docker_compose_domains)
-    ? service.docker_compose_domains.flatMap((item: any) => [item?.domain, item?.url])
+  let configuredDomains = service?.docker_compose_domains;
+  if (typeof configuredDomains === 'string') {
+    try { configuredDomains = JSON.parse(configuredDomains); } catch { configuredDomains = null; }
+  }
+  const composeDomains = configuredDomains && typeof configuredDomains === 'object'
+    ? Object.values(configuredDomains).flatMap((item: any) => [item?.domain, item?.url])
     : [];
   const values = [service?.domains, service?.fqdn, ...composeDomains, ...(service?.applications || []).flatMap((app: any) => [app?.fqdn, app?.domains])].flat(Infinity);
   return values.flatMap((value: any) => String(value || '').split(',')).map((value: string) => value.trim()).filter((value: string) => /^https?:\/\//.test(value));
 }
 
-function belongsToEnvironment(item: any, environmentId: string) {
+function belongsToEnvironment(item: any, environmentId: string | undefined, environmentUuid: string) {
   const itemEnvironmentId = item?.environment_id ?? item?.environment?.id;
-  return itemEnvironmentId != null && String(itemEnvironmentId) === environmentId;
+  return (environmentId != null && itemEnvironmentId != null && String(itemEnvironmentId) === environmentId)
+    || (item?.environment_uuid ?? item?.environment?.uuid) === environmentUuid;
 }
 
 function catalogIdOf(item: any, resourceType: 'service' | 'application') {
@@ -164,25 +175,39 @@ export class CoolifyProvider implements AppRuntimeProvider {
     await this.client.getProject(this.config.projectUuid);
     await this.client.getEnvironment(this.config.projectUuid, this.config.environmentUuid);
   }
-  async listInstalledApps() {
-    const [environment, services, applications] = await Promise.all([
-      this.client.getEnvironment(this.config.projectUuid, this.config.environmentUuid),
-      this.client.listServices(),
-      this.client.listApplications(),
-    ]);
-    const environmentId = environment?.id;
-    if (environmentId == null) throw new Error('Coolify did not return the HomiOS environment ID');
-    const normalizedEnvironmentId = String(environmentId);
-    const projectServices = services.filter((item) => belongsToEnvironment(item, normalizedEnvironmentId));
+  async listInstalledApps({ scope = 'environment' }: { scope?: 'environment' | 'team' } = {}): Promise<RuntimeApp[]> {
+    // The environment response includes its resources even on builds that hide
+    // numeric IDs. Prefer that scoped inventory over joining global API lists.
+    const environment = scope === 'environment'
+      ? await this.client.getEnvironment(this.config.projectUuid, this.config.environmentUuid)
+      : null;
+    const environmentId = environment?.id == null ? undefined : String(environment.id);
+    const inventory = async (type: 'services' | 'applications'): Promise<any[]> => {
+      if (Array.isArray(environment?.[type])) return environment[type];
+      const items = await (type === 'services' ? this.client.listServices() : this.client.listApplications());
+      // Launcher discovery is read-only and may include custom apps elsewhere
+      // in this Coolify team. Lifecycle mutations still require owned records.
+      if (scope === 'team') return items;
+      if (environmentId == null && items.length && !items.some((item) => item?.environment_uuid || item?.environment?.uuid)) {
+        throw new Error('Coolify did not return enough information to identify the HomiOS environment');
+      }
+      return items.filter((item) => belongsToEnvironment(item, environmentId, this.config.environmentUuid));
+    };
+    const [services, applications] = await Promise.all([inventory('services'), inventory('applications')]);
+    const projectServices = services.filter((item: any) => !item.deleted_at);
     const detailedServices = await Promise.all(projectServices.map(async (item) => {
       if (domainsOf(item).length || !item?.uuid) return item;
-      try { return await this.client.getService(item.uuid); } catch { return item; }
+      try { return { ...item, ...await this.client.getService(item.uuid) }; }
+      catch (error) {
+        if (error instanceof CoolifyApiError && error.status === 404) return null;
+        throw error;
+      }
     }));
     return [
       ...applications
-        .filter((item) => belongsToEnvironment(item, normalizedEnvironmentId))
+        .filter((item: any) => !item.deleted_at)
         .map((item) => this.toRuntime(item, 'application')),
-      ...detailedServices.map((item) => this.toRuntime(item, 'service')),
+      ...detailedServices.filter(Boolean).map((item) => this.toRuntime(item, 'service')),
     ].sort((left, right) => left.name.localeCompare(right.name));
   }
   async getApp(id: string) { return this.toRuntime(await this.client.getService(id)); }

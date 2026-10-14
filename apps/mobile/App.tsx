@@ -1,20 +1,27 @@
 import 'react-native-gesture-handler';
 import React from 'react';
-import { Text } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BrowserScreen } from '@/screens/BrowserScreen';
-import { InstancesScreen } from '@/screens/InstancesScreen';
-import { PreviewScreen } from '@/screens/PreviewScreen';
-import { SearchScreen } from '@/screens/SearchScreen';
-import { SettingsScreen } from '@/screens/SettingsScreen';
-import { TransfersScreen } from '@/screens/TransfersScreen';
-import { InstanceProvider } from '@/context/InstanceContext';
+import { Ionicons } from '@expo/vector-icons';
+
+import { InstanceProvider, useInstances } from '@/context/InstanceContext';
 import { TransferProvider } from '@/context/TransferContext';
+import { SharedMediaProvider } from '@/context/SharedMediaContext';
+
+import { ConnectScreen } from '@/screens/ConnectScreen';
+import { FilesScreen } from '@/screens/FilesScreen';
+import { SharedScreen } from '@/screens/SharedScreen';
+import { RecentsScreen } from '@/screens/RecentsScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
+import { SearchScreen } from '@/screens/SearchScreen';
+import { PreviewScreen } from '@/screens/PreviewScreen';
+import { TransfersScreen } from '@/screens/TransfersScreen';
+import { UploadSharedMediaModal } from '@/components/UploadSharedMediaModal';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,39 +35,92 @@ const queryClient = new QueryClient({
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
 
-const theme = {
-  ...DefaultTheme,
+const darkTheme = {
+  ...DarkTheme,
   colors: {
-    ...DefaultTheme.colors,
-    background: '#020617',
-    card: '#0f172a',
-    text: '#f8fafc',
-    border: '#1e293b',
-    primary: '#60a5fa',
+    ...DarkTheme.colors,
+    background: '#0a0a0c',
+    card: '#14161f',
+    text: '#ffffff',
+    border: '#1e2230',
+    primary: '#38bdf8',
   },
 };
-
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return <Text style={{ color: focused ? '#60a5fa' : '#94a3b8', fontWeight: '900', fontSize: 11 }}>{label}</Text>;
-}
 
 function MainTabs() {
   return (
     <Tabs.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: { backgroundColor: '#0f172a', borderTopColor: '#1e293b' },
-        tabBarActiveTintColor: '#60a5fa',
-        tabBarInactiveTintColor: '#94a3b8',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
-      }}
+        tabBarStyle: {
+          backgroundColor: '#0f1118',
+          borderTopColor: '#1e2230',
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarActiveTintColor: '#38bdf8',
+        tabBarInactiveTintColor: '#64748b',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIcon: ({ color, size, focused }) => {
+          let iconName: any = 'folder';
+          if (route.name === 'Files') {
+            iconName = focused ? 'folder' : 'folder-outline';
+          } else if (route.name === 'Shared') {
+            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Recents') {
+            iconName = focused ? 'time' : 'time-outline';
+          } else if (route.name === 'Settings') {
+            iconName = focused ? 'settings-sharp' : 'settings-outline';
+          }
+          return <Ionicons name={iconName} size={size || 22} color={color} />;
+        },
+      })}
     >
-      <Tabs.Screen name="Files" component={BrowserScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon label="F" focused={focused} /> }} />
-      <Tabs.Screen name="Search" component={SearchScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon label="S" focused={focused} /> }} />
-      <Tabs.Screen name="Transfers" component={TransfersScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon label="T" focused={focused} /> }} />
-      <Tabs.Screen name="Instances" component={InstancesScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon label="I" focused={focused} /> }} />
-      <Tabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon label="G" focused={focused} /> }} />
+      <Tabs.Screen name="Files" component={FilesScreen} />
+      <Tabs.Screen name="Shared" component={SharedScreen} />
+      <Tabs.Screen name="Recents" component={RecentsScreen} />
+      <Tabs.Screen name="Settings" component={SettingsScreen} />
     </Tabs.Navigator>
+  );
+}
+
+function RootNavigator() {
+  const { isAuthenticated, loading } = useInstances();
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#38bdf8" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <ConnectScreen />;
+  }
+
+  return (
+    <>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#0a0a0c' },
+        }}
+      >
+        <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="Preview" component={PreviewScreen} />
+        <Stack.Screen name="Transfers" component={TransfersScreen} />
+      </Stack.Navigator>
+
+      {/* Global Upload Shared Media Modal when phone shares files into HomiFiles */}
+      <UploadSharedMediaModal />
+    </>
   );
 }
 
@@ -70,16 +130,24 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <InstanceProvider>
           <TransferProvider>
-            <NavigationContainer theme={theme}>
-              <StatusBar style="light" />
-              <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#020617' } }}>
-                <Stack.Screen name="Main" component={MainTabs} />
-                <Stack.Screen name="Preview" component={PreviewScreen} />
-              </Stack.Navigator>
-            </NavigationContainer>
+            <SharedMediaProvider>
+              <NavigationContainer theme={darkTheme}>
+                <StatusBar style="light" />
+                <RootNavigator />
+              </NavigationContainer>
+            </SharedMediaProvider>
           </TransferProvider>
         </InstanceProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0c',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
