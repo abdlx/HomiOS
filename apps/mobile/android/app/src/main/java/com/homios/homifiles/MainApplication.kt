@@ -1,4 +1,4 @@
-package com.homios.files
+package com.homios.homifiles
 
 import android.app.Application
 import android.content.res.Configuration

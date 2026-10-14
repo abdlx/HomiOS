@@ -109,13 +109,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.homios.files'
+    namespace 'com.homios.homifiles'
     defaultConfig {
-        applicationId 'com.homios.files'
+        applicationId 'com.homios.homifiles'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "0.1.0"
+        versionName "1.0.0"
     }
     signingConfigs {
         debug {
