@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { InstalledApp } from '../../hooks/useInstalledApps';
-import type { DomainRoute } from '../../lib/app-store';
-import { useRemoteResource } from '../../hooks/useRemoteResource';
-import { Button, ErrorPanel, Sheet, Skeleton } from '../ui/surfaces';
+import type { InstalledApp } from '../../../hooks/useInstalledApps';
+import type { DomainRoute } from '../types';
+import { useRemoteResource } from '../../../hooks/useRemoteResource';
+import { Button, ErrorPanel, Sheet, Skeleton } from '../../../components/ui/surfaces';
 export default function AppDomains({ app, onClose, onSaved }: { app: InstalledApp; onClose: () => void; onSaved: () => void }) {
   const resource = useRemoteResource<{ routes: DomainRoute[] }>(`/api/apps/${encodeURIComponent(app.id)}/domains`);
   const [routes, setRoutes] = useState<DomainRoute[]>([]);

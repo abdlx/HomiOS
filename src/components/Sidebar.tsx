@@ -139,7 +139,7 @@ export default function Sidebar({
   const rootFolder: SidebarItem = { id: 'root', label: 'Root', icon: 'HardDrive', isFavorite: true, path: '/' };
 
   return (
-    <div className={`relative flex flex-col select-none justify-between bg-white dark:bg-[#1f1f22] md:border border-neutral-200/50 dark:border-white/10 transition-colors duration-300 ${
+    <div className={`files-sidebar relative flex flex-col select-none justify-between bg-white dark:bg-[#1f1f22] md:border border-neutral-200/50 dark:border-white/10 transition-colors duration-300 ${
       isMobileDrawer
         ? 'absolute z-50 left-0 top-0 bottom-0 w-[280px] shadow-2xl p-4 pt-5 animate-in slide-in-from-left duration-300'
         : 'hidden md:flex w-[240px] md:w-[250px] shadow-sm m-3 rounded-[32px] p-4 pt-5'
@@ -346,7 +346,7 @@ export default function Sidebar({
       {/* Footer Branding or Info */}
       <div className="pt-2.5 border-t border-neutral-200/30 dark:border-white/10 flex items-center justify-between px-1.5 text-neutral-400 dark:text-neutral-500 text-[10px]">
         <span className="font-semibold text-neutral-500 dark:text-neutral-400">{serverIp}</span>
-        <span className="opacity-75">Cloud Sync Active</span>
+        <span className="opacity-75">Your files, at home.</span>
       </div>
 
     </div>

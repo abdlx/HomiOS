@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FileItem } from '../types';
+import type { FileItem } from '../../../types';
 export type SelectionModifiers = { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean };
 export function useFileSelection(items: FileItem[], path: string) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

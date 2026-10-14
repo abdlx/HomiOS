@@ -127,7 +127,7 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
     const fillPathD = pathD ? `${pathD} L 100,100 L 0,100 Z` : '';
 
     return (
-      <div className="w-full h-64 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-4 relative border border-neutral-200/50 dark:border-white/10 overflow-hidden">
+      <div className="homios-feature w-full h-64 bg-white dark:bg-[#1f1f22] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-4 relative border border-neutral-200/50 dark:border-white/10 overflow-hidden">
         {/* Y-axis labels */}
         <div className="absolute left-4 top-4 bottom-4 flex flex-col justify-between text-[10px] text-slate-400 dark:text-slate-500 z-10">
           <span>100%</span>

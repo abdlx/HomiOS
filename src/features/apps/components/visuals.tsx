@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronRight, Circle, Loader2, ShieldCheck } from 'lucide-react';
-import { appStoreStateLabel, appStoreStateTone, getInstallJobState } from '../../lib/app-store-state';
-import type { CatalogApp } from '../../lib/app-store';
-import type { InstalledApp } from '../../hooks/useInstalledApps';
-import { useVirtualRows } from '../../hooks/useVirtualRows';
-import { EmptyState } from '../ui/surfaces';
+import { appStoreStateLabel, appStoreStateTone, getInstallJobState } from '../state';
+import type { CatalogApp } from '../types';
+import type { InstalledApp } from '../../../hooks/useInstalledApps';
+import { useVirtualRows } from '../../../hooks/useVirtualRows';
+import { EmptyState } from '../../../components/ui/surfaces';
 
 export function AppIcon({ id, name, large = false }: { id: string; name: string; large?: boolean }) {
   const [failed, setFailed] = useState(false);

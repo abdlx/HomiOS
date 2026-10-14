@@ -95,6 +95,7 @@ export default function QuickLookModal({
   currentIndex = 0,
   onSelectFile,
 }: QuickLookModalProps) {
+  const dialogRef = useFocusTrap(true, onClose);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(file.name);
   const [textContent, setTextContent] = useState(file.content || '');
@@ -226,6 +227,7 @@ export default function QuickLookModal({
 
   return (
     <div
+      ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`} tabIndex={-1}
       className="fixed inset-0 bg-neutral-950 text-slate-100 flex flex-col z-[100] overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >

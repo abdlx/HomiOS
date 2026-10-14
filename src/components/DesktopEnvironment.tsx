@@ -111,7 +111,7 @@ const HeaderMetric = React.memo(function HeaderMetric({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="relative min-h-[116px] px-5 py-4 flex flex-col justify-between text-left group hover:bg-white/[0.06] transition-all cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      className="desktop-metric group"
     >
       <div>
         <div className="flex items-center gap-3.5">
@@ -119,15 +119,15 @@ const HeaderMetric = React.memo(function HeaderMetric({
             <Icon size={19} strokeWidth={1.9} />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-300/80 leading-none mb-1">{label}</p>
-            <p className="text-[18px] font-bold leading-none tracking-tight text-white tabular-nums">{value}</p>
+            <p className="text-[11px] font-medium text-white/55 leading-none mb-2">{label}</p>
+            <p className="text-[24px] font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
           </div>
         </div>
         <div className="mt-3.5 h-[4px] overflow-hidden rounded-full bg-white/20">
           <div className={`h-full rounded-full transition-[width] duration-700 ${colors.bar}`} style={{ width: `${safeProgress}%` }} />
         </div>
       </div>
-      {detail && <div className="mt-2 text-[10px] leading-tight text-slate-300/70 truncate">{detail}</div>}
+      {detail && <div className="mt-3 text-[11px] leading-tight text-white/45 truncate">{detail}</div>}
     </button>
   );
 });
@@ -180,18 +180,18 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
   onDrop: (e: React.DragEvent, appId: string, source: DesktopAppSource) => void;
   reduceMotion: boolean;
 }) {
-  const sizeClass = source === 'dock' ? 'w-[54px] h-[54px]' : 'w-[70px] h-[70px]';
+  const sizeClass = source === 'dock' ? 'w-[48px] h-[48px]' : 'desktop-app-artwork';
 
   return (
     <motion.div
-      className="relative group cursor-pointer flex flex-col items-center text-center select-none"
+      role="button" tabIndex={0} aria-label={`Open ${app.label}`} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick?.(); } }} className="relative group cursor-pointer flex flex-col items-center text-center select-none"
       onClick={onClick}
       onContextMenu={(e) => onContextMenu(e, app.id, source)}
       draggable
       onDragStart={(e) => onDragStart(e as unknown as React.DragEvent, app.id, source)}
       onDragOver={(e) => onDragOver(e as unknown as React.DragEvent, app.id, source)}
       onDrop={(e) => onDrop(e as unknown as React.DragEvent, app.id, source)}
-      whileHover={!reduceMotion && source === 'grid' ? { scale: 1.06, y: -6 } : undefined}
+      whileHover={!reduceMotion && source === 'grid' ? { scale: 1.03, y: -3 } : undefined}
       whileTap={reduceMotion ? undefined : { scale: 0.92, y: 0 }}
       transition={reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 350, damping: 18 }}
     >
@@ -228,24 +228,12 @@ export default function DesktopEnvironment({
   const { isEnabled } = useCapabilities();
   const { apps: installedApps } = useInstalledApps({ includeCoolifyResources: true });
   const [now, setNow] = useState<Date | null>(null);
-  const [gridAppIds, setGridAppIds] = useState<string[]>(['files']);
+  const [gridAppIds, setGridAppIds] = useState<string[]>(['files', 'notes', 'activity', 'settings']);
   const [dockAppIds, setDockAppIds] = useState<string[]>(FACTORY_DOCK_APPS);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [draggingApp, setDraggingApp] = useState<{ id: string; source: DesktopAppSource } | null>(null);
-
-  // Global Ctrl+K / Meta+K listener for Spotlight search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        onOpenSearch();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onOpenSearch]);
 
   useEffect(() => {
     setNow(new Date());
@@ -457,7 +445,7 @@ export default function DesktopEnvironment({
       <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/30" />
 
       {/* Top Menu Bar */}
-      <div className="relative hidden md:flex items-center justify-between h-7 px-4 bg-black/30 backdrop-blur-2xl text-white/90 text-[13px] border-b border-white/5 select-none shrink-0">
+      <div className="desktop-menubar relative hidden md:flex items-center justify-between h-11 px-6 bg-black/15 backdrop-blur-2xl text-white/90 text-[12px] border-b border-white/5 select-none shrink-0">
         <div className="flex items-center space-x-5">
           <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition" onClick={onHomiOS} title="HomiOS">
             <img src="/icon/homios-icon.svg" alt="HomiOS" className="w-4 h-4 object-contain drop-shadow-sm" />
@@ -505,7 +493,7 @@ export default function DesktopEnvironment({
         {/* Header with Greeting & Actionable Telemetry Cards */}
         <header className="w-full max-w-[980px] mb-8 md:mb-9">
           <div className="text-center">
-            <h1 className="text-[28px] md:text-[34px] leading-tight font-bold tracking-[-0.03em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
+            <h1 className="text-[28px] md:text-[36px] leading-tight font-semibold tracking-[-0.03em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
               {greeting}, {username || 'User'}
             </h1>
             <p className="mt-1 text-xs md:text-[14px] font-medium tracking-wide text-slate-300/80 drop-shadow">
@@ -514,16 +502,14 @@ export default function DesktopEnvironment({
           </div>
 
           {/* Actionable Telemetry Grid */}
-          <div className="relative isolate mt-6 overflow-hidden rounded-[28px] shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
-            <div className="pointer-events-none absolute inset-0 -z-10">
-              <HeaderMetricsBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
+          <div className="relative isolate mt-7">
+            
+            <div className="desktop-metrics-grid grid grid-cols-2 gap-4 lg:grid-cols-4">
               {/* CPU -> Activity */}
               <HeaderMetric
                 icon={Activity}
                 label="CPU"
-                value={`${cpuPercent.toFixed(0)}%`}
+                value={stats ? `${cpuPercent.toFixed(0)}%` : '—'}
                 progress={cpuPercent}
                 tone="blue"
                 onClick={onOpenActivity}
@@ -535,7 +521,7 @@ export default function DesktopEnvironment({
               <HeaderMetric
                 icon={Cpu}
                 label="Memory"
-                value={`${toGiB(stats?.memory?.used)} / ${toGiB(stats?.memory?.total)} GB`}
+                value={stats ? `${toGiB(stats.memory.used)} / ${toGiB(stats.memory.total)} GB` : '—'}
                 progress={memoryPercent}
                 tone="violet"
                 onClick={onOpenActivity}
@@ -547,7 +533,7 @@ export default function DesktopEnvironment({
               <HeaderMetric
                 icon={HardDrive}
                 label="Storage"
-                value={`${toGiB(stats?.disk?.used)} / ${toGiB(stats?.disk?.total)} GB`}
+                value={stats ? `${toGiB(stats.disk.used)} / ${toGiB(stats.disk.total)} GB` : '—'}
                 progress={storagePercent}
                 tone="emerald"
                 onClick={onOpenSettings}
@@ -559,7 +545,7 @@ export default function DesktopEnvironment({
               <HeaderMetric
                 icon={Zap}
                 label="System Load"
-                value={load.toFixed(2)}
+                value={stats ? load.toFixed(2) : '—'}
                 progress={loadPercent}
                 tone="rose"
                 onClick={onOpenActivity}
@@ -578,14 +564,14 @@ export default function DesktopEnvironment({
 
         {/* Desktop App Launcher Grid */}
         <div
-          className="flex flex-wrap justify-center gap-x-8 gap-y-7 md:gap-x-10 md:gap-y-8 w-full max-w-[760px] mb-8"
+          className="desktop-app-grid flex flex-wrap justify-center w-full max-w-[880px] mb-8"
           onDragOver={handleAppDragOver}
           onDrop={(e) => handleAppDrop(e, undefined, 'grid')}
         >
           {gridAppIds.map((id) => {
             const app = availableApps[id];
             return app ? (
-              <div key={app.id} className="flex flex-col items-center w-[82px]">
+              <div key={app.id} className="desktop-app-cell flex flex-col items-center">
                 <DashboardAppIcon
                   app={app}
                   source="grid"
@@ -599,18 +585,18 @@ export default function DesktopEnvironment({
               </div>
             ) : null;
           })}
-          <div className="flex flex-col items-center w-[82px]">
+          <div className="desktop-app-cell flex flex-col items-center">
             <motion.button
               type="button"
               onClick={onOpenAppStore}
-              whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.06, y: -6 }}
-              whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.92 }}
+              whileHover={performanceSettings.reduceMotion ? undefined : { scale: 1.03, y: -3 }}
+              whileTap={performanceSettings.reduceMotion ? undefined : { scale: 0.97 }}
               className="group flex flex-col items-center"
               aria-label="Open App Store"
             >
               <AppIcon
                 id="app-store"
-                className="mb-2 h-[70px] w-[70px] drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]"
+                className="desktop-app-artwork mb-3 drop-shadow-[0_8px_18px_rgba(0,0,0,0.25)]"
               />
               <span className="text-[13px] font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">App Store</span>
             </motion.button>

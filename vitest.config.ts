@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    projects: [{ test: { name: 'server',
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
@@ -15,5 +16,7 @@ export default defineConfig({
       // bcrypt cost 12 is ~250ms per hash — fine in prod, far too slow for a suite.
       BCRYPT_COST: '4',
     },
+    } }, { oxc: { jsx: { runtime: 'automatic' } }, test: { name: 'ui', environment: 'jsdom', include: ['tests/**/*.test.tsx'], setupFiles: ['tests/ui/setup.ts'], testTimeout: 10000 } }],
+    fileParallelism: false,
   },
 });

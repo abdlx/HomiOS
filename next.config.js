@@ -48,6 +48,7 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.HOMIOS_NEXT_DIST_DIR || '.next',
   async redirects() {
     return [
       // Preserve a forgiving alias for a commonly mistyped dashboard URL.

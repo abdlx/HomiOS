@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, ExternalLink, FileText, Globe2, HardDrive, Play, RotateCw, Server, ShieldCheck, Square, Trash2 } from 'lucide-react';
-import type { AppActionState, CatalogApp, StorageMount } from '../../lib/app-store';
-import type { InstalledApp } from '../../hooks/useInstalledApps';
-import { getInstallJobState, isActiveInstallJob } from '../../lib/app-store-state';
-import { Button, ErrorPanel } from '../ui/surfaces';
+import type { AppActionState, CatalogApp, StorageMount } from '../types';
+import type { InstalledApp } from '../../../hooks/useInstalledApps';
+import { getInstallJobState, isActiveInstallJob } from '../state';
+import { Button, ErrorPanel } from '../../../components/ui/surfaces';
 import { AppIcon, StatusBadge } from './visuals';
 import StorageMountSelector from './StorageMountSelector';
 

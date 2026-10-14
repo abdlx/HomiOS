@@ -52,6 +52,11 @@ export function resolveTransferPath(input: string, rootPath = BASE_PATH): string
   const resolved = path.resolve(rootPath, parts.join('/'));
   const relative = path.relative(path.resolve(rootPath), resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid path');
+  if (fs.existsSync(rootPath)) {
+    let ancestor = resolved;
+    while (!fs.existsSync(ancestor) && path.dirname(ancestor) !== ancestor) ancestor = path.dirname(ancestor);
+    if (!isInside(fs.realpathSync(rootPath), fs.realpathSync(ancestor))) throw new Error('Invalid path');
+  }
   return resolved;
 }
 
@@ -192,8 +197,8 @@ export function cleanupTransferJournal(options: Pick<TransferOptions, 'destinati
   const { journalPath } = transferPaths(options);
   fs.rmSync(journalPath, { force: true }); fs.rmSync(`${journalPath}.tmp`, { force: true });
 }
-function uniqueDestination(destination: string) {
-  const extension = path.extname(destination), stem = destination.slice(0, destination.length - extension.length);
+function uniqueDestination(destination: string, directory = false) {
+  const extension = directory ? '' : path.extname(destination), stem = destination.slice(0, destination.length - extension.length);
   let candidate = destination, index = 2;
   while (exists(candidate)) candidate = `${stem} (${index++})${extension}`;
   return candidate;
@@ -249,7 +254,7 @@ export async function runFileTransfer(options: TransferOptions): Promise<Transfe
     journal.phase = 'ready'; writeJournal(paths.journalPath, journal);
     await withCommitLock(realParent, async () => {
       if (shouldCancel()) throw new TransferCancelledError();
-      if (collision === 'keep-both') journal.destination = uniqueDestination(paths.destination);
+      if (collision === 'keep-both') journal.destination = uniqueDestination(paths.destination, sourceStat.isDirectory());
       const destinationExists = exists(journal.destination);
       if (destinationExists && collision === 'skip') { result.skipped = true; return; }
       if (destinationExists && collision !== 'replace') throw new TransferConflictError();

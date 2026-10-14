@@ -37,3 +37,9 @@ public/sw.js.map
 public/workbox-*.js
 public/swe-worker-*.js
 public/fallback-*.js
+
+# Local browser-test output
+.cache/
+.next-e2e/
+test-results/
+playwright-report/

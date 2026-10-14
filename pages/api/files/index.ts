@@ -262,9 +262,9 @@ export default withAuth(async function handler(req: any, res: any, session: any)
                 return {
                   name: f.name,
                   isDir,
-                  size,
+                  size: req.query.includeCounts === 'false' ? null : size,
                   itemCount,
-                  modified,
+                  modified: req.query.includeCounts === 'false' ? null : modified,
                   path: path.relative(BASE_PATH, fullPath_)
                 };
               }

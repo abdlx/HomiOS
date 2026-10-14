@@ -1,4 +1,4 @@
-import type { FileItem } from '../types';
+import type { FileItem } from '../../../types';
 
 export type FileClipboard = { action: 'copy' | 'cut'; items: readonly FileItem[] };
 export type CollisionPolicy = 'error' | 'replace' | 'keep-both' | 'skip';

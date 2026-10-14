@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUp, ChevronLeft, ChevronRight, Columns, FolderPlus, Image, LayoutGrid, LayoutList, Plus, RefreshCw, Search, Upload, CheckSquare, Home } from 'lucide-react';
-import type { ViewMode } from '../types';
+import type { ViewMode } from '../../../types';
 import { partsPath, pathParts } from '../lib/files';
-import { promptDialog } from './SystemUI';
-import { Button, IconButton } from './ui/surfaces';
+import { promptDialog } from '../../../components/SystemUI';
+import { Button, IconButton } from '../../../components/ui/surfaces';
 
 interface ToolbarProps {
   currentPath: string[]; onNavigateBack: () => void; onNavigateForward: () => void;

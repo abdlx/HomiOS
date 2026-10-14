@@ -9,6 +9,7 @@ import GlassSurface from '@/components/GlassSurface';
 import { SearchResult } from '../types';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
+import { useFocusTrap } from './ui/surfaces';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -27,6 +28,7 @@ interface CommandEntry {
 }
 
 export default function CommandPalette({ open, onClose, onOpenView }: CommandPaletteProps) {
+  const dialogRef = useFocusTrap(open, onClose);
   const [query, setQuery] = useState('');
   const [fileResults, setFileResults] = useState<SearchResult[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -170,6 +172,7 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialogRef} tabIndex={-1}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -181,10 +184,10 @@ export default function CommandPalette({ open, onClose, onOpenView }: CommandPal
           aria-label="Search HomiOS"
         >
           <motion.div
-            initial={{ opacity: 0, y: 120, scale: 0.35 }}
+            initial={{ opacity: 0, y: 8, scale: 0.99 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 80, scale: 0.55 }}
-            transition={{ type: 'spring', stiffness: 250, damping: 27, mass: 0.72 }}
+            exit={{ opacity: 0, y: 6, scale: 0.99 }}
+            transition={{ duration: 0.21, ease: 'easeOut' }}
             className="w-[min(680px,calc(100vw-32px))]"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleKeyDown}

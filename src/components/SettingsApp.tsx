@@ -11,9 +11,16 @@ import {
   Sun, Moon, Image as ImageIcon, Folder, Share2, Cloud
 } from 'lucide-react';
 import SambaPanel from './SambaPanel';
+import SettingsOverview from '../features/settings/SettingsOverview';
+import AppearanceControls from '../features/settings/AppearanceControls';
+import { useShellRoute } from '../hooks/useShellNavigation';
+import { useRemoteResource } from '../hooks/useRemoteResource';
+import { Button, ErrorPanel, IconButton } from './ui/surfaces';
+import { ArrowLeft, X } from 'lucide-react';
 
 interface SettingsAppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
 const WALLPAPERS = [
@@ -32,16 +39,19 @@ const WALLPAPERS = [
 ];
 
 const PHOTOS_SOURCES_KEY = 'homios_photos_sources';
-const SETTINGS_TAB_IDS = new Set(['general', 'appearance', 'storage', 'samba', 'users', 'members', 'tokens', 'notifications', '2fa', 'network', 'security', 'about']);
+const SETTINGS_TAB_IDS = new Set(['overview', 'general', 'appearance', 'storage', 'samba', 'users', 'members', 'tokens', 'notifications', '2fa', 'network', 'security', 'about']);
 
-export default function SettingsApp({ onClose }: SettingsAppProps) {
-  const [activeTab, setActiveTab] = useState('general');
+export default function SettingsApp({ onClose, isActive = true }: SettingsAppProps) {
+  const { route, navigate } = useShellRoute();
+  const activeTab = route.settingsTab && SETTINGS_TAB_IDS.has(route.settingsTab) ? route.settingsTab : 'overview';
+  const setActiveTab = (tab: string) => navigate({ view: 'settings', settingsTab: tab });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { wallpaper, changeWallpaper } = useWallpaper();
   const { username, changeUsername } = useUsername();
   const { theme, resolvedTheme, changeTheme } = useTheme();
   const { settings: performanceSettings, updateSettings: updatePerformanceSettings } = usePerformanceSettings();
-  const [sysStats, setSysStats] = useState<any>(null);
+  const statsResource = useRemoteResource<any>('/api/system/stats', isActive);
+  const sysStats = statsResource.data;
   const [users, setUsers] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
   const [shortcuts, setShortcuts] = useState<any[]>([]);
@@ -103,17 +113,17 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   }, []);
 
   useEffect(() => {
-    const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    if (requestedTab && SETTINGS_TAB_IDS.has(requestedTab)) setActiveTab(requestedTab);
-    fetch('/api/system/stats').then(res => res.json()).then(setSysStats).catch(console.error);
-    fetch('/api/users').then(res => res.json()).then(setUsers).catch(console.error);
-    fetch('/api/drives/available').then(res => res.json()).then(data => setDrives(Array.isArray(data) ? data : [])).catch(console.error);
-    fetch('/api/system/shortcuts').then(res => res.json()).then(data => setShortcuts(Array.isArray(data) ? data : [])).catch(console.error);
-    loadTeam();
-    loadTokens();
-    loadTwoFA();
-    loadCloudSettings();
-  }, [loadCloudSettings, loadTeam, loadTokens, loadTwoFA]);
+    if (!isActive) return;
+    const controller = new AbortController();
+    const get = (url: string) => fetch(url, { signal: controller.signal }).then(async response => { if (!response.ok) throw new Error('Settings could not be loaded'); return response.json(); });
+    if (activeTab === 'users') void get('/api/users').then(setUsers).catch(() => {});
+    if (['overview', 'storage'].includes(activeTab)) void get('/api/drives/available').then(data => setDrives(Array.isArray(data) ? data : [])).catch(() => {});
+    if (activeTab === 'storage') { void get('/api/system/shortcuts').then(data => setShortcuts(Array.isArray(data) ? data : [])).catch(() => {}); void loadCloudSettings(); }
+    if (['members', 'notifications'].includes(activeTab)) void loadTeam().catch(() => {});
+    if (activeTab === 'tokens') void loadTokens().catch(() => {});
+    if (['overview', '2fa', 'security'].includes(activeTab)) void loadTwoFA().catch(() => {});
+    return () => controller.abort();
+  }, [activeTab, isActive, loadCloudSettings, loadTeam, loadTokens, loadTwoFA]);
 
   const saveCloudSettings = async () => {
     setCloudSaving(true);
@@ -185,6 +195,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   };
 
   const tabs = [
+    { id: 'overview', label: 'Overview', icon: Settings },
     { id: 'general', label: 'General', icon: Settings },
     { id: 'appearance', label: 'Appearance', icon: Monitor },
     { id: 'storage', label: 'Storage', icon: HardDrive },
@@ -289,7 +300,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
   ];
 
   return (
-    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 relative transition-colors duration-300" onContextMenu={(e) => e.preventDefault()}>
+    <div className="homios-surface settings-app h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 relative transition-colors duration-300" onContextMenu={(e) => e.preventDefault()}>
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
@@ -297,7 +308,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
       )}
 
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full md:h-auto transition-transform duration-300 ease-in-out flex flex-col bg-white dark:bg-[#1f1f22] border-r border-neutral-200/50 dark:border-white/10 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
+      {activeTab !== 'overview' && <div className={`settings-sidebar ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 absolute md:static z-50 h-full md:h-auto transition-transform duration-300 ease-in-out flex flex-col bg-white dark:bg-[#1f1f22] border-r border-neutral-200/50 dark:border-white/10 w-[240px] md:w-[250px] shadow-2xl md:shadow-sm md:m-3 md:rounded-[32px] p-4 pt-5 flex-shrink-0`}>
         <div className="flex items-center space-x-2 mb-8 px-1">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:brightness-90 transition-all" title="Close" onClick={() => { if (onClose) onClose(); else window.location.href = '/dashboard'; }} />
           <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dfa123] cursor-pointer hover:brightness-90 transition-all" title="Minimize" />
@@ -321,20 +332,21 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-[#161618] overflow-hidden relative">
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-gray-50 dark:from-[#161618] to-transparent pointer-events-none z-10" />
+      <div className="settings-body flex-1 flex flex-col bg-gray-50 dark:bg-[#161618] overflow-hidden relative">
 
-        <div className="flex-1 overflow-y-auto pt-6 md:pt-10 px-6 md:px-12 pb-24 z-0">
-          <div className="flex items-center gap-3 mb-8">
-            <button className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition" onClick={() => setIsSidebarOpen(true)}>
-              <Menu size={24} />
-            </button>
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-800 dark:text-white m-0">{tabs.find(t => t.id === activeTab)?.label}</h1>
+
+        <div className="settings-content flex-1 overflow-y-auto px-4 pb-12 pt-5 md:px-8 md:pt-7">
+          <div className="mb-7 flex items-center gap-3">
+            {activeTab !== 'overview' && <><IconButton label="Browse settings" className="md:!hidden" onClick={() => setIsSidebarOpen(true)}><Menu size={20}/></IconButton><Button variant="ghost" onClick={() => setActiveTab('overview')}><ArrowLeft size={16}/><span className="hidden sm:inline">Overview</span></Button></>}
+            <div className="min-w-0 flex-1"><h1 className="text-2xl font-semibold tracking-tight">{activeTab === 'overview' ? 'Settings' : tabs.find(tab => tab.id === activeTab)?.label}</h1><p className="mt-2 text-xs text-neutral-500">{activeTab === 'overview' ? 'Everything you need to make your server feel like home.' : 'Your server. Your preferences.'}</p></div>
+            <IconButton label="Close Settings" onClick={onClose}><X size={18}/></IconButton>
           </div>
-          
+          {statsResource.error && <div className="mb-5"><ErrorPanel message={statsResource.error} onRetry={() => void statsResource.refresh()}/></div>}
+          {activeTab === 'overview' && <SettingsOverview username={username} wallpaper={wallpaper} stats={sysStats} drives={drives} twoFA={twoFA} onNavigate={setActiveTab}/>}
+
           {/* GENERAL TAB */}
           {activeTab === 'general' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -373,8 +385,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
                     <div className="col-span-2">
                       <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:[color-scheme:dark]" defaultValue="en-us">
                         <option value="en-us">English (US)</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
+                        
+                        
                       </select>
                     </div>
                   </div>
@@ -396,6 +408,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps) {
           {activeTab === 'appearance' && (
             <div className="flex flex-col lg:flex-row items-start gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex-1 space-y-6 w-full">
+                <AppearanceControls/>
                 {/* Theme Selector */}
                 <div className="bg-white dark:bg-[#1f1f22] rounded-3xl p-6 shadow-sm border border-neutral-200/50 dark:border-white/10">
                   <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">Theme</h3>

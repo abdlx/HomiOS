@@ -1,5 +1,5 @@
 import { HardDrive } from 'lucide-react';
-import type { StorageMount } from '../../lib/app-store';
+import type { StorageMount } from '../types';
 export default function StorageMountSelector({mounts,selectedIds,accessAllMounts,disabled,onChange,onAccessAllChange}:{mounts:StorageMount[];selectedIds:string[];accessAllMounts:boolean;disabled:boolean;onChange:(ids:string[])=>void;onAccessAllChange:(enabled:boolean)=>void}){
   const selected = new Set(selectedIds);
   const toggle = (id:string) => onChange(selected.has(id) ? selectedIds.filter((value)=>value!==id) : [...selectedIds,id]);

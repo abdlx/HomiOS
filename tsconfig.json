@@ -37,6 +37,7 @@
     "tests/e2e",
     "node_modules",
     "apps/mobile",
-    "internal/cloud-storage-engine"
+    "internal/cloud-storage-engine",
+    ".next-e2e"
   ]
 }

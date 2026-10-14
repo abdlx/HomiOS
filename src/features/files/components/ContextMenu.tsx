@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2, Code2, FileArchive } from 'lucide-react';
-import { FileItem } from '../types';
+import { FileItem } from '../../../types';
 import { FileClipboard } from '../lib/files';
 
 interface ContextMenuProps {

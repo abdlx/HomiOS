@@ -1,14 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { normalizePath } from '../lib/files';
+import { normalizePath } from '../features/files/lib/files';
 
-export type ShellRoute = { view: string; filePath: string; storeCategory: string; storeQuery: string; storeApp: string | null };
-const defaults: ShellRoute = { view: 'desktop', filePath: '/', storeCategory: 'Discover', storeQuery: '', storeApp: null };
+export type ShellRoute = { view: string; filePath: string; storeCategory: string; storeQuery: string; storeApp: string | null; settingsTab?: string };
+const defaults: ShellRoute = { view: 'desktop', filePath: '/', storeCategory: 'Discover', storeQuery: '', storeApp: null, settingsTab: 'overview' };
 const views = new Set(['desktop', 'files', 'settings', 'terminal', 'activity', 'notes', 'vscode', 'codex', 'coolify', 'immich', 'app-store']);
 export function parseShellRoute(url: URL, fallback = 'desktop'): ShellRoute {
   const pathnameView = url.pathname.split('/')[1];
   const view = pathnameView === 'dashboard' ? url.searchParams.get('view') || 'desktop' : pathnameView || fallback;
   return { view: views.has(view) ? view : fallback, filePath: normalizePath(url.searchParams.get('path') || '/'),
-    storeCategory: url.searchParams.get('category') || 'Discover', storeQuery: url.searchParams.get('q') || '', storeApp: url.searchParams.get('app') };
+    storeCategory: url.searchParams.get('category') || 'Discover', storeQuery: url.searchParams.get('q') || '', storeApp: url.searchParams.get('app'), settingsTab: url.searchParams.get('tab') || 'overview' };
 }
 export function shellRouteUrl(route: ShellRoute) {
   const query = new URLSearchParams();
@@ -18,6 +18,7 @@ export function shellRouteUrl(route: ShellRoute) {
     if (route.storeQuery) query.set('q', route.storeQuery);
     if (route.storeApp) query.set('app', route.storeApp);
   }
+  if (route.view === 'settings' && route.settingsTab && route.settingsTab !== 'overview') query.set('tab', route.settingsTab);
   if (route.view === 'files' && route.filePath !== '/') query.set('path', route.filePath);
   return `${route.view === 'desktop' || route.view === 'app-store' ? '/dashboard' : '/' + route.view}${query.size ? '?' + query : ''}`;
 }

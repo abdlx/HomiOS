@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, Pause, Play, RefreshCw, Search } from 'lucide-react';
-import type { InstalledApp } from '../../hooks/useInstalledApps';
-import { useRemoteResource } from '../../hooks/useRemoteResource';
-import { useVirtualRows } from '../../hooks/useVirtualRows';
-import { Button, EmptyState, ErrorPanel, IconButton, Sheet, Skeleton } from '../ui/surfaces';
-import { toast } from '../SystemUI';
+import type { InstalledApp } from '../../../hooks/useInstalledApps';
+import { useRemoteResource } from '../../../hooks/useRemoteResource';
+import { useVirtualRows } from '../../../hooks/useVirtualRows';
+import { Button, EmptyState, ErrorPanel, IconButton, Sheet, Skeleton } from '../../../components/ui/surfaces';
+import { toast } from '../../../components/SystemUI';
 
 export default function AppLogs({ app, onClose, isActive = true }: { app: InstalledApp; onClose: () => void; isActive?: boolean }) {
   const [paused, setPaused] = useState(false);

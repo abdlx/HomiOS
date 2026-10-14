@@ -2,7 +2,7 @@ import React, { useState, useEffect, useReducer } from 'react';
 import dynamic from 'next/dynamic';
 import DesktopEnvironment from './DesktopEnvironment';
 import MobileLauncher from './MobileLauncher';
-import App from '../App';
+import App from '../features/files/FilesApp';
 import SettingsApp from './SettingsApp';
 import ActivityApp from './ActivityApp';
 
@@ -11,11 +11,12 @@ import VSCodeApp from './VSCodeApp';
 import CodexApp from './CodexApp';
 import CoolifyApp from './CoolifyApp';
 import ImmichApp from './ImmichApp';
-import AppStoreApp from './AppStoreApp';
+import AppStoreApp from '../features/apps/AppStoreApp';
 import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAppearanceSettings } from '../hooks/useAppearanceSettings';
 import { ShellNavigationContext, useShellNavigation } from '../hooks/useShellNavigation';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -92,6 +93,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { settings: performanceSettings } = usePerformanceSettings();
   const { wallpaper } = useWallpaper();
+  useAppearanceSettings();
   const hasActiveTransfers = transfers.some(task => task.status === 'uploading' || task.status === 'pending' || task.status === 'paused');
   const [isMobile, setIsMobile] = useState(false);
 
@@ -117,7 +119,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
   const frameClass = (appId: string, zClass: string) => {
     const fullscreen = windowState.modes[appId] === 'fullscreen';
-    return `absolute ${zClass} ${fullscreen ? 'inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:top-7 md:bottom-[104px] md:left-0 md:right-0 md:origin-bottom'} shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
+    return `absolute homios-window ${zClass} ${fullscreen ? 'homios-fullscreen inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:origin-bottom'} shadow-[0_24px_80px_-24px_rgba(0,0,0,0.5)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
   };
 
   const handleChromeCapture = (appId: string, event: React.MouseEvent) => {
@@ -155,12 +157,12 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       y: 0,
       transition: performanceSettings.reduceMotion
         ? { duration: 0.12, ease: "easeOut" as const }
-        : { type: "spring" as const, stiffness: 350, damping: 25, mass: 0.5 },
+        : { duration: 0.21, ease: "easeOut" as const },
     },
     hidden: {
       opacity: 0,
-      scale: performanceSettings.reduceMotion ? 1 : 0.92,
-      y: performanceSettings.reduceMotion ? 0 : 32,
+      scale: performanceSettings.reduceMotion ? 1 : 0.985,
+      y: performanceSettings.reduceMotion ? 0 : 8,
       transition: { duration: performanceSettings.reduceMotion ? 0.1 : 0.2, ease: "easeOut" as const },
     },
   };
@@ -279,7 +281,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         onClickCapture={(event) => handleChromeCapture('settings', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {windowState.openedViews.includes('settings') && <SettingsApp onClose={() => dispatchWindow({ type: 'close', view: 'settings' })} />}
+          {windowState.openedViews.includes('settings') && <SettingsApp isActive={view === 'settings'} onClose={() => dispatchWindow({ type: 'close', view: 'settings' })} />}
         </div>
       </motion.div>
 

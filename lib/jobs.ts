@@ -379,7 +379,9 @@ async function executeJob(job: any) {
     }
 
     setJobStatus(job.id, 'completed', { progress: 100, result, error: null });
-    if (job.type === 'file.copy' || job.type === 'file.move') cleanupTransferJournal({ ...payload, jobId: job.id });
+    if (job.type === 'file.copy' || job.type === 'file.move') {
+      try { cleanupTransferJournal({ ...payload, jobId: job.id }); } catch (error) { console.error('[jobs] completed transfer journal cleanup deferred', job.id, error); }
+    }
     addEvent(job.id, 'completed', `${job.name} completed`, result);
     createNotification({
       teamId: job.teamId,
@@ -457,6 +459,7 @@ function recoverInterruptedJobs() {
 
   const recoverableIds: string[] = [];
   const failedIds: string[] = [];
+  const recoveredTransfers = new Set<string>();
 
   for (const job of interrupted) {
     if (job.type === 'file.copy' || job.type === 'file.move') {
@@ -467,6 +470,7 @@ function recoverInterruptedJobs() {
           getDb().prepare("UPDATE jobs SET status='completed', progress=100, result=?, finished_at=CURRENT_TIMESTAMP, heartbeat_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(JSON.stringify(result), job.id);
           cleanupTransferJournal({ ...payload, jobId: job.id });
           addEvent(job.id, 'completed', 'Transfer commit recovered after restart');
+          recoveredTransfers.add(job.id);
           continue;
         }
       } catch (error) { console.error('[jobs] preserving interrupted transfer for recovery', job.id, error); }
@@ -510,6 +514,7 @@ function recoverInterruptedJobs() {
 
   for (const job of interrupted) {
     const isRecoverable = AUTO_RECOVERABLE_JOB_TYPES.has(job.type);
+    if (recoveredTransfers.has(job.id)) continue;
     addEvent(
       job.id,
       isRecoverable ? 'recovered' : 'failed',

@@ -280,6 +280,7 @@ body {
 
 /* Shared HomiOS interaction surfaces. */
 :root { --ui-control: 140ms; --ui-navigation: 210ms; --ui-ease: cubic-bezier(.2,.8,.2,1); }
+@layer components {
 .ui-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:36px; padding:8px 13px; border-radius:12px; font-size:12px; font-weight:600; line-height:1.35; transition:background var(--ui-control),color var(--ui-control),opacity var(--ui-control),transform var(--ui-control); cursor:pointer; }
 .ui-button:active:not(:disabled) { transform:scale(.97); }
 .ui-button:disabled { opacity:.4; cursor:not-allowed; }
@@ -289,6 +290,7 @@ body {
 .ui-button-secondary:hover:not(:disabled),.ui-button-ghost:hover:not(:disabled) { background:rgb(128 128 128 / .15); }
 .ui-button-danger { background:rgb(239 68 68 / .1); color:#ef4444; }
 .ui-icon-button { width:36px; padding:8px; flex-shrink:0; }
+}
 :where(button,a,input,select,textarea,[tabindex]):focus-visible { outline:2px solid #3b82f6; outline-offset:3px; }
 .ui-overlay { position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center; padding:24px; background:rgb(0 0 0 / .45); backdrop-filter:blur(4px); }
 .ui-sheet { display:flex; flex-direction:column; width:100%; max-width:520px; max-height:min(780px,calc(100dvh - 48px)); overflow:hidden; border:1px solid rgb(128 128 128 / .18); border-radius:24px; background:#fafafa; color:#334155; box-shadow:0 32px 90px rgb(0 0 0 / .3); animation:ui-reveal var(--ui-navigation) var(--ui-ease); }
@@ -322,3 +324,64 @@ body {
 html[data-reduce-motion=true] *, html[data-reduce-motion=true] *::before, html[data-reduce-motion=true] *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
 html[data-glass=false] .ui-sheet,html[data-glass=false] .ui-overlay { backdrop-filter:none; }
 @media(prefers-reduced-motion:reduce) { .ui-enter,.ui-sheet,.ui-skeleton { animation:none; } }
+
+/* HomiOS material, scale, and rhythm. Shared by every system surface. */
+:root { --ui-accent:#3b82f6; --window-surface:rgba(249,250,252,.95); --card-surface:rgba(255,255,255,.78); --card-border:rgba(30,41,59,.08); --surface-blur:32px; --window-radius:28px; --desktop-icon:64px; --desktop-gap:36px; --control-gap:16px; }
+.dark { --window-surface:rgba(23,25,30,.91); --card-surface:rgba(255,255,255,.035); --card-border:rgba(255,255,255,.075); }
+html[data-accent] { --color-blue-500:var(--ui-accent); --color-blue-600:color-mix(in srgb,var(--ui-accent),black 12%); --color-blue-400:color-mix(in srgb,var(--ui-accent),white 18%); --color-blue-300:color-mix(in srgb,var(--ui-accent),white 35%); }
+html[data-density=compact] { --desktop-gap:24px; --control-gap:12px; }
+html[data-icon-size=large] { --desktop-icon:80px; }
+html[data-glass=false] { --surface-blur:0px; --window-surface:#f8f9fb; --card-surface:#fff; }
+html.dark[data-glass=false] { --window-surface:#191b20; --card-surface:#202228; }
+.ui-button-primary { background:var(--ui-accent); }
+.ui-button-primary:hover:not(:disabled) { background:color-mix(in srgb,var(--ui-accent),white 12%); }
+.homios-window > div { border-radius:var(--window-radius) !important; border:1px solid var(--card-border); background:var(--window-surface) !important; backdrop-filter:blur(var(--surface-blur)) saturate(1.15); box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 24px 64px -20px rgba(0,0,0,.35); }
+.homios-surface,.homios-surface > main,.settings-body { background:transparent !important; }
+.homios-surface { -webkit-font-smoothing:antialiased; }
+.files-sidebar,.settings-sidebar { background:var(--card-surface) !important; border-color:var(--card-border) !important; box-shadow:none !important; }
+.files-sidebar button,.settings-sidebar button { min-height:36px; border-radius:10px; }
+.settings-content { width:100%; max-width:1240px; margin-inline:auto; }
+.settings-card,.settings-app [class*='rounded-3xl'][class*='border'],.homios-feature [class*='rounded-3xl'][class*='border'] { border-radius:20px; border-color:var(--card-border) !important; background:var(--card-surface) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.025) !important; padding:24px; }
+.settings-app input:not([type=checkbox]),.settings-app select { min-height:40px; }
+.settings-app input[type=checkbox] { accent-color:var(--ui-accent); }
+.settings-app h3 { letter-spacing:-.015em; }
+.settings-app .animate-in { animation:ui-reveal var(--ui-navigation) var(--ui-ease); }
+.settings-overview { display:grid; grid-template-columns:1fr; gap:32px; }
+.settings-overview-sidebar { align-self:start; padding:20px; border-radius:24px; border:1px solid var(--card-border); background:var(--card-surface); }
+.settings-device-preview { display:flex; flex-direction:column; align-items:center; justify-content:space-between; height:168px; padding:14px; border-radius:16px; background-size:cover; background-position:center; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); }
+.settings-account { display:flex; align-items:center; gap:12px; margin-block:22px; }
+.settings-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.settings-metric { min-width:0; text-align:left; border:1px solid var(--card-border); background:var(--card-surface); border-radius:20px; padding:20px; transition:background var(--ui-control),transform var(--ui-control); }
+.settings-metric:hover { background:color-mix(in srgb,var(--card-surface),var(--ui-accent) 4%); transform:translateY(-2px); }
+.settings-row-group { overflow:hidden; border-radius:20px; border:1px solid var(--card-border); background:var(--card-surface); }
+.settings-row { display:flex; align-items:center; width:100%; gap:14px; min-height:76px; padding:14px 18px; transition:background var(--ui-control); }
+.settings-row + .settings-row { border-top:1px solid var(--card-border); }
+.settings-row:hover { background:color-mix(in srgb,var(--card-surface),var(--ui-accent) 4%); }
+.settings-row-icon { display:flex; flex-shrink:0; align-items:center; justify-content:center; width:36px; height:36px; border-radius:11px; background:color-mix(in srgb,var(--ui-accent),transparent 92%); color:var(--ui-accent); }
+.desktop-app-artwork { width:var(--desktop-icon); height:var(--desktop-icon); }
+.desktop-app-cell { width:calc(var(--desktop-icon) + 32px); }
+.desktop-app-grid { column-gap:var(--desktop-gap); row-gap:28px; padding-block:16px; }
+.desktop-content { padding-top:32px; }
+.desktop-metric { position:relative; display:flex; flex-direction:column; justify-content:space-between; min-width:0; min-height:144px; padding:20px; text-align:left; border-radius:22px; border:1px solid rgba(255,255,255,.13); background:rgba(255,255,255,.055); backdrop-filter:blur(24px) saturate(1.15); box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 32px rgba(0,0,0,.08); transition:background var(--ui-control),transform var(--ui-control); }
+.desktop-metric:hover { background:rgba(255,255,255,.09); transform:translateY(-2px); }
+html[data-glass=false] .desktop-metric { backdrop-filter:none; background:#262931; }
+@media(min-width:768px) {
+ .homios-window:not(.homios-fullscreen) { top:60px; bottom:92px; left:max(24px,calc((100vw - 1320px)/2)); right:max(24px,calc((100vw - 1320px)/2)); }
+ .homios-window.homios-fullscreen > div { border-radius:0 !important; }
+ .files-sidebar { width:224px !important; border-radius:20px !important; margin:12px !important; padding:14px !important; }
+ .settings-sidebar { width:224px !important; border-radius:20px !important; }
+}
+@media(min-width:1100px) { .settings-overview { grid-template-columns:260px minmax(0,1fr); gap:32px; } }
+@media(max-width:767px) {
+ .homios-window > div { border-radius:0 !important; border:0; }
+ .settings-metric { padding:14px 10px; border-radius:16px; }
+ .settings-metric p.text-2xl { font-size:19px; }
+ .settings-metrics { gap:8px; }
+ .settings-account { margin-block:16px; }
+ .settings-overview { gap:24px; }
+ .settings-row { padding:14px; min-height:80px; gap:12px; }
+ .settings-card,.settings-app [class*='rounded-3xl'][class*='border'],.homios-feature [class*='rounded-3xl'][class*='border'] { padding:18px; border-radius:18px; }
+ .files-sidebar button,.settings-sidebar button { min-height:44px; }
+}
+html[data-density=compact] .settings-row { min-height:64px; padding-block:10px; }
+html[data-density=compact] .settings-metric { padding:16px; }

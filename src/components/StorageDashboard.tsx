@@ -424,7 +424,7 @@ export default function StorageDashboard({ onNavigateDrive }: StorageDashboardPr
   const [activeTab, setActiveTab] = useState<StorageTab>('drives');
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="homios-feature flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center space-x-1 px-8 pt-6 border-b border-slate-200/70 dark:border-white/10">
         {TABS.map((tab) => (
           <button

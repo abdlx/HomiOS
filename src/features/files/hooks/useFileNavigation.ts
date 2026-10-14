@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useShellRoute } from './useShellNavigation';
+import { useShellRoute } from '../../../hooks/useShellNavigation';
 import { normalizePath, partsPath, pathParts } from '../lib/files';
 
 export function useFileNavigation() {

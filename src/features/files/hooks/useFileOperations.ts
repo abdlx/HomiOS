@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { FileItem } from '../types';
+import type { FileItem } from '../../../types';
 import { type CollisionPolicy, type FileClipboard, isCloudPath, normalizePath, operationUnavailable } from '../lib/files';
 import { invalidateFilePaths, readDirectory } from './useDirectory';
-import { useJobActivity } from './useJobActivity';
-import { toast } from '../components/SystemUI';
+import { useJobActivity } from '../../../hooks/useJobActivity';
+import { toast } from '../../../components/SystemUI';
 
 let clipboard: FileClipboard | null = null;
 const clipboardListeners = new Set<() => void>();
@@ -25,6 +25,7 @@ export function useFileOperations() {
   const { jobs, refresh } = useJobActivity();
   const [conflict, setConflict] = useState<ConflictRequest | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => { try { return new Set(JSON.parse(sessionStorage.getItem('homios_cleared_transfers') || '[]')); } catch { return new Set(); } });
   const [preparing, setPreparing] = useState(false);
   const inFlight = useRef(false);
   const active = useRef(new Map<string, string>());
@@ -64,7 +65,7 @@ export function useFileOperations() {
       const policies = new Map<string, CollisionPolicy>();
       for (const item of remaining) {
         const key = `file.${action}:${normalizePath(item.id)}:${normalizePath(destination + '/' + item.name)}`;
-        if (active.current.has(key)) continue;
+        if (active.current.has(key) || jobs.some(job => ['queued', 'running', 'paused'].includes(job.status) && job.type === `file.${action}` && normalizePath(job.payload?.sourcePath || '') === normalizePath(item.id) && normalizePath(job.payload?.destinationPath || '') === normalizePath(destination + '/' + item.name))) continue;
         let policy: CollisionPolicy = 'error';
         if (existing.has(item.name)) {
           if (all) policy = all;
@@ -78,7 +79,7 @@ export function useFileOperations() {
         }
         if (policy === 'skip') continue;
         policies.set(key, policy);
-        work.push({ key, batchId, action, item: { ...item }, destination });
+        work.push({ key, batchId, action, item: { ...item }, destination }); existing.add(item.name);
       }
       if (!work.length) { toast({ message: 'No items need to be transferred.', tone: 'info' }); return; }
       work.forEach(item => active.current.set(item.key, 'submitting'));
@@ -104,11 +105,17 @@ export function useFileOperations() {
     } catch (error) { toast({ message: 'Could not prepare the transfer', description: error instanceof Error ? error.message : undefined, tone: 'danger' }); }
     finally { inFlight.current = false; setPreparing(false); }
   }
-  const hydrated = submissions.map(submission => {
+  const knownJobs = new Set(submissions.map(submission => submission.jobId));
+  const restored: Submission[] = jobs.filter(job => ['file.copy', 'file.move'].includes(job.type) && job.payload?.batchId && !knownJobs.has(job.id) && !dismissed.has(job.id)).map(job => ({ key: job.id, jobId: job.id, batchId: job.payload.batchId, action: job.type === 'file.move' ? 'move' : 'copy', item: { id: job.payload.sourcePath, name: String(job.payload.sourcePath).split('/').pop() || job.name, type: 'document', size: '?', updatedAt: '' }, destination: String(job.payload.destinationPath).split('/').slice(0, -1).join('/') || '/' }));
+  const hydrated = [...submissions, ...restored].map(submission => {
     const job = jobs.find(item => item.id === submission.jobId);
-    return { ...submission, status: submission.error ? 'failed' : submission.immediate ? 'completed' : job?.status || 'queued', error: submission.error || job?.error, progress: job?.progress || 0 };
+    return { ...submission, status: submission.error ? 'failed' : submission.immediate ? 'completed' : job?.status === 'completed' && job.result?.skipped ? 'skipped' : job?.status || 'queued', error: submission.error || job?.error, progress: job?.progress || 0 };
   });
   return { clipboard: clipboardState, setClipboard, conflict, resolveConflict, preparing, runBatch, submissions: hydrated,
-    clearFinished: () => setSubmissions(current => current.filter(item => { const job = jobs.find(job => job.id === item.jobId); return !item.error && !item.immediate && !['completed', 'failed', 'cancelled'].includes(job?.status || 'queued'); })),
+    clearFinished: () => {
+      const next = new Set([...dismissed, ...hydrated.filter(item => ['completed', 'failed', 'cancelled', 'skipped'].includes(item.status)).map(item => item.jobId || item.key)]);
+      setDismissed(next); sessionStorage.setItem('homios_cleared_transfers', JSON.stringify([...next].slice(-200)));
+      setSubmissions(current => current.filter(item => !next.has(item.jobId || item.key)));
+    },
     paste: (destination: string) => clipboardState && runBatch(clipboardState.action === 'cut' ? 'move' : 'copy', clipboardState.items, destination) };
 }

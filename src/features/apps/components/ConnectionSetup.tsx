@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Server } from 'lucide-react';
-import type { Integration } from '../../lib/app-store';
-import { Button, ErrorPanel, Sheet } from '../ui/surfaces';
+import type { Integration } from '../types';
+import { Button, ErrorPanel, Sheet } from '../../../components/ui/surfaces';
 export default function ConnectionSetup({ integration, onClose, onConnected }: { integration?: Integration; onClose: () => void; onConnected: () => void }) {
   const [baseUrl, setBaseUrl] = useState(integration?.baseUrl || ''); const [token, setToken] = useState('');
   const [pending, setPending] = useState<any>(null); const [options, setOptions] = useState<Record<string, any>>({});

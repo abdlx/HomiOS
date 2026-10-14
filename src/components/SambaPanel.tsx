@@ -235,7 +235,7 @@ export default function SambaPanel({ defaultPath }: { defaultPath?: string }) {
   };
 
   return (
-    <div className="flex-1 bg-white dark:bg-[#1c1c1e] h-full flex flex-col overflow-hidden">
+    <div className="homios-feature flex-1 bg-white dark:bg-[#1c1c1e] h-full flex flex-col overflow-hidden">
       <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#1c1c1e]">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">

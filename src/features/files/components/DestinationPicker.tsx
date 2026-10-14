@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { ArrowUp, ChevronRight, Folder, FolderPlus } from 'lucide-react';
-import type { FileItem } from '../../types';
-import { normalizePath, operationUnavailable, parentPath, pathParts, partsPath } from '../../lib/files';
-import { invalidateDirectories, useDirectory } from '../../hooks/useDirectory';
-import { useVirtualRows } from '../../hooks/useVirtualRows';
-import { Button, EmptyState, ErrorPanel, IconButton, Sheet, Skeleton } from '../ui/surfaces';
-import { promptDialog } from '../SystemUI';
+import type { FileItem } from '../../../types';
+import { normalizePath, operationUnavailable, parentPath, pathParts, partsPath } from '../lib/files';
+import { invalidateDirectories, useDirectory } from '../hooks/useDirectory';
+import { useVirtualRows } from '../../../hooks/useVirtualRows';
+import { Button, EmptyState, ErrorPanel, IconButton, Sheet, Skeleton } from '../../../components/ui/surfaces';
+import { promptDialog } from '../../../components/SystemUI';
 
 export default function DestinationPicker({ action, items, initialPath, onClose, onSelect }: { action: 'copy' | 'move'; items: FileItem[]; initialPath: string; onClose: () => void; onSelect: (path: string) => void }) {
   const [path, setPath] = useState(initialPath);

@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '../lib/api-client';
 
 export type CapabilityState = 'available' | 'disabled' | 'running' | 'degraded' | 'unavailable';
 
@@ -41,46 +43,9 @@ const DEFAULT_CAPABILITIES: CapabilitiesMap = {
 };
 
 export function useCapabilities() {
-  const [capabilities, setCapabilities] = useState<CapabilitiesMap>(DEFAULT_CAPABILITIES);
-  const [loading, setLoading] = useState(true);
-
-  const fetchCapabilities = async () => {
-    try {
-      const res = await fetch('/api/integrations/status', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.capabilities) {
-          setCapabilities(data.capabilities);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to fetch capabilities', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCapabilities();
-    const interval = setInterval(fetchCapabilities, 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const isEnabled = (id: keyof CapabilitiesMap) => {
-    const cap = capabilities[id];
-    return cap && cap.state !== 'disabled';
-  };
-
-  const isRunning = (id: keyof CapabilitiesMap) => {
-    const cap = capabilities[id];
-    return cap && cap.state === 'running';
-  };
-
-  return {
-    capabilities,
-    loading,
-    isEnabled,
-    isRunning,
-    refresh: fetchCapabilities,
-  };
+  const query = useQuery<{ capabilities?: CapabilitiesMap }, Error>({ queryKey: ['api', '/api/integrations/status'], queryFn: ({ signal }) => apiRequest('/api/integrations/status', { signal }), refetchInterval: 30000, refetchIntervalInBackground: false });
+  const capabilities = query.data?.capabilities || DEFAULT_CAPABILITIES;
+  const isEnabled = useCallback((id: keyof CapabilitiesMap) => capabilities[id]?.state !== 'disabled', [capabilities]);
+  const isRunning = useCallback((id: keyof CapabilitiesMap) => capabilities[id]?.state === 'running', [capabilities]);
+  return { capabilities, loading: query.isPending, error: query.error?.message, isEnabled, isRunning, refresh: query.refetch };
 }
