@@ -2,6 +2,7 @@
   "root": true,
   "extends": "next/core-web-vitals",
   "ignorePatterns": [
+    "umbrel-master/**",
     "coolify/**",
     "apps/mobile/**",
     "data/**",

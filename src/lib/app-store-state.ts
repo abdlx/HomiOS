@@ -1,4 +1,5 @@
 export type AppStoreDisplayState =
+  | 'queued' | 'configuring' | 'starting' | 'stopping' | 'restarting' | 'failed' | 'cancelled'
   | 'downloading'
   | 'installing'
   | 'deploying'
@@ -23,17 +24,19 @@ export function isActiveInstallJob(job: InstallJobLike) {
 
 export function getInstallJobState(job: InstallJobLike): AppStoreDisplayState | null {
   if (!job?.status) return null;
-  if (job.status === 'failed' || job.status === 'cancelled') return 'error';
+  if (job.status === 'failed' || job.status === 'cancelled') return job.status;
+  if (job.status === 'queued') return 'queued';
   if (!isActiveInstallJob(job)) return null;
 
   const stage = job.progressData?.stage || '';
   if (stage === 'deploying' || stage === 'health_check') return 'deploying';
-  if (stage === 'configuring' || stage === 'configuring_storage') return 'installing';
+  if (stage === 'configuring' || stage === 'configuring_storage') return 'configuring';
   return 'downloading';
 }
 
 export function appStoreStateLabel(state: string) {
   const labels: Record<string, string> = {
+    queued: 'Queued', configuring: 'Configuring', starting: 'Starting', stopping: 'Stopping', restarting: 'Restarting', failed: 'Failed', cancelled: 'Cancelled',
     downloading: 'Downloading',
     installing: 'Installing',
     deploying: 'Deploying',
@@ -50,7 +53,7 @@ export function appStoreStateLabel(state: string) {
 
 export function appStoreStateTone(state: string) {
   if (state === 'running') return 'success';
-  if (state === 'error' || state === 'missing' || state === 'unhealthy') return 'danger';
-  if (state === 'downloading' || state === 'installing' || state === 'deploying' || state === 'redeploying') return 'progress';
+  if (['error', 'failed', 'missing', 'unhealthy'].includes(state)) return 'danger';
+  if (['queued', 'configuring', 'starting', 'stopping', 'restarting', 'downloading', 'installing', 'deploying', 'redeploying'].includes(state)) return 'progress';
   return 'idle';
 }

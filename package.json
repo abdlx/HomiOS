@@ -65,6 +65,9 @@
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/archiver": "^8.0.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
@@ -75,6 +78,7 @@
     "@types/ssh2": "^1.15.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.20",
+    "jsdom": "^29.1.1",
     "typescript": "~5.8.2",
     "vitest": "^4.1.10"
   }

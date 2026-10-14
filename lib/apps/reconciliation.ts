@@ -6,7 +6,7 @@ import { getCatalogApp } from './registry.ts';
 import { listAppStorageMounts, withAllHomiOSStorageAccess } from './mount-inventory.ts';
 import type { AppStorageConfiguration } from './types.ts';
 
-export async function reconcileManagedApps() {
+export async function reconcileManagedApps({ configureStorage = true }: { configureStorage?: boolean } = {}) {
   const provider = getCoolifyProvider();
   const integration = getCoolifyIntegration();
   const results: Array<{ id: string; status: string }> = [];
@@ -15,7 +15,7 @@ export async function reconcileManagedApps() {
     let primaryUrl = app.primaryUrl;
     try {
       const template = getCatalogApp(app.catalogId);
-      if (integration?.storageAware && template?.storage.length) {
+      if (configureStorage && integration?.storageAware && template?.storage.length) {
         const availableMounts = listAppStorageMounts();
         const configuredStorage = Array.isArray((app.storage as AppStorageConfiguration).mounts)
           ? app.storage as AppStorageConfiguration
@@ -41,14 +41,17 @@ export async function reconcileManagedApps() {
       }
       const runtime = await provider.getApp(app.providerResourceUuid);
       status = runtime.status;
+      const expected = ({ starting: 'running', restarting: 'running', stopping: 'stopped', redeploying: 'running' } as Record<string, string>)[app.status];
+      const updatedAt = Date.parse(app.updatedAt?.includes('T') ? app.updatedAt : `${app.updatedAt?.replace(' ', 'T')}Z`);
+      if (expected && runtime.status !== expected && !['error', 'unhealthy', 'missing'].includes(runtime.status) && Date.now() - updatedAt < 120_000) status = app.status;
       primaryUrl = runtime.primaryUrl || primaryUrl;
     } catch (error) {
       if (error instanceof CoolifyApiError && error.status === 404) status = 'missing';
       else if (error instanceof CoolifyApiError && error.status === 401) throw error;
       else status = 'unknown';
     }
-    getDb().prepare('UPDATE managed_apps SET status=?, primary_url=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-      .run(status, primaryUrl, app.id);
+    getDb().prepare('UPDATE managed_apps SET updated_at=CASE WHEN status<>? THEN CURRENT_TIMESTAMP ELSE updated_at END, status=?, primary_url=? WHERE id=?')
+      .run(status, status, primaryUrl, app.id);
     results.push({ id: app.id, status });
   }
   return results;

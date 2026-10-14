@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useRemoteResource } from './useRemoteResource';
 
 export interface InstalledApp {
   id: string;
@@ -11,21 +12,15 @@ export interface InstalledApp {
   storage?: { accessAllMounts?: boolean };
 }
 
-export function useInstalledApps({ includeCoolifyResources = false }: { includeCoolifyResources?: boolean } = {}) {
-  const [apps, setApps] = useState<InstalledApp[]>([]);
-  const [loading, setLoading] = useState(true);
-  const refresh = useCallback(async () => {
-    try {
-      const response = await fetch(includeCoolifyResources ? '/api/apps/installed?view=desktop' : '/api/apps/installed', { cache: 'no-store' });
-      if (response.ok) setApps((await response.json()).apps || []);
-    } finally { setLoading(false); }
-  }, [includeCoolifyResources]);
+export function useInstalledApps({ includeCoolifyResources = false, isActive = true }: { includeCoolifyResources?: boolean; isActive?: boolean } = {}) {
+  const resource = useRemoteResource<{ apps: InstalledApp[]; refreshError?: string }>(includeCoolifyResources ? '/api/apps/installed?view=desktop' : '/api/apps/installed?refresh=1', isActive);
+  const { refresh } = resource;
   useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 60_000);
-    const wake = () => void refresh();
-    window.addEventListener('homios:apps-changed', wake);
-    return () => { window.clearInterval(timer); window.removeEventListener('homios:apps-changed', wake); };
-  }, [refresh]);
-  return { apps, loading, refresh };
+    if (!isActive) return;
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 5000);
+    const wake = () => { if (!document.hidden) void refresh(); };
+    window.addEventListener('homios:apps-changed', wake); document.addEventListener('visibilitychange', wake);
+    return () => { window.clearInterval(timer); window.removeEventListener('homios:apps-changed', wake); document.removeEventListener('visibilitychange', wake); };
+  }, [refresh, isActive]);
+  return { apps: resource.data?.apps || [], loading: resource.loading, refreshing: resource.refreshing, error: resource.error || resource.data?.refreshError, refresh };
 }

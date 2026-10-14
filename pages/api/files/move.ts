@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'node:fs';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { enqueueJob } from '../../../lib/jobs.ts';
 import { resolveTransferPath } from '../../../lib/file-transfers.ts';
@@ -9,7 +10,8 @@ export default withAuth(async function handler(req: any, res: any, session: any)
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { sourcePath, destinationPath, priority, runAt, idempotencyKey } = req.body || {};
+  const { sourcePath, destinationPath, priority, runAt, idempotencyKey, collision = 'error', batchId } = req.body || {};
+  if (!['error', 'replace', 'keep-both', 'skip'].includes(collision) || batchId != null && (typeof batchId !== 'string' || batchId.length > 128)) return res.status(400).json({ error: 'Invalid transfer options' });
   if (!sourcePath || !destinationPath) {
     return res.status(400).json({ error: 'Missing sourcePath or destinationPath' });
   }
@@ -20,15 +22,18 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       if (!sourceIsCloud || !destinationIsCloud) {
         return res.status(400).json({ error: 'Move files within Cloud Drive; use copy to transfer between local and cloud storage' });
       }
+      if (collision !== 'error') return res.status(400).json({ error: 'Cloud Drive does not support conflict replacement. Choose another name or destination.' });
       await moveCloudItem(sourcePath, destinationPath);
       return res.json({ ok: true, immediate: true });
     }
     const source = resolveTransferPath(sourcePath);
-    resolveTransferPath(destinationPath);
+    const destination = resolveTransferPath(destinationPath);
+    if (source === destination || destination.startsWith(source + path.sep) || source.startsWith(destination + path.sep)) return res.status(400).json({ error: 'Choose a different destination folder' });
+    if (fs.existsSync(destination) && collision === 'error') return res.status(409).json({ code: 'conflict', error: 'Destination already exists' });
     const id = enqueueJob({
       type: 'file.move',
       name: `Move ${path.basename(source)}`,
-      payload: { sourcePath, destinationPath },
+      payload: { sourcePath, destinationPath, collision, batchId },
       priority,
       runAt,
       idempotencyKey,

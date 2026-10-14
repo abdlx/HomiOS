@@ -16,6 +16,7 @@ import CommandPalette from './CommandPalette';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ShellNavigationContext, useShellNavigation } from '../hooks/useShellNavigation';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { JobActivityProvider } from '../hooks/useJobActivity';
@@ -81,10 +82,12 @@ function WindowTrafficLights({ onClose, onMinimize, onZoom }: { onClose: () => v
 }
 
 function WindowManagerShell({ initialView = 'desktop', username = 'User' }: WindowManagerProps) {
-  const [windowState, dispatchWindow] = useReducer(windowReducer, initialView, initialWindowState);
+  const [windowState, reduceWindow] = useReducer(windowReducer, initialView, initialWindowState);
   const [windowStateHydrated, setWindowStateHydrated] = useState(false);
   const view = windowState.activeView;
-  const setView = (nextView: string) => dispatchWindow({ type: 'open', view: nextView });
+  const navigation = useShellNavigation(initialView, nextView => reduceWindow({ type: 'open', view: nextView }));
+  const dispatchWindow = (action: WindowAction) => { reduceWindow(action); if (action.type === 'close' || action.type === 'minimize') navigation.navigate({ view: 'desktop' }); };
+  const setView = (nextView: string) => navigation.navigate({ view: nextView });
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { settings: performanceSettings } = usePerformanceSettings();
@@ -183,37 +186,8 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
     return () => window.removeEventListener('homios:transfers', handleTransfers);
   }, []);
 
-  useEffect(() => {
-    // When view changes, seamlessly update URL without reloading
-    if (view === 'desktop') {
-      window.history.pushState(null, '', '/dashboard');
-    } else if (view === 'files') {
-      window.history.pushState(null, '', '/files');
-    } else if (view === 'settings') {
-      window.history.pushState(null, '', '/settings');
-    } else if (view === 'terminal') {
-      window.history.pushState(null, '', '/terminal');
-    } else if (view === 'activity') {
-      window.history.pushState(null, '', '/activity');
-    } else if (view === 'notes') {
-      window.history.pushState(null, '', '/notes');
-    } else if (view === 'vscode') {
-      window.history.pushState(null, '', '/vscode');
-    } else if (view === 'codex') {
-      // /codex is served by the codex-web-ui proxy, so a refresh here opens
-      // the full-page Codex app rather than the desktop — both are valid entries.
-      window.history.pushState(null, '', '/codex');
-    } else if (view === 'coolify') {
-      window.history.pushState(null, '', '/coolify');
-    } else if (view === 'immich') {
-      window.history.pushState(null, '', '/immich');
-    } else if (view === 'app-store') {
-      window.history.pushState(null, '', '/dashboard?view=app-store');
-    }
-  }, [view]);
-
   return (
-    <div className="relative h-screen w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+    <ShellNavigationContext.Provider value={navigation}><div className="relative h-screen w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
       <CommandPalette
         open={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -253,6 +227,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         {isMobile ? (
           <MobileLauncher
             onHomiOS={() => setView('files')}
+            onOpenAppStore={() => setView('app-store')}
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
             onOpenActivity={() => setView('activity')}
@@ -287,11 +262,11 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'files' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('files', 'z-10')}
+        inert={view !== 'files'} aria-hidden={view !== 'files'} className={frameClass('files', 'z-10')}
         onClickCapture={(event) => handleChromeCapture('files', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {(windowState.openedViews.includes('files') || hasActiveTransfers) && <App onClose={() => dispatchWindow({ type: 'close', view: 'files' })} />}
+          {(windowState.openedViews.includes('files') || hasActiveTransfers) && <App isActive={view === 'files'} onClose={() => dispatchWindow({ type: 'close', view: 'files' })} />}
         </div>
       </motion.div>
 
@@ -300,7 +275,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'settings' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('settings', 'z-20')}
+        inert={view !== 'settings'} aria-hidden={view !== 'settings'} className={frameClass('settings', 'z-20')}
         onClickCapture={(event) => handleChromeCapture('settings', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
@@ -313,7 +288,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'terminal' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('terminal', 'z-30')}
+        inert={view !== 'terminal'} aria-hidden={view !== 'terminal'} className={frameClass('terminal', 'z-30')}
         onClickCapture={(event) => handleChromeCapture('terminal', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
@@ -326,7 +301,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'activity' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('activity', 'z-40')}
+        inert={view !== 'activity'} aria-hidden={view !== 'activity'} className={frameClass('activity', 'z-40')}
         onClickCapture={(event) => handleChromeCapture('activity', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-[#161618] shadow-2xl relative">
@@ -339,7 +314,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'notes' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('notes', 'z-50')}
+        inert={view !== 'notes'} aria-hidden={view !== 'notes'} className={frameClass('notes', 'z-50')}
         onClickCapture={(event) => handleChromeCapture('notes', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
@@ -352,7 +327,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'vscode' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('vscode', 'z-50')}
+        inert={view !== 'vscode'} aria-hidden={view !== 'vscode'} className={frameClass('vscode', 'z-50')}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl relative">
           <WindowTrafficLights
@@ -369,7 +344,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         initial={false}
         animate={view === 'codex' ? "visible" : "hidden"}
         variants={windowVariants}
-        className={frameClass('codex', 'z-50')}
+        inert={view !== 'codex'} aria-hidden={view !== 'codex'} className={frameClass('codex', 'z-50')}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-[#0a0a0a] shadow-2xl relative">
           <WindowTrafficLights
@@ -382,25 +357,25 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       </motion.div>
 
       {/* Optional service apps */}
-      <motion.div initial={false} animate={view === 'coolify' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('coolify', 'z-50')} onClickCapture={(event) => handleChromeCapture('coolify', event)}>
+      <motion.div initial={false} animate={view === 'coolify' ? "visible" : "hidden"} variants={windowVariants} inert={view !== 'coolify'} aria-hidden={view !== 'coolify'} className={frameClass('coolify', 'z-50')} onClickCapture={(event) => handleChromeCapture('coolify', event)}>
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#0b1120] shadow-2xl relative">
           {windowState.openedViews.includes('coolify') && <CoolifyApp onClose={() => dispatchWindow({ type: 'close', view: 'coolify' })} isActive={view === 'coolify'} />}
         </div>
       </motion.div>
 
-      <motion.div initial={false} animate={view === 'immich' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('immich', 'z-50')} onClickCapture={(event) => handleChromeCapture('immich', event)}>
+      <motion.div initial={false} animate={view === 'immich' ? "visible" : "hidden"} variants={windowVariants} inert={view !== 'immich'} aria-hidden={view !== 'immich'} className={frameClass('immich', 'z-50')} onClickCapture={(event) => handleChromeCapture('immich', event)}>
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#111827] shadow-2xl relative">
           {windowState.openedViews.includes('immich') && <ImmichApp onClose={() => dispatchWindow({ type: 'close', view: 'immich' })} isActive={view === 'immich'} />}
         </div>
       </motion.div>
 
-      <motion.div initial={false} animate={view === 'app-store' ? "visible" : "hidden"} variants={windowVariants} className={frameClass('app-store', 'z-[60]')}>
+      <motion.div initial={false} animate={view === 'app-store' ? "visible" : "hidden"} variants={windowVariants} inert={view !== 'app-store'} aria-hidden={view !== 'app-store'} className={frameClass('app-store', 'z-[60]')}>
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#f5f5f7] dark:bg-[#151517] shadow-2xl relative">
-          {windowState.openedViews.includes('app-store') && <AppStoreApp onClose={() => dispatchWindow({ type: 'close', view: 'app-store' })} />}
+          {windowState.openedViews.includes('app-store') && <AppStoreApp isActive={view === 'app-store'} onClose={() => dispatchWindow({ type: 'close', view: 'app-store' })} />}
         </div>
       </motion.div>
 
-    </div>
+    </div></ShellNavigationContext.Provider>
   );
 }
 

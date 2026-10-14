@@ -62,6 +62,18 @@ export function usePerformanceSettings() {
     setSettings(readSettings());
   }, []);
 
+  const [systemReduceMotion, setSystemReduceMotion] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setSystemReduceMotion(media.matches);
+    update(); media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.reduceMotion = String(settings.reduceMotion || systemReduceMotion);
+    document.documentElement.dataset.glass = String(settings.glassSurfaces);
+  }, [settings.reduceMotion, settings.glassSurfaces, systemReduceMotion]);
+
   useEffect(() => {
     const handleSettingsChanged = (event: Event) => {
       const customEvent = event as CustomEvent<PerformanceSettings>;
@@ -87,5 +99,5 @@ export function usePerformanceSettings() {
     });
   };
 
-  return { settings, updateSettings };
+  return { settings: { ...settings, reduceMotion: settings.reduceMotion || systemReduceMotion }, updateSettings };
 }

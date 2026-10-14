@@ -104,6 +104,7 @@ export class CoolifyClient {
 
 function normalizedStatus(raw: any): AppRuntimeStatus {
   const status = String(raw?.status || raw?.state || '').toLowerCase();
+  if (status.includes('unhealthy')) return 'unhealthy';
   if (status.includes('running') || status.includes('healthy')) return 'running';
   if (status.includes('stop') || status.includes('exit')) return 'stopped';
   if (status.includes('deploy') || status.includes('progress')) return 'deploying';

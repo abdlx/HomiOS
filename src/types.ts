@@ -5,6 +5,7 @@ export interface FileItem {
   name: string;
   type: FileType;
   size: string;
+  sizeBytes?: number;
   updatedAt: string;
   thumbnailUrl?: string;
   folderColor?: 'blue' | 'orange' | 'green' | 'purple' | 'red';
@@ -51,6 +52,8 @@ export interface WallpaperOption {
 }
 
 export interface TransferTask {
+  batchId?: string;
+  batchTotal?: number;
   id: string;
   name: string;
   progress: number; // 0 to 100

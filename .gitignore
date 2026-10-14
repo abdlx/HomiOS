@@ -16,6 +16,8 @@ filebrowser_temp/
 coolify-4.x/
 .agent/
 
+umbrel-master/
+
 # Coolify is bundled as a runtime sidecar; do not vendor credential-shaped
 # development fixtures that trigger GitHub push protection.
 coolify/tests/

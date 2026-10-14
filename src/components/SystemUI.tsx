@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useFocusTrap } from './ui/surfaces';
 import {
   AlertTriangle, Info, CheckCircle2, XCircle, Trash2, X,
 } from 'lucide-react';
@@ -112,6 +113,7 @@ function DialogLayer() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   const active = queue[0] || null;
+  const dialogRef = useFocusTrap(!!active, () => close(active?.kind === 'confirm' ? false : null));
 
   useEffect(() => {
     const listener: DialogListener = (req) => setQueue((q) => [...q, req]);
@@ -159,7 +161,7 @@ function DialogLayer() {
         }
       }}
     >
-      <div className="animate-os-dialog w-full max-w-sm rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.4)] overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={active.title} tabIndex={-1} className="animate-os-dialog w-full max-w-sm rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.4)] overflow-hidden">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${toneRing[tone]}`}>

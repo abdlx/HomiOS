@@ -237,7 +237,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       }
 
       try {
-        const files = await readdir(fullPath, { withFileTypes: true });
+        const files = (await readdir(fullPath, { withFileTypes: true })).filter(file => !file.name.startsWith('.homios-transfer-'));
         const shouldStatEntries = files.length <= DETAILED_STAT_LIMIT || req.query.details === 'true';
         const detailed = await mapWithConcurrency(
           files,
@@ -250,7 +250,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
             let isDir = f.isDirectory();
             
             try {
-              if (isDir) {
+              if (isDir && req.query.includeCounts !== 'false') {
                 try {
                   itemCount = (await readdir(fullPath_)).length;
                 } catch {
@@ -291,7 +291,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
         return res.json(detailed.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name)));
       } catch (err) {
         if ((err as any).code === 'ENOENT') {
-          return res.json([]);
+          return res.status(404).json({ error: 'This folder no longer exists' });
         } else {
           throw err;
         }
@@ -360,6 +360,11 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       if (!oldPath || !newPath) return res.status(400).json({ error: 'Missing path or newPath' });
       const oldFull = securePath(oldPath);
       const newFull = securePath(newPath);
+      if (oldFull !== newFull) {
+        const { lstat } = await import('fs/promises');
+        const existing = await lstat(newFull).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; });
+        if (existing) return res.status(409).json({ error: 'An item with this name already exists' });
+      }
       await fsRename(oldFull, newFull);
       logAudit({
         teamId: session.teamId, userId: session.userId,

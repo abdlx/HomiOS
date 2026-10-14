@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import FileArea from './components/FileArea';
@@ -15,24 +15,30 @@ import { FileItem, ViewMode, SidebarItem, TransferTask } from './types';
 import { confirmDialog, promptDialog, toast } from './components/SystemUI';
 import { Menu } from 'lucide-react';
 import { ensureCsrfToken, getCsrfToken } from './csrf';
+import { useDirectory, invalidateDirectories } from './hooks/useDirectory';
+import { useFileNavigation } from './hooks/useFileNavigation';
+import { useFileSelection } from './hooks/useFileSelection';
+import { useFileOperations } from './hooks/useFileOperations';
+import { normalizePath, parentPath } from './lib/files';
+import DestinationPicker from './components/files/DestinationPicker';
+import ConflictDialog from './components/files/ConflictDialog';
+import BatchActivity from './components/files/BatchActivity';
 interface AppProps {
   onClose?: () => void;
+  isActive?: boolean;
 }
 
-export default function App({ onClose }: AppProps = {}) {
-  const [currentFiles, setCurrentFiles] = useState<FileItem[]>([]);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const lastSelectedIdRef = useRef<string | null>(null);
-  // Always-fresh handles for keyboard shortcuts, so the global keydown listener
-  // never calls a stale closure (Ctrl+A / Delete depend on the latest file list).
-  const selectionActionsRef = useRef<{ selectAll: () => void; deleteMany: (ids: string[]) => void }>({
-    selectAll: () => {},
-    deleteMany: () => {},
-  });
-  const [pathHistory, setPathHistory] = useState<string[][]>([['Root']]);
-  const [historyIndex, setHistoryIndex] = useState<number>(0);
-  const currentPath = pathHistory[historyIndex];
+export default function App({ onClose, isActive = true }: AppProps = {}) {
+  const navigation = useFileNavigation();
+  const { currentPath, pathHistory, historyIndex } = navigation;
+  const directory = useDirectory(navigation.path, isActive);
+  const operations = useFileOperations();
+  const { clipboard, setClipboard } = operations;
+  const [destinationPicker, setDestinationPicker] = useState<{ action: 'copy' | 'move'; items: FileItem[] } | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [shares, setShares] = useState<any[]>([]);
+  const currentFiles = useMemo(() => directory.files.map(file => ({ ...file, isShared: shares.some(share => normalizePath(share.path) === normalizePath(file.id)) })), [directory.files, shares]);
+  const loadFiles = useCallback(() => invalidateDirectories(navigation.path), [navigation.path]);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortOption, setSortOption] = useState<string>('name');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -46,7 +52,7 @@ export default function App({ onClose }: AppProps = {}) {
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const transferFlushRef = useRef<number | null>(null);
   const pendingTransferUpdatesRef = useRef<Record<string, Partial<TransferTask>>>({});
-  const [clipboard, setClipboard] = useState<{ action: 'copy' | 'cut', file: FileItem } | null>(null);
+
 
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -63,7 +69,7 @@ export default function App({ onClose }: AppProps = {}) {
     window.addEventListener('resize', checkMobile);
 
     const saved = localStorage.getItem('fileMetadata');
-    if (saved) setFileMetadata(JSON.parse(saved));
+    if (saved) { try { setFileMetadata(JSON.parse(saved)); } catch {} }
 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -77,170 +83,23 @@ export default function App({ onClose }: AppProps = {}) {
   };
 
   useEffect(() => {
-    loadFiles();
-  }, [currentPath]);
-
+    if (!isActive) return;
+    const controller = new AbortController();
+    fetch('/api/shares', { signal: controller.signal }).then(response => response.ok ? response.json() : []).then(value => { if (!controller.signal.aborted) setShares(Array.isArray(value) ? value : []); }).catch(() => {});
+    return () => controller.abort();
+  }, [isActive, showShared]);
+  useEffect(() => { window.dispatchEvent(new CustomEvent('homios:transfers', { detail: transfers })); }, [transfers]);
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('homios:transfers', { detail: transfers }));
-  }, [transfers]);
-
-  const getApiPath = () => {
-    if (currentPath.length === 0) return '';
-    if (currentPath[0] === 'Home' || currentPath[0] === 'Root') {
-      return currentPath.slice(1).join('/');
-    }
-    return currentPath.join('/');
-  };
-
-  const loadFiles = async () => {
-    const apiPath = getApiPath();
-    try {
-      // Parallel fetch files and shared paths
-      const [res, sharesRes] = await Promise.all([
-        fetch(`/api/files?path=/${apiPath}`),
-        fetch('/api/shares')
-      ]);
-
-      let shares: any[] = [];
-      if (sharesRes.ok) {
-        shares = await sharesRes.json();
-      }
-
-      if (res.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        const formatted: FileItem[] = data.map((file: any) => ({
-          ...(() => {
-            const isImage = file.name.match(/\.(jpg|png|jpeg|gif|webp|svg)$/i);
-            const isVideo = file.name.match(/\.(mp4|webm|mkv|avi|mov|m4v)$/i);
-            const isPdf = file.name.match(/\.pdf$/i);
-            return {
-              type: file.isDir
-                ? 'folder'
-                : (isImage
-                  ? 'image'
-                  : (isVideo
-                    ? 'video'
-                    : (isPdf
-                      ? 'pdf'
-                      : (file.name.match(/\.(txt|md|markdown|json|jsonc|csv|log|js|jsx|cjs|mjs|ts|tsx|cts|mts|css|scss|sass|less|html|htm|xml|yml|yaml|toml|ini|conf|env|sh|bash|zsh|ps1|bat|cmd|py|go|rs|java|c|h|cpp|hpp|cs|php|rb|sql)$/i) ? 'text' : 'document')))),
-              thumbnailUrl: !file.isDir && (isImage || isVideo)
-                ? `/api/thumbnails?variant=grid&path=${encodeURIComponent(file.path || file.name)}`
-                : undefined,
-            };
-          })(),
-          id: file.path || file.name,
-          name: file.name,
-          size: file.isDir
-            ? (typeof file.itemCount === 'number' ? `${file.itemCount} item${file.itemCount === 1 ? '' : 's'}` : '--')
-            : `${(file.size / 1024).toFixed(1)} KB`,
-          updatedAt: file.modified ? file.modified.split('T')[0] : new Date().toISOString().split('T')[0],
-          folderColor: 'blue',
-          itemCount: file.isDir ? file.itemCount : undefined,
-          isShared: file.isDir && shares.some((s: any) => s.path === `/${apiPath}/${file.name}`.replace(/\/\//g, '/')),
-        }));
-        setCurrentFiles(formatted);
-      } else {
-        setCurrentFiles([]);
-      }
-    } catch (e) {
-      console.error(e);
-      setCurrentFiles([]);
-    }
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-      // Only drive file-area shortcuts when the browsing pane is active.
-      if (showStorage || showShared) return;
-
-      if (e.code === 'Space' && selectedFileId && !typing) {
-        const item = currentFiles.find(f => f.id === selectedFileId);
-        e.preventDefault();
-        if (item) setQuickLookFile(item);
-        return;
-      }
-
-      // Ctrl/Cmd+A — select every visible item.
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A') && !typing) {
-        e.preventDefault();
-        selectionActionsRef.current.selectAll();
-        return;
-      }
-
-      // Delete / Backspace — remove the current selection.
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selectedIds.size > 0) {
-        e.preventDefault();
-        selectionActionsRef.current.deleteMany(Array.from(selectedIds));
-        return;
-      }
-
-      // Escape — clear the selection.
-      if (e.key === 'Escape' && !typing && selectedIds.size > 0) {
-        clearSelection();
-        return;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFileId, currentFiles, selectedIds, showStorage, showShared]);
-
-  const clearSelection = () => {
-    setSelectedFileId(null);
-    setSelectedIds(new Set());
-    lastSelectedIdRef.current = null;
-  };
-
-  const pushPath = (newPath: string[]) => {
-    const newHistory = pathHistory.slice(0, historyIndex + 1);
-    newHistory.push(newPath);
-    setPathHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    clearSelection();
-    setShowStorage(false);
-    setShowShared(false);
-  };
-
-  const handleNavigateBack = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1);
-      clearSelection();
-      setShowStorage(false);
-      setShowShared(false);
-    }
-  };
-
-  const handleNavigateForward = () => {
-    if (historyIndex < pathHistory.length - 1) {
-      setHistoryIndex(historyIndex + 1);
-      clearSelection();
-      setShowStorage(false);
-      setShowShared(false);
-    }
-  };
-
-  const handleFileDoubleClick = (file: FileItem) => {
-    if (file.type === 'folder') {
-      if (selectedTag) {
-        // Navigate to the absolute path of the global tagged folder
-        pushPath(['Root', ...file.id.split('/')]);
-        setSelectedTag(null);
-      } else {
-        pushPath([...currentPath, file.name]);
-      }
-    } else {
-      setQuickLookFile(file);
-    }
-  };
-
-  const handleNavigateHome = () => {
-    pushPath(['Root']);
-  };
+    try { const value = JSON.parse(localStorage.getItem('homios_file_preferences') || '{}'); if (['grid', 'list', 'column', 'gallery'].includes(value.view)) setViewMode(window.innerWidth < 768 && ['column', 'gallery'].includes(value.view) ? 'grid' : value.view); if (['name', 'date', 'size', 'type'].includes(value.sort)) setSortOption(value.sort); } catch {}
+  }, []);
+  const saveView = (view: ViewMode) => { setViewMode(view); localStorage.setItem('homios_file_preferences', JSON.stringify({ view, sort: sortOption })); };
+  const saveSort = (sort: string) => { setSortOption(sort); localStorage.setItem('homios_file_preferences', JSON.stringify({ view: viewMode, sort })); };
+  const getApiPath = () => navigation.path.slice(1);
+  const pushPath = (parts: string[]) => { navigation.pushPath(parts); clearSelection(); setSearchTerm(''); setSelectedTag(null); setShowStorage(false); setShowShared(false); setActiveSection('root'); };
+  const handleNavigateBack = () => { navigation.back(); clearSelection(); setSearchTerm(''); setSelectedTag(null); setShowStorage(false); setShowShared(false); };
+  const handleNavigateForward = () => { navigation.forward(); clearSelection(); setSearchTerm(''); setSelectedTag(null); setShowStorage(false); setShowShared(false); };
+  const handleFileDoubleClick = (file: FileItem) => { if (file.type === 'folder') pushPath(['Root', ...normalizePath(file.id).split('/').filter(Boolean)]); else setQuickLookFile(file); };
+  const handleNavigateHome = () => pushPath(['Root']);
 
   const handleAddNewFile = async (name: string, type: 'document' | 'text' | 'image' = 'text') => {
     const apiPath = getApiPath();
@@ -516,136 +375,11 @@ export default function App({ onClose }: AppProps = {}) {
     }
   };
 
-  const waitForServerJob = async (jobId: string, taskId: string, signal?: AbortSignal) => {
-    let delay = 600;
-    while (true) {
-      if (signal?.aborted) throw new DOMException('Polling stopped', 'AbortError');
-      const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
-      if (!res.ok) throw new Error(`Could not read transfer status (${res.status})`);
-      const job = await res.json();
-      const status: TransferTask['status'] =
-        job.status === 'running' ? 'uploading'
-          : job.status === 'paused' ? 'paused'
-            : job.status === 'completed' ? 'completed'
-              : job.status === 'failed' || job.status === 'cancelled' ? 'error'
-                : 'pending';
-      updateTransferThrottled(taskId, {
-        status,
-        progress: job.progress || 0,
-        description: job.status === 'queued' && job.runAt ? `Scheduled for ${new Date(job.runAt).toLocaleString()}` : job.error || job.name,
-        error: job.status === 'failed' || job.status === 'cancelled' ? job.error || job.status : undefined,
-      }, true);
-      if (job.status === 'completed') return job;
-      if (job.status === 'failed' || job.status === 'cancelled') {
-        throw new Error(job.error || `Transfer ${job.status}`);
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, delay));
-      delay = Math.min(2000, Math.round(delay * 1.25));
-    }
-  };
-
-  const runFileOperation = async (options: {
-    action: 'move' | 'copy';
-    file: FileItem;
-    sourcePath: string;
-    destinationPath: string;
-  }) => {
-    const taskId = `${options.action}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const controller = new AbortController();
-    const task: TransferTask = {
-      id: taskId,
-      name: options.file.name,
-      progress: 0,
-      status: 'uploading',
-      type: options.action,
-      description: `${options.action === 'copy' ? 'Copying' : 'Moving'} item`,
-      sourcePath: options.sourcePath,
-      destinationPath: options.destinationPath,
-      cancellable: true,
-      retryable: true,
-      controller,
-      retry: () => runFileOperation(options),
-    };
-
-    setTransfers(prev => [...prev, task]);
-
-    try {
-      const res = await fetch(`/api/files/${options.action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourcePath: options.sourcePath,
-          destinationPath: options.destinationPath,
-          idempotencyKey: taskId,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) throw new Error(`${options.action} failed with status ${res.status}`);
-      const queued = await res.json();
-      if (queued.immediate) {
-        updateTransferThrottled(taskId, { status: 'completed', progress: 100, cancellable: false }, true);
-        toast({ message: `${options.action === 'copy' ? 'Copied' : 'Moved'} ${options.file.name}`, tone: 'success' });
-        return true;
-      }
-      const jobId = queued.jobId || queued.id;
-      updateTransferThrottled(taskId, {
-        serverJobId: jobId,
-        status: 'pending',
-        description: 'Queued on server · safe to close or reload this window',
-      }, true);
-      await waitForServerJob(jobId, taskId, controller.signal);
-      toast({ message: `${options.action === 'copy' ? 'Copied' : 'Moved'} ${options.file.name}`, tone: 'success' });
-      return true;
-    } catch (err: any) {
-      const aborted = err?.name === 'AbortError';
-      updateTransferThrottled(taskId, {
-        status: 'error',
-        error: aborted ? 'Cancelled' : err.message || `${options.action} failed`,
-        description: aborted ? 'Cancelled' : `${options.action} failed`,
-      }, true);
-      toast({ message: aborted ? 'Transfer cancelled' : `${options.action === 'copy' ? 'Copy' : 'Move'} failed`, description: aborted ? undefined : err.message, tone: 'danger' });
-      return false;
-    }
-  };
-
-  const handlePasteClipboard = async () => {
-    if (!clipboard) return;
-
-    const apiPath = getApiPath();
-    const destinationPath = `/${apiPath}/${clipboard.file.name}`.replace(/\/+/g, '/');
-    const sourcePath = `/${clipboard.file.id}`.replace(/\/+/g, '/');
-
-    if (sourcePath === destinationPath) {
-      toast({ message: 'Item is already in this folder', tone: 'info' });
-      return;
-    }
-
-    const ok = await runFileOperation({
-      action: clipboard.action === 'cut' ? 'move' : 'copy',
-      file: clipboard.file,
-      sourcePath,
-      destinationPath,
-    });
-    if (ok) {
-      setClipboard(null);
-      if (selectedFileId === clipboard.file.id) setSelectedFileId(null);
-      loadFiles();
-    }
-  };
-
-  const handleMoveFileToFolder = async (file: FileItem, targetFolder: FileItem) => {
-    if (file.id === targetFolder.id || targetFolder.type !== 'folder') return;
-    const sourcePath = `/${file.id}`.replace(/\/+/g, '/');
-    const destinationPath = `/${targetFolder.id}/${file.name}`.replace(/\/+/g, '/');
-    const ok = await runFileOperation({ action: 'move', file, sourcePath, destinationPath });
-    if (ok) {
-      if (selectedFileId === file.id) setSelectedFileId(null);
-      loadFiles();
-    }
-  };
+  const handlePasteClipboard = () => { void operations.paste(navigation.path); };
+  const handleMoveFilesToFolder = (items: FileItem[], folder: FileItem) => { void operations.runBatch('move', items, normalizePath(folder.id)); };
 
   const handleRenameFile = async (id: string, newName: string) => {
+    if (!newName.trim() || /[\\/]/.test(newName) || ['.', '..'].includes(newName)) throw new Error('Enter a name without slashes');
     const dir = id.substring(0, id.lastIndexOf('/'));
     const newPath = dir ? `/${dir}/${newName}` : `/${newName}`;
     const res = await fetch('/api/files', {
@@ -662,8 +396,8 @@ export default function App({ onClose }: AppProps = {}) {
         localStorage.setItem('fileMetadata', JSON.stringify(newMeta));
         return newMeta;
       });
-      loadFiles();
-    }
+      invalidateDirectories(parentPath(id));
+    } else { const value = await res.json().catch(() => ({})); throw new Error(value.error || 'Could not rename item'); }
   };
 
   // Bulk delete: confirm once for the whole set, then delete sequentially.
@@ -839,7 +573,7 @@ export default function App({ onClose }: AppProps = {}) {
 
   const baseFiles = selectedTag ? getGlobalTaggedFiles(selectedTag) : currentFiles;
 
-  const processedFiles = baseFiles
+  const processedFiles = useMemo(() => baseFiles
     .map(file => ({
       ...file,
       tags: fileMetadata[file.id]?.tags || file.tags,
@@ -849,65 +583,20 @@ export default function App({ onClose }: AppProps = {}) {
     .filter((file) => selectedTag ? file.tags?.includes(selectedTag) : true)
     .filter((file) => searchTerm.trim() ? file.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) : true)
     .sort((a, b) => {
-      if (sortOption === 'size') return parseSizeToVal(b.size) - parseSizeToVal(a.size);
+      if (a.type === 'folder' && b.type !== 'folder') return -1;
+      if (b.type === 'folder' && a.type !== 'folder') return 1;
+      if (sortOption === 'type') return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
+      if (sortOption === 'size') return (b.sizeBytes ?? parseSizeToVal(b.size)) - (a.sizeBytes ?? parseSizeToVal(a.size));
       if (sortOption === 'date') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      return a.name.localeCompare(b.name);
-    });
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    }), [currentFiles, fileMetadata, selectedTag, searchTerm, sortOption]);
 
   // ── Multi-selection ──
   // Finder-style: plain click replaces, Ctrl/Cmd+click toggles, Shift+click
   // extends a contiguous range from the last-clicked anchor over the *visible*
   // ordered list (processedFiles). `selectedFileId` stays the primary/active
   // item (drives QuickLook, the column-view preview, etc.).
-  const handleSelectFile = (file: FileItem, e?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => {
-    const additive = !!(e?.ctrlKey || e?.metaKey);
-    const range = !!e?.shiftKey;
-
-    if (range && lastSelectedIdRef.current) {
-      const ids = processedFiles.map((f) => f.id);
-      const anchorIdx = ids.indexOf(lastSelectedIdRef.current);
-      const targetIdx = ids.indexOf(file.id);
-      if (anchorIdx !== -1 && targetIdx !== -1) {
-        const [lo, hi] = anchorIdx < targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
-        const rangeIds = ids.slice(lo, hi + 1);
-        setSelectedIds((prev) => {
-          const next = additive ? new Set(prev) : new Set<string>();
-          rangeIds.forEach((id) => next.add(id));
-          return next;
-        });
-        setSelectedFileId(file.id);
-        return;
-      }
-    }
-
-    if (additive) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(file.id)) next.delete(file.id);
-        else next.add(file.id);
-        setSelectedFileId(next.has(file.id) ? file.id : (next.size ? Array.from(next)[next.size - 1] : null));
-        return next;
-      });
-      lastSelectedIdRef.current = file.id;
-      return;
-    }
-
-    // Plain click: single selection.
-    setSelectedIds(new Set([file.id]));
-    setSelectedFileId(file.id);
-    lastSelectedIdRef.current = file.id;
-  };
-
-  const handleSelectAll = () => {
-    setSelectedIds(new Set(processedFiles.map((f) => f.id)));
-    if (processedFiles.length) {
-      setSelectedFileId(processedFiles[0].id);
-      lastSelectedIdRef.current = processedFiles[processedFiles.length - 1].id;
-    }
-  };
-
-  // Keep the keyboard-shortcut ref pointed at the current handlers/data.
-  selectionActionsRef.current = { selectAll: handleSelectAll, deleteMany: handleDeleteMany };
+  const { selectedIds, selectedFileId, setSelectedFileId, setSelectedIds, handleSelectFile, clearSelection, selectAll: handleSelectAll } = useFileSelection(processedFiles, navigation.path + ':' + (selectedTag || ''));
 
   const starredFolders: SidebarItem[] = Object.entries(fileMetadata)
     .filter(([id, meta]) => meta.isFavorite)
@@ -984,14 +673,20 @@ export default function App({ onClose }: AppProps = {}) {
                 canNavigateBack={historyIndex > 0}
                 canNavigateForward={historyIndex < pathHistory.length - 1}
                 viewMode={viewMode}
-                setViewMode={setViewMode}
+                setViewMode={saveView}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 onAddNewFile={handleAddNewFile}
                 onAddNewFolder={handleAddNewFolder}
                 sortOption={sortOption}
-                setSortOption={setSortOption}
+                setSortOption={saveSort}
                 onUploadFiles={handleUploadFiles}
+                onNavigatePath={pushPath}
+                onRefresh={directory.refresh}
+                refreshing={directory.refreshing}
+                disabled={directory.loading || !!directory.error}
+                selectionMode={selectionMode}
+                onSelectMode={() => { if (selectionMode) clearSelection(); setSelectionMode(!selectionMode); }}
               />
               <FileArea
                 files={processedFiles}
@@ -1014,16 +709,33 @@ export default function App({ onClose }: AppProps = {}) {
                 onAddNewFolder={handleAddNewFolder}
                 onShare={handleShare}
                 onPasteClipboard={handlePasteClipboard}
-                onMoveFileToFolder={handleMoveFileToFolder}
+                onMoveFilesToFolder={handleMoveFilesToFolder}
                 onZip={handleZip}
                 onUnzip={handleUnzip}
                 onDownloadMany={handleDownloadMany}
+                onChooseDestination={(action, items) => setDestinationPicker({ action, items })}
+                onSetSelection={setSelectedIds}
+                onSelectAll={handleSelectAll}
+                onNavigatePath={(path) => pushPath(['Root', ...normalizePath(path).split('/').filter(Boolean)])}
+                onBack={handleNavigateBack}
+                onForward={handleNavigateForward}
+                loading={!selectedTag && directory.loading}
+                refreshing={!selectedTag && directory.refreshing}
+                error={selectedTag ? undefined : directory.error}
+                onRetry={directory.refresh}
+                searchTerm={searchTerm}
+                selectionMode={selectionMode}
+                onSelectionMode={setSelectionMode}
               />
+              <BatchActivity items={operations.submissions} onClear={operations.clearFinished} onRetry={item => void operations.runBatch(item.action, [item.item], item.destination)}/>
+
             </>
           )}
         </div>
       </main>
 
+      {destinationPicker && <DestinationPicker {...destinationPicker} initialPath={navigation.path} onClose={() => setDestinationPicker(null)} onSelect={path => { const value = destinationPicker; setDestinationPicker(null); void operations.runBatch(value.action, value.items, path); }}/>} 
+      {operations.conflict && <ConflictDialog key={operations.conflict.name} request={operations.conflict} onResolve={operations.resolveConflict}/>}
       {/* Modal and Panel overlays */}
       {quickLookFile && (
         <QuickLookModal

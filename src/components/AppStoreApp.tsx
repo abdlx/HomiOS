@@ -1,327 +1,120 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AlertCircle, AppWindow, BookOpen, CheckCircle2, ChevronRight, Download, ExternalLink, Globe2, Grid3X3,
-  HardDrive, Loader2, Menu, Package, PackageCheck, Pencil, Play, Plus, RefreshCw, Rocket, RotateCw, Search, Server,
-  ShieldCheck, Sparkles, Square, Trash2, X,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Boxes, CheckCircle2, ChevronRight, Menu, Package, RefreshCw, Search, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useInstalledApps, type InstalledApp } from '../hooks/useInstalledApps';
 import { useJobActivity } from '../hooks/useJobActivity';
-import { appStoreStateLabel, appStoreStateTone, getInstallJobState, isActiveInstallJob } from '../lib/app-store-state';
+import { useRemoteResource } from '../hooks/useRemoteResource';
+import { useShellRoute } from '../hooks/useShellNavigation';
+import { isActiveInstallJob } from '../lib/app-store-state';
+import { searchCatalog, type AppActionState, type CatalogApp, type Integration, type StorageMount } from '../lib/app-store';
+import { Button, EmptyState, ErrorPanel, IconButton, Sheet, Skeleton } from './ui/surfaces';
+import { AppIcon, CatalogCard, StatusBadge, VirtualCatalog } from './app-store/visuals';
+import AppDetail from './app-store/AppDetail';
+import AppLogs from './app-store/AppLogs';
+import AppDomains from './app-store/AppDomains';
+import ConnectionSetup from './app-store/ConnectionSetup';
+import { confirmDialog, toast } from './SystemUI';
 
-type CatalogApp = {
-  id:string; name:string; category:string; description:string; verified:boolean; source?:'homios'|'coolify';
-  icon:string; tags?:string[]; documentation?:string; port?:string;
-  requirements?:{recommendedRamMb?:number}; storage:Array<{id:string;label:string;required:boolean;protectable:boolean}>;
-};
-type Integration = { appStoreState:string; connected:boolean; authenticated:boolean; reachable:boolean; mode:string; baseUrl:string|null; storageAware:boolean };
-type DomainRoute = { name:string; url:string };
-type StorageMount = { id:string; name:string; path:string; source?:string; filesystem?:string; readOnly:boolean };
-type AppActionState = { state:'redeploying'|'error'; message?:string };
-
-const accents = ['from-blue-500 to-cyan-400','from-violet-500 to-fuchsia-500','from-emerald-500 to-teal-400','from-amber-500 to-orange-500','from-rose-500 to-pink-500'];
-const accentFor = (id:string) => accents[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % accents.length];
-
-export default function AppStoreApp({ onClose }: { onClose: () => void }) {
-  const [catalog, setCatalog] = useState<CatalogApp[]>([]);
-  const [catalogAvailable, setCatalogAvailable] = useState(true);
-  const [integration, setIntegration] = useState<Integration | null>(null);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('All Apps');
-  const [visibleLimit, setVisibleLimit] = useState(60);
-  const [selected, setSelected] = useState<CatalogApp | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [baseUrl, setBaseUrl] = useState('');
-  const [token, setToken] = useState('');
-  const [pendingConnect, setPendingConnect] = useState<any>(null);
-  const [connectOptions, setConnectOptions] = useState<Record<string, any>>({});
-  const [storageMounts, setStorageMounts] = useState<StorageMount[]>([]);
-  const [selectedMountIds, setSelectedMountIds] = useState<string[]>([]);
-  const [accessAllMounts, setAccessAllMounts] = useState(false);
-  const [domainEditor, setDomainEditor] = useState<{app:InstalledApp;routes:DomainRoute[];loading:boolean;conflicts?:any[]} | null>(null);
-  const [appActionStates, setAppActionStates] = useState<Record<string,AppActionState>>({});
-  const { apps: installed, refresh: refreshInstalled } = useInstalledApps();
+export default function AppStoreApp({ onClose, isActive = true }: { onClose: () => void; isActive?: boolean }) {
+  const { route, navigate } = useShellRoute();
+  const category = route.storeCategory, query = route.storeQuery;
+  const catalogResource = useRemoteResource<{ apps: CatalogApp[]; catalogAvailable: boolean }>('/api/apps/catalog', isActive);
+  const integrationResource = useRemoteResource<Integration>('/api/integrations/coolify/status', isActive);
+  const mountsResource = useRemoteResource<{ mounts: StorageMount[] }>('/api/apps/storage-mounts', isActive);
+  const { apps: installed, loading: installedLoading, error: installedError, refresh: refreshInstalled } = useInstalledApps({ isActive });
   const { jobs, refresh: refreshJobs } = useJobActivity();
-  const refreshInFlight = useRef<Promise<void> | null>(null);
-  const lastReconcileAt = useRef(0);
-  const handledCompletedInstallJobs = useRef(new Set<string>());
-
-  const refresh = useCallback((refreshRemote = false) => {
-    if (refreshInFlight.current) return refreshInFlight.current;
-    const request = (async () => {
-      try {
-        const [catalogResponse, statusResponse, mountsResponse] = await Promise.all([
-          fetch(refreshRemote ? '/api/apps/catalog?refresh=1' : '/api/apps/catalog'),
-          fetch(refreshRemote ? '/api/integrations/coolify/status?refresh=1' : '/api/integrations/coolify/status'),
-          fetch('/api/apps/storage-mounts'),
-        ]);
-        if (catalogResponse.ok) {
-          const value = await catalogResponse.json();
-          setCatalog(value.apps || []); setCatalogAvailable(value.catalogAvailable !== false);
-        } else if (catalogResponse.status === 429) {
-          setError('The App Store is refreshing too quickly. Please retry in a moment.');
-        }
-        if (statusResponse.ok) {
-          const status = await statusResponse.json(); setIntegration(status);
-          const now = Date.now();
-          if (refreshRemote && status.appStoreState === 'available' && now - lastReconcileAt.current >= 30_000) {
-            lastReconcileAt.current = now;
-            await fetch('/api/apps/reconcile', { method:'POST' }).catch(() => {});
-          }
-        }
-        if (mountsResponse.ok) {
-          const value = await mountsResponse.json();
-          const nextMounts = Array.isArray(value.mounts) ? value.mounts : [];
-          setStorageMounts(nextMounts);
-          setSelectedMountIds(nextMounts.map((mount:StorageMount) => mount.id));
-        }
-        await refreshInstalled();
-      } catch {
-        setError('The App Store could not reach the HomiOS API.');
-      }
-    })();
-    refreshInFlight.current = request;
-    void request.finally(() => { if (refreshInFlight.current === request) refreshInFlight.current = null; });
-    return request;
-  }, [refreshInstalled]);
-  useEffect(() => { void refresh(false); }, [refresh]);
-
-  const categories = useMemo(() => {
-    const counts = new Map<string,number>();
-    catalog.forEach((app) => counts.set(app.category || 'Other', (counts.get(app.category || 'Other') || 0) + 1));
-    return [...counts.entries()].sort(([a],[b]) => a.localeCompare(b));
-  }, [catalog]);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const visible = useMemo(() => category === 'Installed Apps' ? [] : catalog.filter((app) => {
-    const categoryMatch = category === 'All Apps' || category === 'HomiOS Verified' ? (category === 'All Apps' || app.verified) : app.category === category;
-    return categoryMatch && `${app.name} ${app.category} ${app.description} ${(app.tags || []).join(' ')}`.toLocaleLowerCase().includes(normalizedQuery);
-  }), [catalog, category, normalizedQuery]);
-  const installedByCatalogId = useMemo(() => new Map(installed.map((app) => [app.catalogId, app])), [installed]);
-  const catalogById = useMemo(() => new Map(catalog.map((app) => [app.id, app])), [catalog]);
+  const [sidebarOpen, setSidebarOpen] = useState(false); const [connecting, setConnecting] = useState(false);
+  const [logsApp, setLogsApp] = useState<InstalledApp | null>(null); const [domainsApp, setDomainsApp] = useState<InstalledApp | null>(null);
+  const [actionStates, setActionStates] = useState<Record<string, AppActionState>>({});
+  const [installPending, setInstallPending] = useState<Record<string, boolean>>({}); const [installErrors, setInstallErrors] = useState<Record<string, string>>({});
+  const locks = useRef(new Set<string>()); const handledJobs = useRef(new Set<string>());
+  const catalog = catalogResource.data?.apps || [];
+  const integration = integrationResource.data;
+  const available = integration?.appStoreState === 'available';
+  const categories = useMemo(() => [...new Set(catalog.map(app => app.category || 'Other'))].sort(), [catalog]);
+  const installedByCatalog = useMemo(() => new Map(installed.map(app => [app.catalogId, app])), [installed]);
   const installJobs = useMemo(() => {
-    const relevant = jobs.filter((job:any) => job.type === 'app.install' && job.payload?.appId && (isActiveInstallJob(job) || ['failed','cancelled'].includes(job.status)));
-    relevant.sort((a:any,b:any) => {
-      const activeDifference = Number(isActiveInstallJob(b)) - Number(isActiveInstallJob(a));
-      if (activeDifference) return activeDifference;
-      return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
-    });
-    const byCatalogId = new Map<string,any>();
-    relevant.forEach((job:any) => { if (!byCatalogId.has(job.payload.appId)) byCatalogId.set(job.payload.appId, job); });
-    return byCatalogId;
+    const ordered = jobs.filter(job => job.type === 'app.install').sort((a, b) => Number(isActiveInstallJob(b)) - Number(isActiveInstallJob(a)) || Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt));
+    const map = new Map<string, any>(); ordered.forEach(job => { const id = (job.payload as any)?.appId; if (id && !map.has(id)) map.set(id, job); }); return map;
   }, [jobs]);
-  const visibleInstalled = useMemo(() => installed.filter((app) => `${app.name} ${app.status} ${app.primaryUrl || ''}`.toLocaleLowerCase().includes(normalizedQuery)), [installed, normalizedQuery]);
-  const renderedVisible = visible.slice(0, visibleLimit);
-  const installJobFor = (id:string) => installJobs.get(id) as any;
-  const activeInstall = (id:string) => {
-    const job = installJobFor(id);
-    return isActiveInstallJob(job) ? job : undefined;
-  };
-  const installedFor = (id:string) => installedByCatalogId.get(id);
-
   useEffect(() => {
-    const completed = jobs.filter((job:any) => job.type === 'app.install' && job.status === 'completed' && !handledCompletedInstallJobs.current.has(job.id));
-    completed.forEach((job:any) => handledCompletedInstallJobs.current.add(job.id));
-    if (completed.some((job:any) => !installedByCatalogId.has(job.payload?.appId))) {
-      void refreshInstalled();
-    }
-  }, [installedByCatalogId, jobs, refreshInstalled]);
-
-  useEffect(() => { setVisibleLimit(60); }, [category, normalizedQuery]);
-  const navigate = useCallback((next:string) => {
-    setCategory(next);
-    setSelected(null);
-    setVisibleLimit(60);
-    setQuery('');
-    setSidebarOpen(false);
-  }, []);
-  const selectApp = useCallback((app:CatalogApp) => {
-    setSelected(app);
-    setAccessAllMounts(false);
-  }, []);
-
-  async function connect(extra:Record<string,any> = {}) {
-    setBusy(true); setError('');
-    try {
-      const options = { ...connectOptions, ...extra };
-      const response = await fetch('/api/integrations/coolify/connect', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ baseUrl, token, ...options }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Connection failed');
-      if (!data.connected) { setConnectOptions(options); setPendingConnect(data); return; }
-      setToken(''); setConnectOptions({}); setPendingConnect(null); await refresh();
-    } catch (next:any) { setError(next.message); } finally { setBusy(false); }
-  }
-  async function install(app:CatalogApp) {
-    setBusy(true); setError('');
-    try {
-      const response = await fetch('/api/apps/install', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ appId:app.id, storage:{}, mountIds:app.storage.length && integration?.storageAware ? selectedMountIds : [], accessAllMounts:app.storage.length && integration?.storageAware ? accessAllMounts : false }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Installation could not be queued');
-      await refreshJobs();
-    } catch (next:any) { setError(next.message); } finally { setBusy(false); }
-  }
-  async function action(id:string, name:string, method='POST') {
-    if (name === 'remove' && !window.confirm('Remove this app? Application data and backups will be kept.')) return;
-    if (name === 'deploy' && !window.confirm('Redeploy this app with its current Coolify configuration?')) return;
-    setBusy(true); setError('');
-    setAppActionStates((current) => {
-      const next = { ...current };
-      delete next[id];
-      if (name === 'deploy') next[id] = { state:'redeploying' };
-      return next;
-    });
-    try {
-      const response = await fetch(`/api/apps/${encodeURIComponent(id)}/${name}`, { method });
-      const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || `${name} failed`);
-      await refreshInstalled(); window.dispatchEvent(new Event('homios:apps-changed'));
-      setAppActionStates((current) => { const next = { ...current }; delete next[id]; return next; });
-    } catch (next:any) {
-      setError(next.message);
-      setAppActionStates((current) => ({ ...current, [id]:{ state:'error', message:next.message } }));
-    } finally { setBusy(false); }
-  }
-  async function setAllStorageAccess(app:InstalledApp, enabled:boolean) {
-    const message = enabled
-      ? `Allow ${app.name} to access every current and future mount inside /mnt/homios-storage? Only continue if you trust this app with those files.`
-      : `Revoke ${app.name}'s access to all HomiOS storage? Its originally selected app-data mounts will remain attached.`;
-    if (!window.confirm(message)) return;
-    setBusy(true); setError('');
-    try {
-      const response = await fetch(`/api/apps/${encodeURIComponent(app.id)}/storage-access`, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ accessAllMounts:enabled }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Could not update storage access');
-      await refreshInstalled();
-      window.dispatchEvent(new Event('homios:apps-changed'));
-    } catch (next:any) { setError(next.message); } finally { setBusy(false); }
-  }
-  async function openDomains(app:InstalledApp) {
-    setDomainEditor({ app, routes:[], loading:true });
-    try {
-      const response = await fetch(`/api/apps/${encodeURIComponent(app.id)}/domains`); const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not load addresses');
-      setDomainEditor({ app, routes:data.routes || [], loading:false });
-    } catch (next:any) { setDomainEditor(null); setError(next.message); }
-  }
-  async function saveDomains(force=false) {
-    if (!domainEditor) return;
-    setDomainEditor({ ...domainEditor, loading:true, conflicts:undefined });
-    try {
-      const response = await fetch(`/api/apps/${encodeURIComponent(domainEditor.app.id)}/domains`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ routes:domainEditor.routes, force }) });
-      const data = await response.json();
-      if (!response.ok) {
-        if (response.status === 409 && data.conflicts?.length) { setDomainEditor({ ...domainEditor, loading:false, conflicts:data.conflicts }); return; }
-        throw new Error(data.error || 'Could not save addresses');
+    const completed = jobs.filter(job => job.type === 'app.install' && job.status === 'completed' && !handledJobs.current.has(job.id));
+    completed.forEach(job => handledJobs.current.add(job.id)); if (completed.length) { void refreshInstalled(); window.dispatchEvent(new Event('homios:apps-changed')); }
+  }, [jobs, refreshInstalled]);
+  useEffect(() => {
+    setActionStates(current => {
+      let changed = false; const next = { ...current };
+      for (const app of installed) {
+        const state = current[app.id]; if (!state || state.pending || state.error) continue;
+        const expected = ({ starting: 'running', restarting: 'running', stopping: 'stopped', redeploying: 'running' } as Record<string, string>)[state.state];
+        if (expected === app.status || ['error', 'unhealthy', 'missing'].includes(app.status)) { delete next[app.id]; changed = true; }
       }
-      setDomainEditor(null); await refreshInstalled(); window.dispatchEvent(new Event('homios:apps-changed'));
-    } catch (next:any) { setDomainEditor({ ...domainEditor, loading:false }); setError(next.message); }
+      return changed ? next : current;
+    });
+  }, [installed]);
+  const selectedInstalled = installed.find(app => app.id === route.storeApp || app.catalogId === route.storeApp);
+  const selected = catalog.find(app => app.id === route.storeApp || app.id === selectedInstalled?.catalogId) || (selectedInstalled ? { id: selectedInstalled.catalogId, name: selectedInstalled.name, category: 'Installed app', description: 'This app is installed on your server.', verified: false, icon: '', storage: [] } as CatalogApp : undefined);
+  const visible = useMemo(() => searchCatalog(catalog, category, query), [catalog, category, query]);
+  const visibleInstalled = installed.filter(app => `${app.name} ${app.status}`.toLowerCase().includes(query.toLowerCase()));
+  function chooseCategory(value: string) { navigate({ storeCategory: value, storeQuery: '', storeApp: null }); setSidebarOpen(false); }
+  function openApp(app: CatalogApp) { navigate({ storeApp: app.id }); }
+  function changed() { void refreshInstalled(); window.dispatchEvent(new Event('homios:apps-changed')); }
+  async function refreshAll() { await Promise.allSettled([catalogResource.refresh('/api/apps/catalog?refresh=1'), integrationResource.refresh('/api/integrations/coolify/status?refresh=1'), mountsResource.refresh(), refreshInstalled(), refreshJobs()]); }
+  async function install(app: CatalogApp, mountIds: string[], accessAllMounts: boolean) {
+    const key = `install:${app.id}`; if (locks.current.has(key) || isActiveInstallJob(installJobs.get(app.id))) return;
+    locks.current.add(key); setInstallPending(current => ({ ...current, [app.id]: true })); setInstallErrors(current => ({ ...current, [app.id]: '' }));
+    try {
+      const response = await fetch('/api/apps/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: app.id, storage: {}, mountIds: app.storage.length && integration?.storageAware ? mountIds : [], accessAllMounts: app.storage.length && integration?.storageAware ? accessAllMounts : false }) });
+      const value = await response.json(); if (!response.ok) throw new Error(value.error || 'Installation could not be queued');
+      await refreshJobs(); toast({ message: `${app.name} installation queued`, tone: 'success' });
+    } catch (error) { setInstallErrors(current => ({ ...current, [app.id]: error instanceof Error ? error.message : 'Installation failed' })); }
+    finally { locks.current.delete(key); setInstallPending(current => ({ ...current, [app.id]: false })); }
   }
-
-  const unavailable = integration && integration.appStoreState !== 'available';
-  return <div className="relative flex h-full w-full overflow-hidden bg-gray-50 font-sans text-slate-800 transition-colors dark:bg-[#161618] dark:text-slate-200">
-    {sidebarOpen && <button type="button" className="absolute inset-0 z-30 bg-black/45 md:hidden" onClick={()=>setSidebarOpen(false)} aria-label="Close categories"/>}
-    <aside className={`${sidebarOpen?'translate-x-0':'-translate-x-full'} absolute z-40 m-0 flex h-full w-[290px] flex-shrink-0 flex-col border-r border-neutral-200/60 bg-white p-4 shadow-2xl transition-transform dark:border-white/10 dark:bg-[#1f1f22] md:static md:m-3 md:h-auto md:translate-x-0 md:rounded-[32px] md:border md:shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
-      <div className="mb-7 flex items-center gap-2 px-1 pt-1"><button onClick={onClose} className="h-3 w-3 rounded-full border border-[#e0443e] bg-[#ff5f56]" title="Close"/><span className="h-3 w-3 rounded-full border border-[#dfa123] bg-[#ffbd2e]"/><span className="h-3 w-3 rounded-full border border-[#1aab29] bg-[#27c93f]"/></div>
-      <div className="mb-6 flex items-center gap-3 px-2"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 text-white shadow-lg"><AppWindow size={20}/></div><div><h2 className="font-semibold text-slate-900 dark:text-white">App Store</h2><p className="text-[11px] text-slate-400">Powered by Coolify</p></div></div>
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pb-5">
-        <p className="mb-2 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">DISCOVER</p>
-        <CategoryButton active={category==='All Apps'} icon={Grid3X3} label="All Apps" count={catalog.length} onClick={()=>navigate('All Apps')}/>
-        <CategoryButton active={category==='HomiOS Verified'} icon={Sparkles} label="HomiOS Verified" count={catalog.filter((app)=>app.verified).length} onClick={()=>navigate('HomiOS Verified')}/>
-        <p className="mb-2 mt-6 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">LIBRARY</p>
-        <CategoryButton active={category==='Installed Apps'} icon={PackageCheck} label="Installed Apps" count={installed.length} onClick={()=>navigate('Installed Apps')}/>
-        <p className="mb-2 mt-6 px-3 text-[10px] font-bold tracking-[.16em] text-slate-400">CATEGORIES</p>
-        {categories.map(([name,count])=><CategoryButton key={name} active={category===name} icon={Package} label={name} count={count} onClick={()=>navigate(name)}/>)}
-      </nav>
-      <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-white/5 dark:text-slate-400"><div className="mb-1 flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200"><Server size={14}/>{integration?.reachable?'Coolify connected':'Coolify unavailable'}</div>{catalog.length} one-click apps available</div>
-    </aside>
-
-    <main className="min-w-0 flex-1 overflow-y-auto px-5 pb-24 pt-6 md:px-10 md:pt-10">
-      <div className="mx-auto max-w-[1320px]">
-        <div className="mb-7 flex items-center gap-3"><button type="button" className="rounded-xl p-2 text-slate-500 hover:bg-black/5 md:hidden" onClick={()=>setSidebarOpen(true)}><Menu size={22}/></button><div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">{category}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{category==='Installed Apps'?'Open, configure, and control your installed apps.':'Browse cached one-click services from HomiOS.'}</p></div><button type="button" onClick={()=>void refresh(true)} className="ml-auto rounded-xl border border-neutral-200 bg-white p-2.5 text-slate-500 shadow-sm transition hover:text-blue-500 active:scale-95 dark:border-white/10 dark:bg-[#1f1f22]" title="Refresh catalog and Coolify status"><RefreshCw size={17}/></button></div>
-        <div className="relative mb-7 max-w-2xl"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input type="search" value={query} onChange={(event)=>setQuery(event.currentTarget.value)} autoComplete="off" aria-label="Search apps" placeholder={category==='Installed Apps'?'Search installed apps':'Search apps, categories, and tags'} className="relative w-full select-text rounded-2xl border border-neutral-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#1f1f22]"/></div>
-        {!catalogAvailable&&<div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">Showing the cached HomiOS catalog. The latest Coolify catalog could not be refreshed.</div>}
-        {error&&<div className="mb-5 flex items-center justify-between rounded-2xl bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-300">{error}<button onClick={()=>setError('')}><X size={15}/></button></div>}
-
-        {category==='Installed Apps' ? <InstalledAppsView apps={visibleInstalled} catalogById={catalogById} busy={busy} storageAware={!!integration?.storageAware} actionStates={appActionStates} onDomains={openDomains} onSetAllStorage={setAllStorageAccess} onAction={action}/> : unavailable ? <ConnectionPanel integration={integration} baseUrl={baseUrl} token={token} busy={busy} pending={pendingConnect} setBaseUrl={setBaseUrl} setToken={setToken} connect={connect}/> : <>
-          <div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-semibold text-slate-900 dark:text-white">{visible.length} apps</h3><p className="text-xs text-slate-400">HomiOS verified and Coolify community templates</p></div></div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{renderedVisible.map((app)=><CatalogCard key={app.id} app={app} selected={selected?.id===app.id} installed={!!installedFor(app.id)} job={installJobFor(app.id)} onSelect={selectApp}/>)}</div>
-          {visible.length===0&&<div className="rounded-3xl border border-dashed border-neutral-300 py-20 text-center text-slate-400 dark:border-white/10"><Package className="mx-auto mb-3"/><p>No apps match this search.</p></div>}
-          {renderedVisible.length<visible.length&&<div className="mt-8 flex justify-center"><button onClick={()=>setVisibleLimit((value)=>value+60)} className="rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:text-blue-500 active:translate-y-0 dark:border-white/10 dark:bg-[#1f1f22] dark:text-slate-300">Show more apps · {visible.length-renderedVisible.length} remaining</button></div>}
-
+  async function action(app: InstalledApp, name: string) {
+    if (locks.current.has(app.id)) return;
+    if (name === 'remove' && !await confirmDialog({ title: `Remove ${app.name}?`, message: 'The app will be removed from Coolify. Application data and backups will be kept.', tone: 'danger', confirmLabel: 'Remove app' })) return;
+    if (name === 'deploy' && !await confirmDialog({ title: `Redeploy ${app.name}?`, message: 'Coolify will deploy this app again using its current configuration.', confirmLabel: 'Redeploy' })) return;
+    locks.current.add(app.id);
+    const state = ({ start: 'starting', stop: 'stopping', restart: 'restarting', deploy: 'redeploying', remove: 'removing' } as Record<string, string>)[name] || name;
+    setActionStates(current => ({ ...current, [app.id]: { state, pending: true, action: name } }));
+    try {
+      const response = await fetch(`/api/apps/${encodeURIComponent(app.id)}/${name}`, { method: name === 'remove' ? 'DELETE' : 'POST' });
+      const value = await response.json().catch(() => ({})); if (!response.ok) throw new Error(value.error || `${name} failed`);
+      setActionStates(current => ({ ...current, [app.id]: { state, pending: false, action: name } }));
+      changed(); if (name === 'remove') navigate({ storeApp: null, storeCategory: 'Installed Apps' });
+    } catch (error) { setActionStates(current => ({ ...current, [app.id]: { state: 'error', pending: false, error: error instanceof Error ? error.message : 'Action failed', action: name } })); }
+    finally { locks.current.delete(app.id); }
+  }
+  async function storage(app: InstalledApp, enabled: boolean) {
+    if (locks.current.has(app.id) || !await confirmDialog({ title: enabled ? `Allow ${app.name} to access all storage?` : 'Revoke all-storage access?', message: enabled ? 'This includes files on every current and future HomiOS storage mount. Only grant access to an app you trust.' : 'The originally selected app-data mounts remain attached.', tone: enabled ? 'warning' : 'default', confirmLabel: enabled ? 'Grant access' : 'Revoke access' })) return;
+    locks.current.add(app.id); setActionStates(current => ({ ...current, [app.id]: { state: 'configuring', pending: true } }));
+    try {
+      const response = await fetch(`/api/apps/${encodeURIComponent(app.id)}/storage-access`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessAllMounts: enabled }) });
+      const value = await response.json(); if (!response.ok) throw new Error(value.error || 'Storage access could not be changed');
+      setActionStates(current => { const next = { ...current }; delete next[app.id]; return next; }); changed();
+    } catch (error) { setActionStates(current => ({ ...current, [app.id]: { state: 'error', pending: false, error: error instanceof Error ? error.message : 'Storage access could not be changed' } })); }
+    finally { locks.current.delete(app.id); }
+  }
+  const navigation = <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto text-xs" aria-label="App Store categories">{['Discover', 'All Apps', 'HomiOS Verified', 'Installed Apps'].map(value => <button key={value} onClick={() => chooseCategory(value)} aria-current={category === value ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-left ${category === value ? 'bg-blue-500/10 font-semibold text-blue-500' : 'text-neutral-500 hover:bg-neutral-500/5'}`}>{value === 'Discover' ? <Sparkles size={16}/> : value === 'Installed Apps' ? <CheckCircle2 size={16}/> : value === 'HomiOS Verified' ? <ShieldCheck size={16}/> : <Boxes size={16}/>}{value}</button>)}<p className="px-3 pb-2 pt-6 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Categories</p>{categories.map(value => <button key={value} onClick={() => chooseCategory(value)} aria-current={category === value ? 'page' : undefined} className={`min-h-10 rounded-xl px-3 text-left ${category === value ? 'bg-blue-500/10 text-blue-500' : 'text-neutral-500 hover:bg-neutral-500/5'}`}>{value}</button>)}</nav>;
+  return <div className="relative flex h-full w-full overflow-hidden bg-[#f8f9fb] text-neutral-800 dark:bg-[#171719] dark:text-neutral-100">
+    <aside className="m-3 hidden w-56 shrink-0 flex-col gap-5 rounded-[28px] border border-neutral-200/60 bg-white/60 p-4 dark:border-white/[.06] dark:bg-white/[.025] md:flex"><div className="flex items-center gap-2 pb-2"><button onClick={onClose} title="Close" aria-label="Close App Store" className="h-3 w-3 rounded-full bg-red-400"/><span className="h-3 w-3 rounded-full bg-amber-400"/><span className="h-3 w-3 rounded-full bg-green-500"/></div><div className="flex items-center gap-3 px-2"><div className="rounded-xl bg-blue-500/10 p-2 text-blue-500"><Boxes size={22}/></div><div><h2 className="text-sm font-semibold">App Store</h2><p className="mt-1 text-[10px] text-neutral-400">Your server, more capable.</p></div></div>{navigation}<Button onClick={() => setConnecting(true)}><Server size={15}/>{available ? 'Coolify connected' : 'Connect Coolify'}</Button></aside>
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col pb-2">
+      <header className="flex shrink-0 items-center gap-2 border-b border-neutral-200/60 px-3 py-3 dark:border-white/[.06] md:px-6"><IconButton label="App Store categories" className="md:!hidden" onClick={() => setSidebarOpen(true)}><Menu size={19}/></IconButton>{route.storeApp ? <Button variant="ghost" onClick={() => navigate({ storeApp: null })}><ArrowLeft size={17}/>Back to {category}</Button> : <h1 className="min-w-0 flex-1 truncate px-2 text-lg font-semibold tracking-tight md:text-xl">{category === 'Discover' ? 'Discover your next favorite app' : category}</h1>}<div className="ml-auto flex items-center gap-1"><IconButton label="Refresh App Store" disabled={catalogResource.refreshing || integrationResource.refreshing} onClick={() => void refreshAll()}><RefreshCw size={16} className={catalogResource.refreshing ? 'animate-spin' : ''}/></IconButton><IconButton label="Close App Store" className="md:!hidden" onClick={onClose}><X size={18}/></IconButton></div></header>
+      <div className="shrink-0 space-y-2 px-4 pt-3 md:px-8">{integrationResource.error && <ErrorPanel message={`Coolify connection: ${integrationResource.error}`} onRetry={() => void integrationResource.refresh()}/>} {integration && !available && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/15 bg-amber-500/5 px-4 py-3 text-xs"><Server size={17} className="text-amber-500"/><span className="min-w-0 flex-1 text-neutral-500">{integration.appStoreState === 'coolify_offline' ? 'Coolify is offline. You can keep browsing the catalog.' : 'Connect Coolify to install and manage apps.'}</span><Button onClick={() => setConnecting(true)}>Connection settings</Button></div>}</div>
+      {route.storeApp ? selected ? <AppDetail key={selected.id} app={selected} installed={selectedInstalled || installedByCatalog.get(selected.id)} job={installJobs.get(selected.id)} state={actionStates[(selectedInstalled || installedByCatalog.get(selected.id))?.id || '']} storageAware={!!integration?.storageAware} mounts={mountsResource.data?.mounts || []} mountsLoading={mountsResource.loading} mountsError={mountsResource.error} installBusy={!!installPending[selected.id]} installError={installErrors[selected.id]} available={available} onInstall={(ids, all) => void install(selected, ids, all)} onAction={name => { const app = selectedInstalled || installedByCatalog.get(selected.id); if (app) void action(app, name); }} onLogs={() => setLogsApp(selectedInstalled || installedByCatalog.get(selected.id) || null)} onDomains={() => setDomainsApp(selectedInstalled || installedByCatalog.get(selected.id) || null)} onStorage={enabled => { const app = selectedInstalled || installedByCatalog.get(selected.id); if (app) void storage(app, enabled); }} onRetryMounts={() => void mountsResource.refresh()}/> : catalogResource.loading || installedLoading ? <StoreSkeleton/> : <EmptyState error title="App details are unavailable" description={catalogResource.error || 'This app is no longer in the catalog.'} action={<Button onClick={() => navigate({ storeApp: null })}>Back to apps</Button>}/> : <>
+        <div className="shrink-0 px-4 pb-3 pt-4 md:px-8"><div className="relative"><Search size={17} className="absolute left-4 top-3.5 text-neutral-400"/><input aria-label="Search apps" type="search" value={query} onChange={event => navigate({ storeQuery: event.target.value }, true)} placeholder={category === 'Installed Apps' ? 'Search your installed apps' : 'Search apps, categories, and tags'} className="min-h-11 w-full rounded-2xl border border-neutral-200/70 bg-white/70 pl-11 pr-4 text-sm dark:border-white/10 dark:bg-white/[.03]"/></div></div>
+        {category === 'Installed Apps' ? <div className="min-h-0 flex-1 overflow-auto px-4 md:px-8">{installedError && <ErrorPanel message={installedError} onRetry={() => void refreshInstalled()}/>} {installedLoading ? <StoreSkeleton/> : !visibleInstalled.length ? <EmptyState title={query ? 'No matching installed apps' : 'Make your server your own'} description={query ? 'Try another search.' : 'Install an app from the catalog to get started.'} action={!query && <Button variant="primary" onClick={() => chooseCategory('Discover')}>Browse apps</Button>}/> : <div className="grid gap-3 py-3 lg:grid-cols-2 xl:grid-cols-3">{visibleInstalled.map(app => <button key={app.id} onClick={() => navigate({ storeApp: app.id })} className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-white/60 p-4 text-left transition-colors hover:bg-white dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/5"><AppIcon id={app.catalogId} name={app.name}/><div className="min-w-0 flex-1"><h2 className="mb-2 truncate text-sm font-semibold">{app.name}</h2><StatusBadge state={actionStates[app.id]?.state || app.status}/></div><ChevronRight size={16} className="text-neutral-400"/></button>)}</div>}</div> : <>
+          <div className="shrink-0 px-4 md:px-8">{catalogResource.error && <ErrorPanel message={catalogResource.error} onRetry={() => void catalogResource.refresh()}/>} {catalogResource.data?.catalogAvailable === false && <p className="py-2 text-xs text-amber-600">Showing the cached catalog. The latest Coolify catalog could not be refreshed.</p>}
+            {category === 'Discover' && !query && catalog.some(app => app.verified) && <section className="mb-4"><div className="mb-2 flex items-center justify-between"><h2 className="flex items-center gap-2 text-xs font-semibold"><ShieldCheck size={15} className="text-blue-500"/>Selected for HomiOS</h2><Button variant="ghost" onClick={() => chooseCategory('HomiOS Verified')}>See all<ChevronRight size={13}/></Button></div><div className="flex gap-2 overflow-x-auto pb-1">{catalog.filter(app => app.verified).slice(0, 6).map(app => <div key={app.id} className="w-72 shrink-0 rounded-2xl bg-blue-500/[.035]"><CatalogCard app={app} installed={installedByCatalog.get(app.id)} job={installJobs.get(app.id)} onOpen={openApp}/></div>)}</div></section>}
+            <div className="mb-2 flex items-center justify-between text-xs"><h2 className="font-semibold">{query ? 'Search results' : category === 'Discover' ? 'Explore all apps' : category}</h2><span className="text-neutral-400">{visible.length} apps</span></div>
+          </div>
+          {catalogResource.loading ? <StoreSkeleton/> : <div className="flex min-h-0 flex-1 flex-col px-2 md:px-4"><VirtualCatalog apps={visible} installed={installedByCatalog} jobs={installJobs} onOpen={openApp} scrollKey={`${category}:${query}`}/></div>}
         </>}
-      </div>
+      </>}
     </main>
-
-    {selected&&!unavailable&&category!=='Installed Apps'&&<aside className="hidden w-[330px] flex-shrink-0 overflow-y-auto border-l border-neutral-200/70 bg-white p-7 dark:border-white/10 dark:bg-[#1f1f22] xl:block"><button onClick={()=>setSelected(null)} className="float-right rounded-full p-1.5 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button><div className="mt-8"><AppGlyph app={selected} large/></div><h3 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">{selected.name}</h3><p className="mt-1 text-sm text-blue-500">{selected.category}</p><p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-5 flex items-center gap-2 text-sm text-emerald-600">{selected.verified?<><ShieldCheck size={16}/>Verified for HomiOS</>:<><Package size={16}/>Maintained by Coolify</>}</div>{selected.requirements?.recommendedRamMb&&<Info label="Recommended memory" value={`${selected.requirements.recommendedRamMb/1024} GB`}/>} {selected.port&&<Info label="Default port" value={selected.port}/>} {selected.documentation&&<a href={selected.documentation} target="_blank" rel="noreferrer" className="mt-5 flex items-center gap-2 text-sm text-blue-500 hover:underline"><BookOpen size={15}/>Documentation</a>}{!installedFor(selected.id)&&selected.storage.length>0&&<StorageMountSelector mounts={storageMounts} selectedIds={selectedMountIds} accessAllMounts={accessAllMounts} disabled={!integration?.storageAware} onChange={setSelectedMountIds} onAccessAllChange={setAccessAllMounts}/>}<SelectedAppStateNotice installedApp={installedFor(selected.id)} actionState={installedFor(selected.id)?appActionStates[installedFor(selected.id)!.id]:undefined} installJob={installJobFor(selected.id)}/><button disabled={busy||!!activeInstall(selected.id)||(!installedFor(selected.id)&&selected.storage.some((item)=>item.required)&&selectedMountIds.length===0)} onClick={()=>{const installedApp=installedFor(selected.id); return installedApp?action(installedApp.id,'deploy'):install(selected);}} className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 disabled:opacity-40">{activeInstall(selected.id)?<><Loader2 className="animate-spin" size={16}/>{appStoreStateLabel(getInstallJobState(activeInstall(selected.id))||'installing')}</>:installedFor(selected.id)&&((appActionStates[installedFor(selected.id)!.id]?.state||installedFor(selected.id)!.status)==='redeploying')?<><Loader2 className="animate-spin" size={16}/>Redeploying</>:installedFor(selected.id)?<><Rocket size={16}/>Redeploy</>:getInstallJobState(installJobFor(selected.id))==='error'?<><RotateCw size={16}/>Try install again</>:<><Plus size={16}/>Install</>}</button></aside>}
-
-    {domainEditor&&<DomainEditor value={domainEditor} onChange={(routes)=>setDomainEditor({...domainEditor,routes})} onClose={()=>setDomainEditor(null)} onSave={()=>saveDomains(false)} onForce={()=>saveDomains(true)}/>} 
+    {sidebarOpen && <Sheet title="Browse apps" onClose={() => setSidebarOpen(false)}><div className="flex min-h-0 flex-col overflow-auto p-4">{navigation}</div></Sheet>}
+    {connecting && <ConnectionSetup integration={integration} onClose={() => setConnecting(false)} onConnected={() => void refreshAll()}/>}
+    {logsApp && <AppLogs app={logsApp} isActive={isActive} onClose={() => setLogsApp(null)}/>}
+    {domainsApp && <AppDomains app={domainsApp} onClose={() => setDomainsApp(null)} onSaved={changed}/>}
   </div>;
 }
-
-function CategoryButton({active,icon:Icon,label,count,onClick}:any){return <button type="button" aria-pressed={active} onClick={onClick} className={`flex w-full select-none items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${active?'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300':'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'}`}><Icon size={17} className={active?'text-blue-500':'text-slate-400'}/><span className="min-w-0 flex-1 truncate text-left">{label}</span><span className="text-[10px] text-slate-400">{count}</span></button>}
-const CatalogCard = React.memo(function CatalogCard({app,selected,installed,job,onSelect}:{app:CatalogApp;selected:boolean;installed:boolean;job:any;onSelect:(app:CatalogApp)=>void}){
-  const installState = installed ? null : getInstallJobState(job);
-  return <button onClick={()=>onSelect(app)} style={{contentVisibility:'auto',containIntrinsicSize:'180px'}} className={`group rounded-2xl border bg-white p-5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-xl dark:bg-[#1f1f22] ${selected?'border-blue-500 ring-4 ring-blue-500/10':'border-neutral-200/70 dark:border-white/10'}`}>
-    <div className="flex items-start gap-3"><AppGlyph app={app}/><div className="min-w-0 flex-1"><h4 className="truncate font-semibold text-slate-900 dark:text-white">{app.name}</h4><p className="text-xs text-blue-500">{app.category}</p></div>{installed?<CheckCircle2 className="text-emerald-500" size={18}/>:<ChevronRight className="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-500" size={18}/>}</div>
-    <p className="mt-4 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500 dark:text-slate-400">{app.description}</p>
-    <div className="mt-4 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-slate-400">{app.verified?<><ShieldCheck size={12} className="text-emerald-500"/> HomiOS verified</>:<>Coolify catalog</>}</div>
-    {installState&&<div className="mt-3"><AppStateBadge state={installState}/>{installState==='error'?<p className="mt-1 line-clamp-2 text-[10px] text-red-500" title={job?.error || 'Installation failed'}>{job?.error || 'Installation failed'}</p>:<><div className="mt-2 flex justify-end text-[10px] text-slate-400"><span>{job?.progress || 0}%</span></div><div className="mt-1 h-1 overflow-hidden rounded-full bg-black/10"><div className="h-full bg-blue-500 transition-[width]" style={{width:`${job?.progress || 0}%`}}/></div></> }</div>}
-  </button>;
-});
-function AppGlyph({app,large=false}:{app:CatalogApp;large?:boolean}){return <AppIcon id={app.id} name={app.name} hasIcon={!!app.icon} large={large}/>}
-const AppIcon = React.memo(function AppIcon({id,name,hasIcon=true,large=false,compact=false}:{id:string;name:string;hasIcon?:boolean;large?:boolean;compact?:boolean}){
-  const [failed,setFailed]=useState(!hasIcon);
-  const size=large?'h-16 w-16 rounded-2xl text-2xl':compact?'h-9 w-9 rounded-xl text-sm':'h-11 w-11 rounded-xl text-base';
-  return <div className={`${size} flex flex-shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br ${accentFor(id)} font-bold text-white shadow-md`}>{failed?name.slice(0,1).toUpperCase():<img src={`/api/apps/${encodeURIComponent(id)}/icon`} alt={`${name} icon`} loading="lazy" className="h-full w-full bg-white object-contain p-1" onError={()=>setFailed(true)}/>}</div>;
-});
-function InstalledAppsView({apps,catalogById,busy,storageAware,actionStates,onDomains,onSetAllStorage,onAction}:{apps:InstalledApp[];catalogById:Map<string,CatalogApp>;busy:boolean;storageAware:boolean;actionStates:Record<string,AppActionState>;onDomains:(app:InstalledApp)=>void;onSetAllStorage:(app:InstalledApp,enabled:boolean)=>void;onAction:(id:string,name:string,method?:string)=>void}){
-  if (!apps.length) return <div className="rounded-3xl border border-dashed border-neutral-300 py-20 text-center text-slate-400 dark:border-white/10"><PackageCheck className="mx-auto mb-3"/><p>No installed apps match this search.</p></div>;
-  return <div><div className="mb-4"><h3 className="text-lg font-semibold text-slate-900 dark:text-white">{apps.length} installed {apps.length===1?'app':'apps'}</h3><p className="text-xs text-slate-400">Manage addresses and runtime controls from one place</p></div><div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">{apps.map((app)=><InstalledAppCard key={app.id} app={app} catalogApp={catalogById.get(app.catalogId)} busy={busy} storageAware={storageAware} actionState={actionStates[app.id]} onDomains={()=>onDomains(app)} onSetAllStorage={(enabled)=>onSetAllStorage(app,enabled)} onAction={onAction}/>)}</div></div>;
-}
-function InstalledAppCard({app,catalogApp,busy,storageAware,actionState,onDomains,onSetAllStorage,onAction}:{app:InstalledApp;catalogApp?:CatalogApp;busy:boolean;storageAware:boolean;actionState?:AppActionState;onDomains:()=>void;onSetAllStorage:(enabled:boolean)=>void;onAction:(id:string,name:string,method?:string)=>void}){
-  const displayState = actionState?.state || app.status;
-  const statusColor=appStoreStateTone(displayState)==='success'?'bg-emerald-500':appStoreStateTone(displayState)==='danger'?'bg-red-500':appStoreStateTone(displayState)==='progress'?'bg-blue-500 animate-pulse':'bg-amber-500';
-  return <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] dark:border-white/10 dark:bg-[#1f1f22]">
-    <div className="flex items-center gap-3"><AppIcon id={app.catalogId} name={app.name} hasIcon={!!catalogApp?.icon}/><div className="min-w-0 flex-1"><p className="truncate font-semibold text-slate-800 dark:text-slate-100">{app.name}</p><p className="flex items-center gap-1.5 text-xs text-slate-400" title={actionState?.message}><span className={`h-2 w-2 rounded-full ${statusColor}`}/>{appStoreStateLabel(displayState)}</p></div>{app.primaryUrl&&<button onClick={()=>window.open(app.primaryUrl!,'_blank','noopener,noreferrer')} className="rounded-xl bg-blue-500/10 p-2.5 text-blue-500 transition hover:bg-blue-500 hover:text-white active:scale-95" title="Open app"><ExternalLink size={16}/></button>}</div>
-    {actionState?.state==='error'&&actionState.message&&<p className="mt-2 line-clamp-2 text-xs text-red-500">{actionState.message}</p>}
-    {app.primaryUrl&&<p className="mt-3 truncate text-xs text-slate-400">{app.primaryUrl}</p>}
-    {!!catalogApp?.storage.length&&<button disabled={busy||!storageAware} onClick={()=>onSetAllStorage(!app.storage?.accessAllMounts)} title={storageAware?(app.storage?.accessAllMounts?'Keep only the originally selected app-data mounts':'Expose every HomiOS storage mount to this app'):'Requires the local HomiOS Coolify server'} className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${app.storage?.accessAllMounts?'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 hover:bg-red-500/10 hover:text-red-600 dark:text-emerald-300':'border-blue-500/20 bg-blue-500/5 text-blue-600 hover:bg-blue-500/10 dark:text-blue-300'}`}><HardDrive size={14}/>{app.storage?.accessAllMounts?'Revoke all-storage access':'Grant all-storage access'}</button>}
-    <div className="mt-3 flex items-center justify-between border-t border-neutral-200/70 pt-2 dark:border-white/10">
-      <SidebarAction disabled={busy} title="Edit domains and addresses" onClick={onDomains}><Pencil size={16}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Start" onClick={()=>onAction(app.id,'start')}><Play size={16}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Stop" onClick={()=>onAction(app.id,'stop')}><Square size={15}/></SidebarAction>
-      <SidebarAction disabled={busy} title="Restart" onClick={()=>onAction(app.id,'restart')}><RotateCw size={16}/></SidebarAction>
-      <SidebarAction disabled={busy||displayState==='deploying'||displayState==='redeploying'} title="Redeploy" onClick={()=>onAction(app.id,'deploy')}><Rocket size={16}/></SidebarAction>
-      <SidebarAction disabled={busy} danger title="Remove" onClick={()=>onAction(app.id,'remove','DELETE')}><Trash2 size={16}/></SidebarAction>
-    </div>
-  </div>;
-}
-function AppStateBadge({state}:{state:string}){
-  const tone=appStoreStateTone(state);
-  const classes=tone==='danger'?'bg-red-500/10 text-red-600 dark:text-red-300':tone==='success'?'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300':tone==='progress'?'bg-blue-500/10 text-blue-600 dark:text-blue-300':'bg-slate-500/10 text-slate-500';
-  const Icon=state==='error'?AlertCircle:state==='downloading'?Download:tone==='progress'?Loader2:CheckCircle2;
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ${classes}`}><Icon size={12} className={tone==='progress'&&state!=='downloading'?'animate-spin':''}/>{appStoreStateLabel(state)}</span>;
-}
-function InstallStateNotice({job}:{job:any}){
-  const state=getInstallJobState(job);
-  if (!state) return null;
-  return <div className={`mt-5 rounded-xl border p-3 ${state==='error'?'border-red-500/20 bg-red-500/10':'border-blue-500/20 bg-blue-500/10'}`}><AppStateBadge state={state}/>{state==='error'&&<p className="mt-2 text-xs leading-5 text-red-600 dark:text-red-300">{job?.error || 'Installation failed. You can try again.'}</p>}</div>;
-}
-function SelectedAppStateNotice({installedApp,actionState,installJob}:{installedApp?:InstalledApp;actionState?:AppActionState;installJob:any}){
-  if (!installedApp) return <InstallStateNotice job={installJob}/>;
-  const state=actionState?.state||installedApp.status;
-  return <div className={`mt-5 rounded-xl border p-3 ${appStoreStateTone(state)==='danger'?'border-red-500/20 bg-red-500/10':'border-blue-500/20 bg-blue-500/10'}`}><AppStateBadge state={state}/>{actionState?.state==='error'&&actionState.message&&<p className="mt-2 text-xs leading-5 text-red-600 dark:text-red-300">{actionState.message}</p>}</div>;
-}
-function SidebarAction({children,title,onClick,danger=false,disabled=false}:any){return <button disabled={disabled} aria-label={title} title={title} onClick={onClick} className={`rounded-lg p-1.5 transition disabled:cursor-not-allowed disabled:opacity-30 ${danger?'text-red-500 hover:bg-red-500/10':'text-slate-500 hover:bg-white hover:text-blue-500 dark:text-slate-300 dark:hover:bg-white/10'}`}>{children}</button>}
-function Info({label,value}:{label:string;value:string}){return <div className="mt-5"><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{value}</p></div>}
-
-function StorageMountSelector({mounts,selectedIds,accessAllMounts,disabled,onChange,onAccessAllChange}:{mounts:StorageMount[];selectedIds:string[];accessAllMounts:boolean;disabled:boolean;onChange:(ids:string[])=>void;onAccessAllChange:(enabled:boolean)=>void}){
-  const selected = new Set(selectedIds);
-  const toggle = (id:string) => onChange(selected.has(id) ? selectedIds.filter((value)=>value!==id) : [...selectedIds,id]);
-  return <div className="mt-5 rounded-2xl border border-blue-500/15 bg-blue-500/5 p-3"><div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><HardDrive size={15} className="text-blue-500"/>HomiOS storage</div><p className="mb-3 text-xs leading-5 text-slate-500">Choose the mounted drives used for app data.</p>{disabled?<p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">Storage mapping is available only on the local HomiOS Coolify server.</p>:<><label className="mb-3 flex cursor-pointer items-start gap-2 rounded-xl border border-blue-500/20 bg-white/80 p-3 text-xs dark:bg-black/15"><input type="checkbox" checked={accessAllMounts} onChange={(event)=>onAccessAllChange(event.target.checked)} className="mt-0.5"/><span><span className="block font-semibold text-slate-700 dark:text-slate-100">Access all HomiOS storage</span><span className="mt-1 block leading-4 text-slate-500">Expose /mnt/homios-storage and every current or newly detected mount to this app. Enable only for apps you trust.</span></span></label>{mounts.length===0?<p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">No drives are currently mounted inside /mnt/homios-storage.</p>:<div className="max-h-44 space-y-2 overflow-y-auto">{mounts.map((mount)=><label key={mount.id} className="flex cursor-pointer items-start gap-2 rounded-lg bg-white/80 p-2 text-xs dark:bg-black/15"><input type="checkbox" checked={selected.has(mount.id)} onChange={()=>toggle(mount.id)} className="mt-0.5"/><span className="min-w-0"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{mount.name}</span><span className="block truncate text-[10px] text-slate-400">{mount.path}{mount.readOnly?' · read-only':''}</span></span></label>)}</div>}</>}</div>;
-}
-
-function ConnectionPanel({integration,baseUrl,token,busy,pending,setBaseUrl,setToken,connect}:any){return <div className="mx-auto mt-16 max-w-xl rounded-[28px] border border-neutral-200 bg-white p-7 shadow-xl dark:border-white/10 dark:bg-[#1f1f22]"><Server className="mb-4 text-violet-500" size={34}/><h3 className="text-xl font-semibold">{integration?.appStoreState==='needs_coolify'?'Apps require Coolify':'Connect Coolify'}</h3><p className="mt-2 text-sm text-slate-500">HomiOS manages apps only inside its dedicated project.</p><div className="mt-5 space-y-3"><input value={baseUrl} onChange={(e)=>setBaseUrl(e.target.value)} placeholder="http://192.168.0.101:8000" className="w-full rounded-xl border border-neutral-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-black/20"/><input type="password" value={token} onChange={(e)=>setToken(e.target.value)} placeholder="API token" className="w-full rounded-xl border border-neutral-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-black/20"/><p className="flex items-center gap-2 text-xs text-slate-500"><ShieldCheck size={14}/>Read Sensitive, Write, Deploy. Never Root.</p>{pending?.needsServerSelection&&<select onChange={(e)=>connect({serverUuid:e.target.value})} defaultValue="" className="w-full rounded-xl border bg-transparent p-3"><option value="" disabled>Select server</option>{pending.servers.map((item:any)=><option key={item.uuid} value={item.uuid}>{item.name} - {item.ip}</option>)}</select>}{pending?.needsDestinationSelection&&<select onChange={(e)=>connect({destinationUuid:e.target.value})} defaultValue="" className="w-full rounded-xl border bg-transparent p-3"><option value="" disabled>Select Docker destination</option>{pending.destinations.map((item:any)=><option key={item.uuid} value={item.uuid}>{item.name||item.network}</option>)}</select>}{pending?.needsProjectSelection&&<div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-sm"><button onClick={()=>connect({conflictResolution:'create-new'})} className="rounded-lg bg-slate-800 px-3 py-2 text-white">Create new</button><button onClick={()=>connect({conflictResolution:'use-existing'})} className="rounded-lg border px-3 py-2">Use existing</button></div>}<button disabled={busy||!baseUrl||!token} onClick={()=>connect()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white disabled:opacity-40">{busy&&<Loader2 className="animate-spin" size={16}/>}Connect</button></div></div>}
-
-function DomainEditor({value,onChange,onClose,onSave,onForce}:any){return <div className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"><div className="w-full max-w-xl rounded-[28px] border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#242427]"><div className="flex items-start gap-3"><div className="rounded-2xl bg-blue-500/10 p-3 text-blue-500"><Globe2 size={22}/></div><div><h3 className="text-lg font-semibold text-slate-900 dark:text-white">App addresses</h3><p className="text-sm text-slate-500">{value.app.name} · Changes update Coolify proxy routes.</p></div><button onClick={onClose} className="ml-auto rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10"><X size={17}/></button></div>{value.loading?<div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-500"/></div>:<div className="mt-6 space-y-3">{value.routes.map((route:DomainRoute,index:number)=><div key={`${route.name}-${index}`}><label className="mb-1 block text-xs font-medium text-slate-500">{route.name}</label><input value={route.url} onChange={(event)=>onChange(value.routes.map((item:DomainRoute,i:number)=>i===index?{...item,url:event.target.value}:item))} placeholder="https://app.example.com" className="w-full rounded-xl border border-neutral-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500 dark:border-white/10 dark:bg-black/20"/></div>)}{value.routes.length===0&&<p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">Coolify did not report a routable web container for this service.</p>}{value.conflicts?.length>0&&<div className="rounded-xl bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-300"><p className="font-medium">This domain is already in use.</p>{value.conflicts.map((item:any)=><p key={item.domain} className="mt-1 text-xs">{item.domain} · {item.resource_name}</p>)}</div>}<div className="flex justify-end gap-2 pt-3"><button onClick={onClose} className="rounded-xl px-4 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancel</button>{value.conflicts?.length>0?<button onClick={onForce} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">Use domain anyway</button>:<button disabled={!value.routes.length} onClick={onSave} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Save addresses</button>}</div></div>}</div></div>}
+function StoreSkeleton() { return <div role="status" aria-label="Loading apps" className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden p-6 lg:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 12 }, (_, i) => <div key={i} className="flex h-28 gap-4 p-3"><Skeleton className="h-12 w-12 shrink-0"/><div className="flex-1 space-y-3"><Skeleton className="h-3 w-2/3"/><Skeleton className="h-3"/><Skeleton className="h-3 w-4/5"/></div></div>)}</div>; }

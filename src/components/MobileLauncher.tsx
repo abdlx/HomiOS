@@ -8,6 +8,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { AppIcon as HomiAppIcon } from './icons/AppIcons';
 
 const ALL_APPS = [
+  { id: 'app-store', label: 'App Store', color: 'from-blue-500 to-violet-600' },
   { id: 'files',    label: 'Files',     color: 'from-[#0A84FF] to-[#0055B3]' },
   { id: 'notes',    label: 'Notes',     color: 'from-[#F59E0B] to-[#D97706]' },
   { id: 'settings', label: 'Settings',  color: 'from-[#8E8E93] to-[#48484A]' },
@@ -24,6 +25,7 @@ const APPS_PER_PAGE = 16; // 4x4 grid
 
 interface MobileLauncherProps {
   onHomiOS: () => void;
+  onOpenAppStore: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenActivity: () => void;
@@ -158,7 +160,7 @@ function MobileDock({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (
 }
 
 export default function MobileLauncher({
-  onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity,
+  onHomiOS, onOpenAppStore, onOpenSettings, onOpenTerminal, onOpenActivity,
   onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex,
   username, wallpaper
 }: MobileLauncherProps) {
@@ -173,14 +175,14 @@ export default function MobileLauncher({
 
   const getOnClick = useCallback((id: string) => {
     const map: Record<string, () => void> = {
-      files: onHomiOS,
+      files: onHomiOS, 'app-store': onOpenAppStore,
       settings: onOpenSettings, terminal: onOpenTerminal,
       activity: onOpenActivity, coolify: onOpenCoolify, immich: onOpenImmich,
       notes: onOpenNotes,
       vscode: onOpenVSCode, codex: onOpenCodex,
     };
     return map[id] || (() => {});
-  }, [onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
+  }, [onHomiOS, onOpenAppStore, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
 
   const gridApps = ALL_APPS.filter(a => !DOCK_IDS.includes(a.id));
   const dockApps = ALL_APPS.filter(a => DOCK_IDS.includes(a.id));

@@ -165,12 +165,11 @@ export async function runAppInstall(input: {
 export async function performAppAction(appId: string, action: 'start' | 'stop' | 'restart' | 'deploy', actor: { teamId?: string; userId?: number }) {
   const row = assertManagedOwnership(appId);
   const provider = getCoolifyProvider();
-  if (action === 'deploy') {
-    getDb().prepare("UPDATE managed_apps SET status='redeploying', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(appId);
-  }
+  const pendingStatus = { start: 'starting', stop: 'stopping', restart: 'restarting', deploy: 'redeploying' }[action];
+  getDb().prepare('UPDATE managed_apps SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(pendingStatus, appId);
   try {
     await ({ start: provider.startApp.bind(provider), stop: provider.stopApp.bind(provider), restart: provider.restartApp.bind(provider), deploy: provider.deployApp.bind(provider) }[action])(row.provider_resource_uuid);
-    const status = action === 'stop' ? 'stopped' : action === 'deploy' ? 'redeploying' : 'running';
+    const status = pendingStatus;
     getDb().prepare('UPDATE managed_apps SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status, appId);
     logAudit({ ...actor, action: `app.${action === 'deploy' ? 'deployed' : action + 'ed'}`, resourceType: 'managed_app', resourceId: appId });
     return getManagedApp(appId);

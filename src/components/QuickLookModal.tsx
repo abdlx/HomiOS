@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { FileItem } from '../types';
 import LazyMediaThumbnail from './LazyMediaThumbnail';
+import { useFocusTrap } from './ui/surfaces';
 
 const MonacoEditor: any = lazy(() => import('@monaco-editor/react').catch(() => ({ default: () => <div>Editor not available</div> } as any)));
 

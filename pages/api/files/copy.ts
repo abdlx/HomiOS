@@ -2,13 +2,15 @@ import path from 'path';
 import { withAuth } from '../../../lib/api-auth.ts';
 import { enqueueJob } from '../../../lib/jobs.ts';
 import { resolveTransferPath } from '../../../lib/file-transfers.ts';
+import fs from 'node:fs';
 
 export default withAuth(async function handler(req: any, res: any, session: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { sourcePath, destinationPath, priority, runAt, idempotencyKey } = req.body || {};
+  const { sourcePath, destinationPath, priority, runAt, idempotencyKey, collision = 'error', batchId } = req.body || {};
+  if (!['error', 'replace', 'keep-both', 'skip'].includes(collision) || batchId != null && (typeof batchId !== 'string' || batchId.length > 128)) return res.status(400).json({ error: 'Invalid transfer options' });
   if (!sourcePath || !destinationPath) {
     return res.status(400).json({ error: 'Missing sourcePath or destinationPath' });
   }
@@ -19,11 +21,13 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       return res.status(400).json({ error: 'Use upload or download to transfer files between local and cloud storage' });
     }
     const source = resolveTransferPath(sourcePath);
-    resolveTransferPath(destinationPath);
+    const destination = resolveTransferPath(destinationPath);
+    if (source === destination && collision !== 'keep-both' || destination.startsWith(source + path.sep) || source.startsWith(destination + path.sep)) return res.status(400).json({ error: 'Choose a different destination folder' });
+    if (fs.existsSync(destination) && collision === 'error') return res.status(409).json({ code: 'conflict', error: 'Destination already exists' });
     const id = enqueueJob({
       type: 'file.copy',
       name: `Copy ${path.basename(source)}`,
-      payload: { sourcePath, destinationPath },
+      payload: { sourcePath, destinationPath, collision, batchId },
       priority,
       runAt,
       idempotencyKey,

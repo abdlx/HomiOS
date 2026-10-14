@@ -1,4 +1,5 @@
 export type AppStatus =
+  | 'starting' | 'stopping' | 'restarting'
   | 'downloading' | 'installing' | 'running' | 'stopped' | 'deploying' | 'redeploying' | 'unhealthy'
   | 'missing' | 'error' | 'unknown';
 export type AppRuntimeStatus = AppStatus;

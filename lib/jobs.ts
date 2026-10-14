@@ -8,7 +8,7 @@ import { ensureThumbnail } from './thumbnails.ts';
 import { runBackup, restoreBackup } from './backups.ts';
 import { runSyncPlan } from './sync.ts';
 import { runOcr } from './ocr.ts';
-import { runFileTransfer, TransferCancelledError } from './file-transfers.ts';
+import { runFileTransfer, TransferCancelledError, TransferConflictError, recoverFileTransfer, cleanupTransferJournal } from './file-transfers.ts';
 
 export type JobType =
   | 'index.files'
@@ -357,6 +357,7 @@ async function executeJob(job: any) {
         destinationPath: payload.destinationPath,
         jobId: job.id,
         move: job.type === 'file.move',
+        collision: payload.collision,
         onProgress,
         shouldCancel: () => isCancellationRequested(job.id),
       });
@@ -378,6 +379,7 @@ async function executeJob(job: any) {
     }
 
     setJobStatus(job.id, 'completed', { progress: 100, result, error: null });
+    if (job.type === 'file.copy' || job.type === 'file.move') cleanupTransferJournal({ ...payload, jobId: job.id });
     addEvent(job.id, 'completed', `${job.name} completed`, result);
     createNotification({
       teamId: job.teamId,
@@ -394,7 +396,7 @@ async function executeJob(job: any) {
     if (cancelled) {
       setJobStatus(job.id, 'cancelled', { error: 'Cancelled' });
       addEvent(job.id, 'cancelled', 'Job cancelled');
-    } else if ((current?.attempts || 1) < (current?.maxAttempts || 1)) {
+    } else if (!(error instanceof TransferConflictError) && (current?.attempts || 1) < (current?.maxAttempts || 1)) {
       const delaySeconds = retryDelaySeconds(current?.attempts || 1);
       getDb().prepare(`
         UPDATE jobs SET status = 'queued', error = ?, run_at = datetime('now', ?),
@@ -457,6 +459,18 @@ function recoverInterruptedJobs() {
   const failedIds: string[] = [];
 
   for (const job of interrupted) {
+    if (job.type === 'file.copy' || job.type === 'file.move') {
+      try {
+        const payload = JSON.parse(job.payload || '{}');
+        const result = recoverFileTransfer({ ...payload, jobId: job.id });
+        if (result) {
+          getDb().prepare("UPDATE jobs SET status='completed', progress=100, result=?, finished_at=CURRENT_TIMESTAMP, heartbeat_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(JSON.stringify(result), job.id);
+          cleanupTransferJournal({ ...payload, jobId: job.id });
+          addEvent(job.id, 'completed', 'Transfer commit recovered after restart');
+          continue;
+        }
+      } catch (error) { console.error('[jobs] preserving interrupted transfer for recovery', job.id, error); }
+    }
     if (AUTO_RECOVERABLE_JOB_TYPES.has(job.type)) {
       recoverableIds.push(job.id);
     } else {

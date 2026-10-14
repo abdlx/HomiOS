@@ -2,12 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, Star, Edit3, Download, Trash2, FolderPlus, FilePlus, Copy, Scissors, ClipboardPaste, Share2, Code2, FileArchive } from 'lucide-react';
 import { FileItem } from '../types';
+import { FileClipboard } from '../lib/files';
 
 interface ContextMenuProps {
   file: FileItem | null;
   x: number;
   y: number;
-  clipboardState?: { action: 'copy' | 'cut'; file: FileItem } | null;
+  clipboardState?: FileClipboard | null;
+  onMoveTo?: () => void;
+  onCopyTo?: () => void;
   /** Number of items currently selected (>1 switches the menu to bulk mode). */
   selectionCount?: number;
   onClose: () => void;
@@ -33,7 +36,7 @@ export default function ContextMenu({
   file, x, y, clipboardState, selectionCount = 0, onClose,
   onQuickLook, onRename, onFavorite, onDelete, onDeleteSelection,
   onCreateFile, onCreateFolder, onCopy, onCut, onPaste, onTag, onShare, onOpenInCodeServer,
-  onZip, onUnzip, onDownloadSelection
+  onZip, onUnzip, onDownloadSelection, onMoveTo, onCopyTo
 }: ContextMenuProps) {
   const isMulti = selectionCount > 1;
   const isZip = !!file && file.type !== 'folder' && /\.zip$/i.test(file.name);
@@ -63,8 +66,8 @@ export default function ContextMenu({
   // Keep menu inside viewport
   const style: React.CSSProperties = {
     position: 'fixed',
-    top: Math.min(y, window.innerHeight - (file ? 240 : 160)),
-    left: Math.min(x, window.innerWidth - 200),
+    top: Math.max(8, Math.min(y, window.innerHeight - (file ? 540 : 200))),
+    left: Math.max(8, Math.min(x, window.innerWidth - 224)),
     zIndex: 9999,
   };
 
@@ -72,6 +75,7 @@ export default function ContextMenu({
     icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean;
   }) => (
     <button
+      role="menuitem"
       onClick={(e) => { e.stopPropagation(); onClick(); onClose(); }}
       className={`w-full flex items-center space-x-2.5 px-3 py-1.5 text-xs rounded-lg transition-colors text-left
         ${danger ? 'text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:bg-white/8 hover:text-slate-100'}`}
@@ -84,8 +88,11 @@ export default function ContextMenu({
   return createPortal(
     <div
       ref={ref}
+      role="menu"
+      aria-label="File actions"
       style={style}
-      className="w-48 bg-[#1a2035]/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.6)] p-1.5 space-y-0.5"
+      className="ui-enter w-52 max-h-[calc(100dvh-16px)] overflow-auto bg-[#1a2035]/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.6)] p-1.5 space-y-0.5 [&_button]:min-h-9 max-md:[&_button]:min-h-11"
+      onKeyDown={event => { if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const nodes = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]')); const index = nodes.indexOf(document.activeElement as HTMLElement); nodes[event.key === 'Home' ? 0 : event.key === 'End' ? nodes.length - 1 : (index + (event.key === 'ArrowUp' ? -1 : 1) + nodes.length) % nodes.length]?.focus(); } }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {file && isMulti ? (
@@ -94,6 +101,10 @@ export default function ContextMenu({
             {selectionCount} items selected
           </div>
           {onZip && <Item icon={<FileArchive size={13} />} label="Compress to ZIP" onClick={() => onZip()} />}
+          <Item icon={<Copy size={13}/>} label="Copy" onClick={() => onCopy?.(file)}/>
+          <Item icon={<Scissors size={13}/>} label="Cut" onClick={() => onCut?.(file)}/>
+          <Item icon={<FolderPlus size={13}/>} label="Move to…" onClick={() => onMoveTo?.()}/>
+          <Item icon={<Copy size={13}/>} label="Copy to…" onClick={() => onCopyTo?.()}/>
           {onDownloadSelection && <Item icon={<Download size={13} />} label="Download" onClick={() => onDownloadSelection()} />}
           <div className="border-t border-white/5 my-1" />
           {onDeleteSelection && <Item icon={<Trash2 size={13} />} label={`Delete ${selectionCount} items`} onClick={() => onDeleteSelection()} danger />}
@@ -128,6 +139,8 @@ export default function ContextMenu({
           <Item icon={<Edit3 size={13} />} label="Rename" onClick={() => onRename?.(file)} />
           <Item icon={<Copy size={13} />} label="Copy" onClick={() => onCopy?.(file)} />
           <Item icon={<Scissors size={13} />} label="Cut" onClick={() => onCut?.(file)} />
+          <Item icon={<FolderPlus size={13}/>} label="Move to…" onClick={() => onMoveTo?.()}/>
+          <Item icon={<Copy size={13}/>} label="Copy to…" onClick={() => onCopyTo?.()}/>
           {isZip && onUnzip ? (
             <Item icon={<FileArchive size={13} />} label="Extract Here" onClick={() => onUnzip(file)} />
           ) : (
@@ -151,7 +164,7 @@ export default function ContextMenu({
           <Item icon={<FilePlus size={13} />} label="New File" onClick={() => onCreateFile?.()} />
           <div className="border-t border-white/5 my-1" />
           {clipboardState ? (
-            <Item icon={<ClipboardPaste size={13} />} label={`Paste (${clipboardState.file.name})`} onClick={() => onPaste?.()} />
+            <Item icon={<ClipboardPaste size={13} />} label={`Paste ${clipboardState.items.length} items`} onClick={() => onPaste?.()} />
           ) : (
             <button disabled className="w-full flex items-center space-x-2.5 px-3 py-1.5 text-xs rounded-lg text-left text-slate-600 cursor-not-allowed">
               <span className="w-3.5 flex-shrink-0"><ClipboardPaste size={13} /></span>

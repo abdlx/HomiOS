@@ -33,6 +33,8 @@
     "**/*.tsx"
   ],
   "exclude": [
+    "umbrel-master",
+    "tests/e2e",
     "node_modules",
     "apps/mobile",
     "internal/cloud-storage-engine"
