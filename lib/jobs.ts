@@ -334,7 +334,7 @@ async function executeJob(job: any) {
   try {
     const payload = job.payload || {};
     const onProgress = (progress: number, message?: string, data?: any) => {
-      if (isCancellationRequested(job.id)) throw new TransferCancelledError();
+      if (progress < 100 && isCancellationRequested(job.id)) throw new TransferCancelledError();
       updateProgress(job.id, progress, message, data);
     };
     let result: any = {};

@@ -13,6 +13,7 @@ import CoolifyApp from './CoolifyApp';
 import ImmichApp from './ImmichApp';
 import AppStoreApp from '../features/apps/AppStoreApp';
 import CommandPalette from './CommandPalette';
+import FeatureBoundary from './ui/FeatureBoundary';
 import { TransferTask } from '../types';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -100,7 +101,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('homios_window_state') || '{}');
-      dispatchWindow({
+      reduceWindow({
         type: 'hydrate',
         openedViews: Array.isArray(saved.openedViews) ? saved.openedViews : [],
         modes: saved.modes && typeof saved.modes === 'object' ? saved.modes : {},
@@ -119,7 +120,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
   const frameClass = (appId: string, zClass: string) => {
     const fullscreen = windowState.modes[appId] === 'fullscreen';
-    return `absolute homios-window ${zClass} ${fullscreen ? 'homios-fullscreen inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:origin-bottom'} shadow-[0_24px_80px_-24px_rgba(0,0,0,0.5)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
+    return `absolute homios-window homios-${appId} ${zClass} ${fullscreen ? 'homios-fullscreen inset-0 [&>div]:md:rounded-none' : 'max-md:inset-0 md:origin-bottom'} shadow-[0_24px_80px_-24px_rgba(0,0,0,0.5)] ${view === appId ? 'pointer-events-auto' : 'pointer-events-none'}`;
   };
 
   const handleChromeCapture = (appId: string, event: React.MouseEvent) => {
@@ -189,7 +190,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
   }, []);
 
   return (
-    <ShellNavigationContext.Provider value={navigation}><div className="relative h-screen w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+    <ShellNavigationContext.Provider value={navigation}><div className="relative h-[100dvh] w-full bg-black overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
       <CommandPalette
         open={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -225,24 +226,12 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
       })()}
 
       {/* Home Screen - Mobile uses native launcher, desktop uses DesktopEnvironment */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 isolate" inert={isMobile && view !== 'desktop'} aria-hidden={isMobile && view !== 'desktop'}>
         {isMobile ? (
-          <MobileLauncher
-            onHomiOS={() => setView('files')}
-            onOpenAppStore={() => setView('app-store')}
-            onOpenSettings={() => setView('settings')}
-            onOpenTerminal={() => setView('terminal')}
-            onOpenActivity={() => setView('activity')}
-            onOpenCoolify={() => setView('coolify')}
-            onOpenImmich={() => setView('immich')}
-            onOpenNotes={() => setView('notes')}
-            onOpenVSCode={() => setView('vscode')}
-            onOpenCodex={() => setView('codex')}
-            username={username}
-            wallpaper={wallpaper}
-          />
+          <MobileLauncher isActive={view === 'desktop'} username={username} wallpaper={wallpaper} />
         ) : (
           <DesktopEnvironment
+            isActive={view === 'desktop'}
             onHomiOS={() => setView('files')}
             onOpenSettings={() => setView('settings')}
             onOpenTerminal={() => setView('terminal')}
@@ -268,7 +257,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         onClickCapture={(event) => handleChromeCapture('files', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {(windowState.openedViews.includes('files') || hasActiveTransfers) && <App isActive={view === 'files'} onClose={() => dispatchWindow({ type: 'close', view: 'files' })} />}
+          {(windowState.openedViews.includes('files') || hasActiveTransfers) && <FeatureBoundary name="Files"><App isActive={view === 'files'} onClose={() => dispatchWindow({ type: 'close', view: 'files' })} /></FeatureBoundary>}
         </div>
       </motion.div>
 
@@ -281,7 +270,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
         onClickCapture={(event) => handleChromeCapture('settings', event)}
       >
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-neutral-200/50 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1e] shadow-2xl relative">
-          {windowState.openedViews.includes('settings') && <SettingsApp isActive={view === 'settings'} onClose={() => dispatchWindow({ type: 'close', view: 'settings' })} />}
+          {windowState.openedViews.includes('settings') && <FeatureBoundary name="Settings"><SettingsApp username={username} isActive={view === 'settings'} onClose={() => dispatchWindow({ type: 'close', view: 'settings' })} /></FeatureBoundary>}
         </div>
       </motion.div>
 
@@ -373,7 +362,7 @@ function WindowManagerShell({ initialView = 'desktop', username = 'User' }: Wind
 
       <motion.div initial={false} animate={view === 'app-store' ? "visible" : "hidden"} variants={windowVariants} inert={view !== 'app-store'} aria-hidden={view !== 'app-store'} className={frameClass('app-store', 'z-[60]')}>
         <div className="w-full h-full md:rounded-[40px] border-0 md:border border-white/10 overflow-hidden bg-[#f5f5f7] dark:bg-[#151517] shadow-2xl relative">
-          {windowState.openedViews.includes('app-store') && <AppStoreApp isActive={view === 'app-store'} onClose={() => dispatchWindow({ type: 'close', view: 'app-store' })} />}
+          {windowState.openedViews.includes('app-store') && <FeatureBoundary name="App Store"><AppStoreApp isActive={view === 'app-store'} onClose={() => dispatchWindow({ type: 'close', view: 'app-store' })} /></FeatureBoundary>}
         </div>
       </motion.div>
 

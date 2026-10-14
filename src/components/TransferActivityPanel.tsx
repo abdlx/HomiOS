@@ -74,7 +74,7 @@ export default function TransferActivityPanel() {
       observer.disconnect();
       root.style.removeProperty('--homios-activity-panel-offset');
     };
-  }, [transferJobs.length, error, isOpen]);
+  }, [transferJobs.length, activeJobs.length, error, isOpen]);
 
   const activeTransferIds = useMemo(() => new Set(activeJobs.map((job) => job.id)), [activeJobs]);
   const visible = useMemo(() => {
@@ -83,7 +83,7 @@ export default function TransferActivityPanel() {
     return [...active, ...transferJobs.filter((job) => !activeTransferIds.has(job.id)).slice(0, 8)];
   }, [transferJobs, activeTransferIds, showHistory]);
 
-  if (transferJobs.length === 0 && !error) return null;
+  if (!isOpen && !error && !transferJobs.some(job => activeTransferIds.has(job.id) || job.status === 'failed')) return null;
   const running = visible.filter((job) => job.status === 'running').length;
   const queued = visible.filter((job) => job.status === 'queued').length;
 

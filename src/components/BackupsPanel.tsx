@@ -134,7 +134,7 @@ function DrivePicker({
   emptyHint: string;
 }) {
   if (drives.length === 0) {
-    return <p className="homios-feature text-xs text-slate-400 dark:text-slate-500 py-2">{emptyHint}</p>;
+    return <p className="text-xs text-slate-400 dark:text-slate-500 py-2">{emptyHint}</p>;
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -381,7 +381,7 @@ export default function BackupsPanel() {
   };
 
   return (
-    <div className="flex-1 bg-transparent p-8 overflow-y-auto">
+    <div className="homios-feature flex-1 bg-transparent p-5 md:p-8 overflow-y-auto">
       <section className="mb-6 rounded-2xl border border-blue-200/70 dark:border-blue-500/20 bg-blue-50/70 dark:bg-blue-500/5 p-5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
           <div className="flex items-start gap-3">

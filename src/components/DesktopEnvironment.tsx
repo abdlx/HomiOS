@@ -1,22 +1,25 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Activity, BatteryFull, Boxes, Command, Cpu, Folder, FolderOpen, HardDrive,
-  Monitor, Search, Settings, Terminal, Wifi, Zap, FileText, Code, Bell, Globe, Sparkles, Images
+  Activity, BatteryFull, Command, Cpu, HardDrive, Monitor, Search, Wifi, Zap, Bell
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { useUsername } from '../hooks/useUsername';
 import { usePerformanceSettings } from '../hooks/usePerformanceSettings';
-import { useCapabilities } from '../hooks/useCapabilities';
 import { FloatingDock } from './ui/floating-dock';
 import { AppIcon } from './icons/AppIcons';
 import GlassSurface from '../../components/GlassSurface';
 import NotificationCenter from './NotificationCenter';
 import PWAInstallChooser from './PWAInstallChooser';
 import PowerControls from './PowerControls';
-import { useInstalledApps } from '../hooks/useInstalledApps';
+import { useSystemStats } from '../hooks/useSystemStats';
+import { useLauncherApps } from '../hooks/useLauncherApps';
+import { useLauncherLayout } from '../hooks/useLauncherLayout';
+import { FACTORY_DOCK_APPS, openLauncherUrl, type LauncherApp } from '../lib/launcher-apps';
+import { useShellRoute } from '../hooks/useShellNavigation';
 
 interface DesktopEnvironmentProps {
+  isActive?: boolean;
   onHomiOS: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
@@ -33,33 +36,11 @@ interface DesktopEnvironmentProps {
 
 type DesktopAppSource = 'grid' | 'dock';
 
-type DesktopAppConfig = {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
-  color: string;
-  iconUrl?: string;
-  subtitle?: string;
-  url?: string;
-};
-
-const BASE_APPS: Record<string, DesktopAppConfig> = {
-  files: { id: 'files', label: 'Files', icon: Folder, color: 'from-[#0A84FF] to-[#0055B3]' },
-  settings: { id: 'settings', label: 'Settings', icon: Settings, color: 'from-[#8E8E93] to-[#48484A]' },
-  activity: { id: 'activity', label: 'Activity', icon: Activity, color: 'from-[#32ADE6] to-[#12648A]' },
-  terminal: { id: 'terminal', label: 'Terminal', icon: Terminal, color: 'from-[#2C2C2E] to-[#1C1C1E]' },
-  notes: { id: 'notes', label: 'Notes', icon: FileText, color: 'from-[#F59E0B] to-[#D97706]' },
-  coolify: { id: 'coolify', label: 'Coolify', icon: Boxes, color: 'from-[#8C52FF] to-[#5B13D5]' },
-  immich: { id: 'immich', label: 'Immich', icon: Images, color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  vscode: { id: 'vscode', label: 'Code Server', icon: Code, color: 'from-[#5B21B6] to-[#2563EB]', iconUrl: '/api/apps/code-server/icon' },
-  codex: { id: 'codex', label: 'Codex', icon: Sparkles, color: 'from-[#17BE92] to-[#0A6F55]' },
-};
-
-const FACTORY_DOCK_APPS = ['files', 'activity', 'terminal', 'notes', 'settings'];
+type DesktopAppConfig = LauncherApp;
 
 const HeaderMetricsBackdrop = React.memo(function HeaderMetricsBackdrop({ glassSurfaces }: { glassSurfaces: boolean }) {
   return glassSurfaces ? (
-    <GlassSurface width="100%" height="100%" borderRadius={28} distortionScale={300} opacity={1} borderWidth={0.07} displace={4} backgroundOpacity={0.45} blur={28} />
+    <><GlassSurface width="100%" height="100%" borderRadius={28} distortionScale={300} opacity={1} borderWidth={0.07} displace={4} backgroundOpacity={0.45} blur={28} /><div className="absolute inset-0 rounded-[28px] bg-black/15" /></>
   ) : (
     <div className="h-full w-full rounded-[28px] border border-white/10 bg-black/35 shadow-[0_16px_40px_rgba(0,0,0,0.22)] backdrop-blur-md" />
   );
@@ -111,7 +92,7 @@ const HeaderMetric = React.memo(function HeaderMetric({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="desktop-metric group"
+      className="desktop-metric desktop-metric-in-bar group"
     >
       <div>
         <div className="flex items-center gap-3.5">
@@ -218,18 +199,18 @@ const DashboardAppIcon = React.memo(function DashboardAppIcon({
 });
 
 export default function DesktopEnvironment({
+  isActive = true, username: initialUsername,
   onHomiOS, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify,
   onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex, onOpenSearch, onOpenAppStore
 }: DesktopEnvironmentProps) {
-  const [stats, setStats] = useState<any>(null);
   const { wallpaper } = useWallpaper();
-  const { username } = useUsername();
+  const { username } = useUsername(initialUsername);
   const { settings: performanceSettings } = usePerformanceSettings();
-  const { isEnabled } = useCapabilities();
-  const { apps: installedApps } = useInstalledApps({ includeCoolifyResources: true });
+  const { data: stats } = useSystemStats(isActive, performanceSettings.backgroundPolling);
+  const availableApps = useLauncherApps(isActive);
+  const { gridAppIds, dockAppIds, updateGrid, updateDock } = useLauncherLayout(availableApps);
+  const { navigate } = useShellRoute();
   const [now, setNow] = useState<Date | null>(null);
-  const [gridAppIds, setGridAppIds] = useState<string[]>(['files', 'notes', 'activity', 'settings']);
-  const [dockAppIds, setDockAppIds] = useState<string[]>(FACTORY_DOCK_APPS);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, appId: string, source: 'grid' | 'dock' } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -241,111 +222,17 @@ export default function DesktopEnvironment({
     return () => clearInterval(t);
   }, []);
 
-  // Filter available apps based on authoritative backend capability state
-  const availableApps = useMemo(() => {
-    const apps: Record<string, DesktopAppConfig> = { ...BASE_APPS };
-    for (const app of installedApps) {
-      if (app.status === 'missing') continue;
-      const id = `${app.managedByHomiOS ? 'managed' : 'coolify'}:${app.id}`;
-      const kind = app.resourceType === 'application' ? 'App' : 'Service';
-      apps[id] = {
-        id,
-        label: app.name,
-        icon: Globe,
-        color: 'from-[#2563EB] to-[#7C3AED]',
-        iconUrl: `/api/apps/${encodeURIComponent(app.catalogId)}/icon`,
-        subtitle: `${kind} · ${app.status}`,
-        url: app.primaryUrl || undefined,
-      };
-    }
-    const filtered: Record<string, DesktopAppConfig> = {};
-
-    for (const [id, app] of Object.entries(apps)) {
-      // Core apps are always valid
-      if (['files', 'settings', 'activity', 'terminal', 'notes'].includes(id) || id.startsWith('managed:') || id.startsWith('coolify:')) {
-        filtered[id] = app;
-      } else if (id === 'coolify' && isEnabled('coolify')) {
-        filtered[id] = app;
-      } else if (id === 'immich' && isEnabled('immich')) {
-        filtered[id] = app;
-      } else if (id === 'codex' && isEnabled('codex')) {
-        filtered[id] = app;
-      } else if (id === 'vscode' && isEnabled('codeServer')) {
-        filtered[id] = app;
-      }
-    }
-    return filtered;
-  }, [isEnabled, installedApps]);
-
   useEffect(() => {
-    const intervalByMode = {
-      live: 3000,
-      balanced: 7000,
-      quiet: 15000,
-    } as const;
-    let controller: AbortController | null = null;
-
-    const fetchStats = async () => {
-      if (document.visibilityState === 'hidden') return;
-      controller?.abort();
-      controller = new AbortController();
-
-      try {
-        const res = await fetch('/api/system/stats', { signal: controller.signal });
-        if (res.ok) setStats(await res.json());
-      } catch (e) {
-        if ((e as any)?.name !== 'AbortError') console.error('Failed to fetch stats', e);
-      }
-    };
-
-    fetchStats();
-    const timer = setInterval(fetchStats, intervalByMode[performanceSettings.backgroundPolling]);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') fetchStats();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      controller?.abort();
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [performanceSettings.backgroundPolling]);
-
-  useEffect(() => {
-    const activeAppIds = Object.keys(availableApps);
-    const savedGrid = localStorage.getItem('homios_grid_apps');
-    const savedDock = localStorage.getItem('homios_dock_apps');
-    let currentGrid = savedGrid ? JSON.parse(savedGrid).filter((id: string) => activeAppIds.includes(id)) : ['files'];
-    let currentDock = savedDock ? JSON.parse(savedDock).filter((id: string) => activeAppIds.includes(id)) : FACTORY_DOCK_APPS.filter((id) => activeAppIds.includes(id));
-    const missingApps = activeAppIds.filter(id => !currentGrid.includes(id) && !currentDock.includes(id));
-    currentGrid = [...currentGrid, ...missingApps];
-    setGridAppIds(currentGrid);
-    setDockAppIds(currentDock);
-
     const handleClick = () => setContextMenu(null);
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
-  }, [availableApps]);
-
-  const updateGrid = (newGrid: string[]) => {
-    setGridAppIds(newGrid);
-    localStorage.setItem('homios_grid_apps', JSON.stringify(newGrid));
-  };
-
-  const updateDock = (newDock: string[]) => {
-    setDockAppIds(newDock);
-    localStorage.setItem('homios_dock_apps', JSON.stringify(newDock));
-  };
+  }, []);
 
   const getOnClick = (id: string) => {
-    if (availableApps[id]?.url) {
-      return () => {
-        let url = availableApps[id].url as string;
-        if (!url.startsWith('http')) url = `https://${url}`;
-        window.open(url, '_blank');
-      };
-    }
+    const app = availableApps[id];
+    if (app?.installedId) return () => {
+      if (!openLauncherUrl(app)) navigate({ view: 'app-store', storeApp: app.installedId });
+    };
     if (id === 'files') return onHomiOS;
     if (id === 'settings') return onOpenSettings;
     if (id === 'terminal') return onOpenTerminal;
@@ -489,9 +376,9 @@ export default function DesktopEnvironment({
 
       <NotificationCenter open={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onUnreadChange={setUnreadNotifications} />
 
-      <div className="relative flex-1 flex flex-col items-center pt-6 md:pt-6 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
+      <div inert={!isActive} className="relative flex-1 flex flex-col items-center pt-6 md:pt-6 px-4 md:px-8 overflow-y-auto w-full hide-scrollbar">
         {/* Header with Greeting & Actionable Telemetry Cards */}
-        <header className="w-full max-w-[980px] mb-8 md:mb-9">
+        <header className="w-full max-w-[980px] mb-4 md:mb-5">
           <div className="text-center">
             <h1 className="text-[28px] md:text-[36px] leading-tight font-semibold tracking-[-0.03em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
               {greeting}, {username || 'User'}
@@ -502,9 +389,11 @@ export default function DesktopEnvironment({
           </div>
 
           {/* Actionable Telemetry Grid */}
-          <div className="relative isolate mt-7">
-            
-            <div className="desktop-metrics-grid grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="relative isolate mt-5 overflow-hidden rounded-[28px] shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
+            <div className="pointer-events-none absolute inset-0 -z-10">
+              <HeaderMetricsBackdrop glassSurfaces={performanceSettings.glassSurfaces} />
+            </div>
+            <div className="desktop-metrics-grid grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/10">
               {/* CPU -> Activity */}
               <HeaderMetric
                 icon={Activity}
@@ -521,24 +410,24 @@ export default function DesktopEnvironment({
               <HeaderMetric
                 icon={Cpu}
                 label="Memory"
-                value={stats ? `${toGiB(stats.memory.used)} / ${toGiB(stats.memory.total)} GB` : '—'}
+                value={stats ? `${toGiB(stats.memory.used)} GB` : '—'}
                 progress={memoryPercent}
                 tone="violet"
                 onClick={onOpenActivity}
                 ariaLabel="View memory usage in Task Manager"
-                detail={<span>{memoryPercent.toFixed(0)}% in use</span>}
+                detail={<span>{memoryPercent.toFixed(0)}% used of {stats ? `${toGiB(stats.memory.total)} GB` : '—'}</span>}
               />
 
               {/* Storage -> Storage Dashboard */}
               <HeaderMetric
                 icon={HardDrive}
                 label="Storage"
-                value={stats ? `${toGiB(stats.disk.used)} / ${toGiB(stats.disk.total)} GB` : '—'}
+                value={stats ? `${toGiB(stats.disk.used)} GB` : '—'}
                 progress={storagePercent}
                 tone="emerald"
                 onClick={onOpenSettings}
                 ariaLabel="Open Storage Manager & drive settings"
-                detail={<span>{storagePercent.toFixed(0)}% total capacity used</span>}
+                detail={<span>{storagePercent.toFixed(0)}% used of {stats ? `${toGiB(stats.disk.total)} GB` : '—'}</span>}
               />
 
               {/* System Load -> Activity */}
@@ -605,7 +494,7 @@ export default function DesktopEnvironment({
       </div>
 
       {/* Dock and Spotlight Search Pill */}
-      <div className="relative pb-3 flex flex-col items-center w-full mt-auto">
+      <div inert={!isActive} className="relative pb-3 flex flex-col items-center w-full mt-auto">
         <motion.button
           layoutId="homios-search-pill"
           onClick={onOpenSearch}

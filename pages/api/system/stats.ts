@@ -94,6 +94,7 @@ async function buildStats() {
         total: diskTotal,
         used: diskTotal - diskFree
       },
+      network: os.networkInterfaces(),
       os: {
         uptime: os.uptime(),
         platform: os.platform(),

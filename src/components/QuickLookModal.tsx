@@ -33,6 +33,7 @@ import { useFocusTrap } from './ui/surfaces';
 const MonacoEditor: any = lazy(() => import('@monaco-editor/react').catch(() => ({ default: () => <div>Editor not available</div> } as any)));
 
 interface QuickLookModalProps {
+  isActive?: boolean;
   file: FileItem;
   onClose: () => void;
   onUpdateFile: (file: FileItem) => void;
@@ -87,6 +88,7 @@ function mediaUrl(file: FileItem) {
 }
 
 export default function QuickLookModal({
+  isActive = true,
   file,
   onClose,
   onUpdateFile,
@@ -95,7 +97,7 @@ export default function QuickLookModal({
   currentIndex = 0,
   onSelectFile,
 }: QuickLookModalProps) {
-  const dialogRef = useFocusTrap(true, onClose);
+  const dialogRef = useFocusTrap(isActive, onClose);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(file.name);
   const [textContent, setTextContent] = useState(file.content || '');
@@ -155,7 +157,9 @@ export default function QuickLookModal({
   };
 
   useEffect(() => {
+    if (!isActive) return;
     const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowLeft') goToIndex(safeIndex - 1);
       if (e.key === 'ArrowRight') goToIndex(safeIndex + 1);
@@ -166,7 +170,7 @@ export default function QuickLookModal({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose, safeIndex, mediaFiles, file.type]);
+  }, [isActive, onClose, safeIndex, mediaFiles, file.type]);
 
   const handleSaveName = () => {
     if (editedName.trim()) {
@@ -227,7 +231,7 @@ export default function QuickLookModal({
 
   return (
     <div
-      ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`} tabIndex={-1}
+      ref={dialogRef} role="dialog" aria-modal={isActive || undefined} aria-label={`Preview ${file.name}`} tabIndex={-1}
       className="fixed inset-0 bg-neutral-950 text-slate-100 flex flex-col z-[100] overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >

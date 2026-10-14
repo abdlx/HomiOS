@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 
-const DEFAULT_USERNAME = "Chad";
+const DEFAULT_USERNAME = "User";
 
-export function useUsername() {
-  const [username, setUsername] = useState(DEFAULT_USERNAME);
+export function useUsername(fallback = DEFAULT_USERNAME) {
+  const [username, setUsername] = useState(fallback);
 
   useEffect(() => {
     const saved = localStorage.getItem('homios_username');

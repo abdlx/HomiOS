@@ -308,7 +308,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
       
       if (req.body?.isDir) {
         const { mkdir } = await import('fs/promises');
-        await mkdir(uploadFullPath, { recursive: true });
+        await mkdir(uploadFullPath, { recursive: !req.body?.exclusive });
         return res.json({ ok: true, path: uploadPath });
       }
 
@@ -320,7 +320,7 @@ export default withAuth(async function handler(req: any, res: any, session: any)
         if (req.body && req.body.content !== undefined) {
           contentToWrite = req.body.content;
         }
-        await writeFile(uploadFullPath, contentToWrite);
+        await writeFile(uploadFullPath, contentToWrite, req.body?.exclusive ? { flag: 'wx' } : undefined);
         return res.json({ ok: true, path: uploadPath });
       } else {
         const { createWriteStream } = await import('fs');

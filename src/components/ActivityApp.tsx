@@ -161,7 +161,7 @@ export default function ActivityApp({ onClose, isActive = true }: ActivityAppPro
   };
 
   return (
-    <div className="h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 relative transition-colors duration-300" onContextMenu={(e) => e.preventDefault()}>
+    <div className="homios-feature h-full w-full flex select-none overflow-hidden bg-gray-50 dark:bg-[#161618] font-sans text-slate-800 dark:text-slate-200 relative transition-colors duration-300" onContextMenu={(e) => e.preventDefault()}>
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (

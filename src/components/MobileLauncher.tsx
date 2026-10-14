@@ -1,232 +1,167 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState } from "react";
+import { motion } from "motion/react";
+import { Download } from "lucide-react";
+import PWAInstallChooser from "./PWAInstallChooser";
+import { usePWAInstall } from "../hooks/usePWAInstall";
+import { useLauncherApps } from "../hooks/useLauncherApps";
+import { useLauncherLayout } from "../hooks/useLauncherLayout";
+import { usePerformanceSettings } from "../hooks/usePerformanceSettings";
+import { useShellRoute } from "../hooks/useShellNavigation";
+import { useUsername } from "../hooks/useUsername";
+import { useVirtualRows } from "../hooks/useVirtualRows";
 import {
-  Battery, Wifi, Signal, Download
-} from 'lucide-react';
-import PWAInstallChooser from './PWAInstallChooser';
-import { usePWAInstall } from '../hooks/usePWAInstall';
-import { AppIcon as HomiAppIcon } from './icons/AppIcons';
+  APP_STORE_LAUNCHER,
+  openLauncherUrl,
+  type LauncherApp,
+} from "../lib/launcher-apps";
+import { AppIcon as HomiAppIcon } from "./icons/AppIcons";
 
-const ALL_APPS = [
-  { id: 'app-store', label: 'App Store', color: 'from-blue-500 to-violet-600' },
-  { id: 'files',    label: 'Files',     color: 'from-[#0A84FF] to-[#0055B3]' },
-  { id: 'notes',    label: 'Notes',     color: 'from-[#F59E0B] to-[#D97706]' },
-  { id: 'settings', label: 'Settings',  color: 'from-[#8E8E93] to-[#48484A]' },
-  { id: 'terminal', label: 'Terminal',  color: 'from-[#2C2C2E] to-[#1C1C1E]' },
-  { id: 'activity', label: 'Activity',  color: 'from-[#32ADE6] to-[#12648A]' },
-  { id: 'coolify',  label: 'Coolify',   color: 'from-[#8C52FF] to-[#5B13D5]' },
-  { id: 'immich',   label: 'Immich',    color: 'from-[#D946EF] via-[#F43F5E] to-[#F59E0B]' },
-  { id: 'vscode',   label: 'Code Server', color: 'from-[#0066b8] to-[#007acc]' },
-  { id: 'codex',    label: 'Codex',     color: 'from-[#17BE92] to-[#0A6F55]' },
-];
-
-const DOCK_IDS = ['files', 'notes', 'settings'];
-const APPS_PER_PAGE = 16; // 4x4 grid
-
-interface MobileLauncherProps {
-  onHomiOS: () => void;
-  onOpenAppStore: () => void;
-  onOpenSettings: () => void;
-  onOpenTerminal: () => void;
-  onOpenActivity: () => void;
-  onOpenCoolify: () => void;
-  onOpenImmich: () => void;
-  onOpenNotes: () => void;
-  onOpenVSCode: () => void;
-  onOpenCodex: () => void;
-  username?: string;
-  wallpaper?: string;
-}
-
-function MobileStatusBar({ now }: { now: Date | null }) {
-  return (
-    <div className="relative z-30 flex items-center justify-between px-6 pt-safe-top"
-         style={{ paddingTop: 'max(env(safe-area-inset-top), 14px)', height: 'max(calc(env(safe-area-inset-top) + 28px), 52px)' }}>
-      <span className="text-white font-semibold text-[15px] tracking-tight tabular-nums">
-        {now ? now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}
-      </span>
-      <div className="flex items-center gap-1.5 text-white">
-        <Signal size={13} strokeWidth={2.5} />
-        <Wifi size={14} strokeWidth={2.5} />
-        <Battery size={16} strokeWidth={2.5} />
-      </div>
-    </div>
-  );
-}
-
-function AppIcon({ app, onClick, size = 'md' }: {
-  app: typeof ALL_APPS[0];
+function AppButton({
+  app,
+  onClick,
+  compact = false,
+  reduceMotion,
+}: {
+  app: LauncherApp;
   onClick: () => void;
-  size?: 'sm' | 'md';
+  compact?: boolean;
+  reduceMotion: boolean;
 }) {
-  const s = size === 'sm'
-    ? { box: 'w-[54px] h-[54px]', label: 'text-[11px]' }
-    : { box: 'w-[62px] h-[62px]', label: 'text-[11.5px]' };
-
+  const [imageFailed, setImageFailed] = useState(false);
+  const size = compact ? "h-[50px] w-[50px]" : "desktop-app-artwork";
   return (
-    <motion.div
-      className="flex flex-col items-center gap-1.5 cursor-pointer select-none"
+    <motion.button
+      type="button"
+      aria-label={`Open ${app.label}`}
+      title={app.subtitle || app.label}
+      className={`${compact ? "w-16 shrink-0" : "h-32 w-full"} flex flex-col items-center justify-center gap-2 rounded-2xl text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white`}
       onClick={onClick}
-      whileTap={{ scale: 0.85 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+      transition={{ duration: 0.14 }}
     >
-      <HomiAppIcon
-        id={app.id}
-        colorClass={app.color}
-        className={`${s.box} drop-shadow-[0_6px_14px_rgba(0,0,0,0.42)]`}
-      />
-      <span className={`${s.label} font-medium text-white/90 drop-shadow-sm tracking-tight leading-tight text-center`}>{app.label}</span>
-    </motion.div>
-  );
-}
-
-function AppGrid({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (id: string) => () => void }) {
-  const pages: (typeof ALL_APPS)[] = [];
-  for (let i = 0; i < apps.length; i += APPS_PER_PAGE) {
-    pages.push(apps.slice(i, i + APPS_PER_PAGE));
-  }
-
-  const [page, setPage] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const startXRef = useRef(0);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startXRef.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - startXRef.current;
-    if (Math.abs(dx) > 50) {
-      if (dx < 0 && page < pages.length - 1) setPage(p => p + 1);
-      if (dx > 0 && page > 0) setPage(p => p - 1);
-    }
-  };
-
-  return (
-    <div className="flex-1 flex flex-col justify-center">
-      <div
-        ref={containerRef}
-        className="overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={page}
-            initial={{ x: 60, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -60, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="grid grid-cols-4 gap-y-6 gap-x-4 px-6"
-          >
-            {pages[page]?.map(app => (
-              <div key={app.id} className="flex justify-center">
-                <AppIcon app={app} onClick={getOnClick(app.id)} />
-              </div>
-            ))}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Page dots */}
-      {pages.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-6">
-          {pages.map((_, i) => (
-            <div
-              key={i}
-              onClick={() => setPage(i)}
-              className={`rounded-full transition-all duration-300 cursor-pointer ${i === page ? 'w-5 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40'}`}
-            />
-          ))}
-        </div>
+      {app.iconUrl && !imageFailed ? (
+        <span
+          className={`${size} flex shrink-0 items-center justify-center overflow-hidden rounded-[23%] bg-white p-1 shadow-md`}
+        >
+          <img
+            src={app.iconUrl}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-contain"
+            onError={() => setImageFailed(true)}
+          />
+        </span>
+      ) : (
+        <HomiAppIcon
+          id={app.id}
+          colorClass={app.color}
+          className={`${size} shrink-0 drop-shadow-[0_6px_14px_rgba(0,0,0,0.3)]`}
+        />
       )}
-    </div>
-  );
-}
-
-function MobileDock({ apps, getOnClick }: { apps: typeof ALL_APPS; getOnClick: (id: string) => () => void }) {
-  return (
-    <div className="px-4 pb-2" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 16px)' }}>
-      <div className="flex justify-around items-center px-4 py-3 rounded-[26px] bg-white/15 backdrop-blur-2xl border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-        {apps.map(app => (
-          <AppIcon key={app.id} app={app} onClick={getOnClick(app.id)} size="sm" />
-        ))}
-      </div>
-      {/* Home indicator */}
-      <div className="flex justify-center mt-2.5">
-        <div className="w-32 h-1 rounded-full bg-white/50" />
-      </div>
-    </div>
+      <span className="max-w-full truncate px-1 text-[13px] font-medium leading-4 tracking-tight text-white/95 drop-shadow-sm">
+        {app.label}
+      </span>
+    </motion.button>
   );
 }
 
 export default function MobileLauncher({
-  onHomiOS, onOpenAppStore, onOpenSettings, onOpenTerminal, onOpenActivity,
-  onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex,
-  username, wallpaper
-}: MobileLauncherProps) {
-  const [now, setNow] = useState<Date | null>(null);
+  isActive = true,
+  username: initialUsername,
+  wallpaper,
+}: {
+  isActive?: boolean;
+  username?: string;
+  wallpaper?: string;
+}) {
+  const available = useLauncherApps(isActive);
+  const { gridAppIds, dockAppIds } = useLauncherLayout(available);
+  const apps = [...gridAppIds.map((id) => available[id]), APP_STORE_LAUNCHER];
+  const rows = useVirtualRows(apps.length, 136, 128);
+  const { settings } = usePerformanceSettings();
+  const { username } = useUsername(initialUsername);
+  const { navigate } = useShellRoute();
   const { canInstall, openChooser, isStandalone } = usePWAInstall();
-
-  useEffect(() => {
-    setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(t);
-  }, []);
-
-  const getOnClick = useCallback((id: string) => {
-    const map: Record<string, () => void> = {
-      files: onHomiOS, 'app-store': onOpenAppStore,
-      settings: onOpenSettings, terminal: onOpenTerminal,
-      activity: onOpenActivity, coolify: onOpenCoolify, immich: onOpenImmich,
-      notes: onOpenNotes,
-      vscode: onOpenVSCode, codex: onOpenCodex,
-    };
-    return map[id] || (() => {});
-  }, [onHomiOS, onOpenAppStore, onOpenSettings, onOpenTerminal, onOpenActivity, onOpenCoolify, onOpenImmich, onOpenNotes, onOpenVSCode, onOpenCodex]);
-
-  const gridApps = ALL_APPS.filter(a => !DOCK_IDS.includes(a.id));
-  const dockApps = ALL_APPS.filter(a => DOCK_IDS.includes(a.id));
-
-  const greeting = now
-    ? (now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening')
-    : 'Welcome';
-
+  function open(app: LauncherApp) {
+    if (app.installedId) {
+      if (!openLauncherUrl(app))
+        navigate({ view: "app-store", storeApp: app.installedId });
+    } else navigate({ view: app.id });
+  }
   return (
     <div
-      className="h-full w-full flex flex-col overflow-hidden relative"
-      style={{ backgroundImage: wallpaper ? `url('${wallpaper}')` : 'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+      className="relative flex h-full w-full flex-col overflow-hidden"
+      aria-label="Home launcher"
+      style={{
+        backgroundImage: wallpaper ? `url('${wallpaper}')` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        paddingTop: "max(env(safe-area-inset-top), 24px)",
+      }}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30 pointer-events-none" />
-
-      <MobileStatusBar now={now} />
-
-      {/* Greeting */}
-      <div className="relative z-10 px-6 mt-3 mb-2">
-        <p className="text-white/70 text-[14px] font-medium">{greeting},</p>
-        <h1 className="text-white text-[28px] font-bold tracking-tight leading-tight">{username || 'User'}</h1>
-
-        {/* Install button */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30" />
+      <header className="relative shrink-0 px-6 pb-4">
+        <p className="text-sm font-medium text-white/70">Your home server</p>
+        <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-tight text-white">
+          {username}
+        </h1>
         {!isStandalone && canInstall && (
           <button
+            type="button"
             onClick={openChooser}
-            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-[12px] font-semibold active:bg-white/25 transition-all"
+            className="mt-3 flex min-h-11 items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 text-xs font-medium text-white"
           >
-            <Download size={12} strokeWidth={2.5} />
-            <span>Install App</span>
+            <Download size={14} />
+            Install HomiOS
           </button>
         )}
+      </header>
+      <div
+        ref={rows.ref}
+        aria-label="Home apps"
+        className="relative min-h-0 flex-1 overflow-auto overscroll-contain px-4"
+      >
+        <div style={{ position: "relative", height: rows.totalHeight }}>
+          <div
+            className="grid"
+            style={{
+              position: "absolute",
+              top: rows.offset,
+              left: 0,
+              right: 0,
+              gridTemplateColumns: `repeat(${rows.columns}, minmax(0, 1fr))`,
+            }}
+          >
+            {apps.slice(rows.start, rows.end).map((app) => (
+              <AppButton
+                key={app.id}
+                app={app}
+                onClick={() => open(app)}
+                reduceMotion={settings.reduceMotion}
+              />
+            ))}
+          </div>
+        </div>
       </div>
-
-      {/* App grid */}
-      <div className="relative z-10 flex-1 flex flex-col min-h-0">
-        <AppGrid apps={gridApps} getOnClick={getOnClick} />
-      </div>
-
-      {/* Dock */}
-      <div className="relative z-10">
-        <MobileDock apps={dockApps} getOnClick={getOnClick} />
-      </div>
-
+      <nav
+        aria-label="Dock apps"
+        className="relative shrink-0 px-4 pt-3"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
+      >
+        <div
+          className={`flex items-center gap-1 overflow-x-auto rounded-[28px] border border-white/20 px-2 py-3 shadow-lg ${settings.glassSurfaces ? "bg-white/15 backdrop-blur-2xl" : "bg-neutral-900/95"}`}
+        >
+          {dockAppIds.map((id) => (
+            <AppButton
+              key={id}
+              app={available[id]}
+              onClick={() => open(available[id])}
+              compact
+              reduceMotion={settings.reduceMotion}
+            />
+          ))}
+        </div>
+      </nav>
       <PWAInstallChooser />
     </div>
   );

@@ -1,8 +1,66 @@
-import { useState } from 'react';
-import type { CollisionPolicy } from '../lib/files';
-import type { ConflictRequest } from '../hooks/useFileOperations';
-import { Button, Sheet } from '../../../components/ui/surfaces';
-export default function ConflictDialog({ request, onResolve }: { request: ConflictRequest; onResolve: (decision: { policy: CollisionPolicy; applyAll: boolean } | null) => void }) {
+import { useState } from "react";
+import type { CollisionPolicy } from "../lib/files";
+import type { ConflictRequest } from "../hooks/useFileOperations";
+import { Button, Sheet } from "../../../components/ui/surfaces";
+export default function ConflictDialog({
+  request,
+  onResolve,
+}: {
+  request: ConflictRequest;
+  onResolve: (
+    decision: { policy: CollisionPolicy; applyAll: boolean } | null,
+  ) => void;
+}) {
   const [applyAll, setApplyAll] = useState(false);
-  return <Sheet title="An item with this name already exists" onClose={() => onResolve(null)}><div className="space-y-4 p-5"><p className="break-words text-sm font-semibold">{request.name}</p><p className="text-xs leading-6 text-neutral-500">Keep both gives the incoming item a new name. Replace removes the entire existing item, including all contents of an existing folder. Folders are never merged.</p>{request.cloud && <p className="text-xs text-amber-600">Cloud Drive supports skipping conflicts. Choose another destination to keep or replace this item.</p>}{request.count > 1 && <label className="flex min-h-11 items-center gap-3 text-xs"><input type="checkbox" checked={applyAll} onChange={event => setApplyAll(event.target.checked)}/>Apply to remaining conflicts</label>}<div className="flex flex-wrap justify-end gap-2"><Button onClick={() => onResolve({ policy: 'skip', applyAll })}>Skip</Button><Button variant="danger" disabled={request.cloud} onClick={() => onResolve({ policy: 'replace', applyAll })}>Replace</Button><Button data-autofocus variant="primary" disabled={request.cloud} onClick={() => onResolve({ policy: 'keep-both', applyAll })}>Keep both</Button></div></div></Sheet>;
+  return (
+    <Sheet
+      title="An item with this name already exists"
+      onClose={() => onResolve(null)}
+    >
+      <div className="space-y-4 p-5">
+        <p className="break-words text-sm font-semibold">{request.name}</p>
+        <p className="text-xs leading-6 text-neutral-500">
+          Keep both gives the incoming item a new name. Replace removes the
+          entire existing item, including all contents of an existing folder.
+          Folders are never merged.
+        </p>
+        {request.cloud && (
+          <p className="text-xs text-amber-600">
+            Cloud Drive supports skipping conflicts. Choose another destination
+            to keep or replace this item.
+          </p>
+        )}
+        {request.count > 1 && (
+          <label className="flex min-h-11 items-center gap-3 text-xs">
+            <input
+              type="checkbox"
+              checked={applyAll}
+              onChange={(event) => setApplyAll(event.target.checked)}
+            />
+            Apply to remaining conflicts
+          </label>
+        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button onClick={() => onResolve({ policy: "skip", applyAll })}>
+            Skip
+          </Button>
+          <Button
+            variant="danger"
+            disabled={request.cloud}
+            onClick={() => onResolve({ policy: "replace", applyAll })}
+          >
+            Replace
+          </Button>
+          <Button
+            data-autofocus
+            variant="primary"
+            disabled={request.cloud}
+            onClick={() => onResolve({ policy: "keep-both", applyAll })}
+          >
+            Keep both
+          </Button>
+        </div>
+      </div>
+    </Sheet>
+  );
 }

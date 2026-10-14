@@ -39,13 +39,13 @@ const DEFAULT_CAPABILITIES: CapabilitiesMap = {
   coolify: { id: 'coolify', name: 'Coolify', configured: false, installed: false, running: false, state: 'disabled' },
   immich: { id: 'immich', name: 'Immich', configured: false, installed: false, running: false, state: 'disabled' },
   codex: { id: 'codex', name: 'Codex', configured: false, installed: false, running: false, state: 'disabled' },
-  codeServer: { id: 'codeServer', name: 'Code Server', configured: true, installed: true, running: false, state: 'degraded' },
+  codeServer: { id: 'codeServer', name: 'Code Server', configured: false, installed: false, running: false, state: 'disabled' },
 };
 
 export function useCapabilities() {
   const query = useQuery<{ capabilities?: CapabilitiesMap }, Error>({ queryKey: ['api', '/api/integrations/status'], queryFn: ({ signal }) => apiRequest('/api/integrations/status', { signal }), refetchInterval: 30000, refetchIntervalInBackground: false });
   const capabilities = query.data?.capabilities || DEFAULT_CAPABILITIES;
-  const isEnabled = useCallback((id: keyof CapabilitiesMap) => capabilities[id]?.state !== 'disabled', [capabilities]);
+  const isEnabled = useCallback((id: keyof CapabilitiesMap) => !!capabilities[id] && capabilities[id].state !== 'disabled', [capabilities]);
   const isRunning = useCallback((id: keyof CapabilitiesMap) => capabilities[id]?.state === 'running', [capabilities]);
   return { capabilities, loading: query.isPending, error: query.error?.message, isEnabled, isRunning, refresh: query.refetch };
 }
