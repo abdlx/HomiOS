@@ -13,19 +13,29 @@ import path from 'path';
 // subsystems. DATABASE_URL remains a fallback for tests and older installations.
 const DB_PATH = process.env.HOMIOS_DATABASE_PATH || process.env.DATABASE_URL || './data/filemanager.db';
 
-let db: any = null;
+let dbInstance: any = null;
+
+export const db: any = new Proxy({}, {
+  get(_target, prop) {
+    const instance = getDb();
+    const val = (instance as any)[prop];
+    return typeof val === 'function' ? val.bind(instance) : val;
+  }
+});
 
 export function getDb(): any {
-  if (db) return db;
+  if (dbInstance) return dbInstance;
 
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  db = new DatabaseSync(DB_PATH);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA synchronous = NORMAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA busy_timeout = 5000');
+  const currentDb = new DatabaseSync(DB_PATH);
+  currentDb.exec('PRAGMA journal_mode = WAL');
+  currentDb.exec('PRAGMA synchronous = NORMAL');
+  currentDb.exec('PRAGMA foreign_keys = ON');
+  currentDb.exec('PRAGMA busy_timeout = 5000');
+
+  dbInstance = currentDb;
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -432,6 +442,10 @@ export function getDb(): any {
   ensureColumn('users', 'totp_secret', 'TEXT');
   ensureColumn('users', 'totp_enabled', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'recovery_codes', 'TEXT');
+  ensureColumn('users', 'totp_backup_codes', 'TEXT');
+  ensureColumn('users', 'token_version', 'INTEGER DEFAULT 1');
+  ensureColumn('users', 'username', 'TEXT');
+  ensureColumn('users', 'role', "TEXT DEFAULT 'user'");
   ensureColumn('users', 'is_admin', 'INTEGER DEFAULT 0');
   ensureColumn('users', 'last_totp_step', 'INTEGER DEFAULT 0');
   ensureColumn('shares', 'enabled', 'INTEGER DEFAULT 1');
@@ -508,10 +522,10 @@ export function checkpointWal(): void {
 
 /** Flush and release the connection on shutdown so the WAL is fully folded back in. */
 export function closeDb(): void {
-  if (!db) return;
-  try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
-  try { db.close(); } catch {}
-  db = null;
+  if (!dbInstance) return;
+  try { dbInstance.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
+  try { dbInstance.close(); } catch {}
+  dbInstance = null;
 }
 
 export function withTransaction<T>(fn: (db: any) => T): T {

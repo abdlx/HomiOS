@@ -13,6 +13,8 @@ import { sha256 } from './crypto.ts';
 import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
+  buildCsrfCookie,
+  shouldUseSecureCookies,
   parseCookies,
   validateCsrf,
 } from './request-security.ts';
@@ -37,6 +39,17 @@ export function createSession(userId: number): string {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   getDb().prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(id, userId, expiresAt);
   return id;
+}
+
+export async function createSessionCookie(res: any, user: any): Promise<string> {
+  const sessionId = createSession(user.id);
+  const secure = shouldUseSecureCookies(res?.req) ? '; Secure' : '';
+  const cookies = [
+    `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`,
+    buildCsrfCookie(sessionId, res?.req),
+  ];
+  res.setHeader('Set-Cookie', cookies);
+  return sessionId;
 }
 
 export function destroySession(sessionId: string): void {

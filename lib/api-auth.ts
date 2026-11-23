@@ -16,6 +16,7 @@ import {
 } from './request-security.ts';
 
 export type { Session };
+export type AuthenticatedRequest = any;
 
 const ROLE_RANK: Record<string, number> = { member: 1, admin: 2, owner: 3 };
 
@@ -98,6 +99,7 @@ export function withAuth(
     if (opts.ability && !hasAbility(session, opts.ability)) {
       return res.status(403).json({ error: `Token missing '${opts.ability}' ability` });
     }
+    (req as any).user = { id: session.userId, email: session.email, username: session.email, role: session.role, isAdmin: session.isAdmin };
     return handler(req, res, session);
   };
 }
