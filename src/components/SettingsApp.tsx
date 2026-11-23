@@ -887,49 +887,52 @@ export default function SettingsApp({
       )}
 
       {activeTab === "security" && (
-        <SettingsSection
-          title="Account protection"
-          description="Control who can reach your HomiOS and what they can do."
-        >
-          <SettingsRow
-            label="Two-factor authentication"
-            description={
-              twoFA
-                ? twoFA.enabled
-                  ? "An additional sign-in check is enabled."
-                  : "Protect your account with an authenticator."
-                : "Reading account security..."
-            }
+        <div className="space-y-6">
+          <SettingsSection
+            title="Account protection"
+            description="Control who can reach your HomiOS and what they can do."
           >
-            <Button onClick={() => setActiveTab("2fa")}>
-              {twoFA?.enabled ? "Manage protection" : "Set up protection"}
-            </Button>
-          </SettingsRow>
-          <SettingsRow
-            label="API access"
-            description="Review and revoke credentials used by integrations."
-          >
-            <Button onClick={() => setActiveTab("tokens")}>
-              Manage tokens
-            </Button>
-          </SettingsRow>
-          <SettingsRow
-            label="People & permissions"
-            description="Manage team members and their roles."
-          >
-            <Button onClick={() => setActiveTab("members")}>
-              Manage members
-            </Button>
-          </SettingsRow>
-          <SettingsRow
-            label="Host security"
-            description="SSH, firewall rules, and operating-system updates are managed on your server."
-          >
-            <Button onClick={() => navigate({ view: "terminal" })}>
-              Open Terminal
-            </Button>
-          </SettingsRow>
-        </SettingsSection>
+            <SettingsRow
+              label="Two-factor authentication"
+              description={
+                twoFA
+                  ? twoFA.enabled
+                    ? "An additional sign-in check is enabled."
+                    : "Protect your account with an authenticator."
+                  : "Reading account security..."
+              }
+            >
+              <Button onClick={() => setActiveTab("2fa")}>
+                {twoFA?.enabled ? "Manage protection" : "Set up protection"}
+              </Button>
+            </SettingsRow>
+            <SettingsRow
+              label="API access"
+              description="Review and revoke credentials used by integrations."
+            >
+              <Button onClick={() => setActiveTab("tokens")}>
+                Manage tokens
+              </Button>
+            </SettingsRow>
+            <SettingsRow
+              label="People & permissions"
+              description="Manage team members and their roles."
+            >
+              <Button onClick={() => setActiveTab("members")}>
+                Manage members
+              </Button>
+            </SettingsRow>
+            <SettingsRow
+              label="Host security"
+              description="SSH, firewall rules, and operating-system updates are managed on your server."
+            >
+              <Button onClick={() => navigate({ view: "terminal" })}>
+                Open Terminal
+              </Button>
+            </SettingsRow>
+          </SettingsSection>
+          <PasswordChangeCard />
+        </div>
       )}
 
       {/* TEAM MEMBERS TAB */}
@@ -1310,5 +1313,120 @@ export default function SettingsApp({
 
       {activeTab === "about" && <AboutPanel stats={sysStats} />}
     </SettingsFrame>
+  );
+}
+
+function PasswordChangeCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!currentPassword || !newPassword) {
+      setError("Please fill out all fields.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update password");
+      }
+      setSuccess("Password updated successfully! Other active sessions have been revoked.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md space-y-4">
+      <div>
+        <h4 className="text-sm font-semibold text-white">Change Account Password</h4>
+        <p className="mt-0.5 text-xs text-slate-400">
+          Updating your password will immediately invalidate all other active sessions across your devices.
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-400">
+          {success}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-300">Current Password</label>
+          <input
+            type="password"
+            className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            placeholder="••••••••"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-300">New Password</label>
+            <input
+              type="password"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="At least 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-300">Confirm New Password</label>
+            <input
+              type="password"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end pt-1">
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition-opacity hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {loading ? "Updating…" : "Update Password"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
