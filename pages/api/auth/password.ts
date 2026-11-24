@@ -3,6 +3,20 @@ import bcrypt from 'bcryptjs';
 import { withAuth, AuthenticatedRequest } from '../../../lib/api-auth';
 import { db } from '../../../lib/db';
 
+function parseCookieHeader(header?: string): Record<string, string> {
+  if (!header) return {};
+  const out: Record<string, string> = {};
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx > -1) {
+      const k = part.slice(0, idx).trim();
+      const v = part.slice(idx + 1).trim();
+      try { out[k] = decodeURIComponent(v); } catch { out[k] = v; }
+    }
+  }
+  return out;
+}
+
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -30,7 +44,17 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const newHash = await bcrypt.hash(newPassword, 12);
   const nextVersion = (user.token_version || 1) + 1;
 
+  // Update password hash and increment token version
   db.prepare('UPDATE users SET password_hash = ?, token_version = ? WHERE id = ?').run(newHash, nextVersion, user.id);
+
+  // Actively revoke all other active sessions in the sessions table for this user
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const currentSessionId = cookies['homios_session'] || cookies['session'] || '';
+  if (currentSessionId) {
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(user.id, currentSessionId);
+  } else {
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+  }
 
   return res.status(200).json({ ok: true, message: 'Password updated successfully. Other active sessions revoked.' });
 }
