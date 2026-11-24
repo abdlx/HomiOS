@@ -188,13 +188,19 @@ fi
 if [ -d "$INSTALL_DIR/.git" ]; then
   log "Updating existing installation..."
   cd "$INSTALL_DIR"
+  git config http.version HTTP/1.1
+  git config http.postBuffer 524288000
   git reset --hard HEAD --quiet
   git clean -fd --quiet
   git pull --quiet
 else
   log "Cloning HomiOS to $INSTALL_DIR..."
+  git config --global http.version HTTP/1.1
+  git config --global http.postBuffer 524288000
   git clone "$REPO_URL" "$INSTALL_DIR" --quiet
   cd "$INSTALL_DIR"
+  git config http.version HTTP/1.1
+  git config http.postBuffer 524288000
 fi
 
 # ── Coolify helper functions ──────────────────────────────────
@@ -938,6 +944,8 @@ detect_running_coolify() {
 }
 
 cd "\$INSTALL_DIR"
+git config http.version HTTP/1.1
+git config http.postBuffer 524288000
 git reset --hard HEAD --quiet
 git clean -fd --quiet
 git pull
